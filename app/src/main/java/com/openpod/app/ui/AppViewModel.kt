@@ -1,0 +1,185 @@
+package com.openpod.app.ui
+
+import android.app.Application
+import android.net.Uri
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.openpod.app.data.Chapter
+import com.openpod.app.data.PodRepository
+import com.openpod.app.data.TranscriptLine
+import com.openpod.app.data.db.EpisodeEntity
+import com.openpod.app.data.db.PlaylistEntity
+import com.openpod.app.data.db.PodcastEntity
+import com.openpod.app.data.search.SearchHit
+import com.openpod.app.playback.PlayerService
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+class AppViewModel(app: Application) : AndroidViewModel(app) {
+    val repo = PodRepository(app)
+    val player = PlayerService.state
+    val podcasts = repo.podcasts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val playlists = repo.playlists().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val settings = repo.settings().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), com.openpod.app.data.db.SettingsEntity())
+
+    private val _searchResults = MutableStateFlow<List<SearchHit>>(emptyList())
+    val searchResults = _searchResults.asStateFlow()
+    private val _busy = MutableStateFlow(false)
+    val busy = _busy.asStateFlow()
+    private val _message = MutableStateFlow<String?>(null)
+    val message = _message.asStateFlow()
+    private val _chapters = MutableStateFlow<List<Chapter>>(emptyList())
+    val chapters = _chapters.asStateFlow()
+    private val _transcript = MutableStateFlow<List<TranscriptLine>>(emptyList())
+    val transcript = _transcript.asStateFlow()
+
+    fun episodes(podcastId: Long) = repo.episodes(podcastId)
+    fun episode(id: Long) = repo.episode(id)
+    fun playlistItems(id: Long) = repo.playlistItems(id)
+
+    fun search(query: String) {
+        viewModelScope.launch {
+            _busy.value = true
+            _searchResults.value = runCatching { repo.search(query) }.getOrDefault(emptyList())
+            _busy.value = false
+        }
+    }
+
+    fun subscribe(feedUrl: String) {
+        viewModelScope.launch {
+            _busy.value = true
+            runCatching { repo.subscribe(feedUrl) }
+                .onSuccess { _message.value = "Subscribed to ${it.title}" }
+                .onFailure { _message.value = it.message ?: "Could not add podcast" }
+            _busy.value = false
+        }
+    }
+
+    fun refresh(podcastId: Long) {
+        viewModelScope.launch {
+            _busy.value = true
+            runCatching { repo.refreshPodcast(podcastId) }
+                .onFailure { _message.value = it.message }
+            _busy.value = false
+        }
+    }
+
+    fun refreshAll() {
+        viewModelScope.launch {
+            _busy.value = true
+            runCatching { repo.refreshAll() }
+            _busy.value = false
+        }
+    }
+
+    fun setFlags(id: Long, autoDownload: Boolean? = null, autoDelete: Boolean? = null) {
+        viewModelScope.launch { repo.setPodcastFlags(id, autoDownload, autoDelete) }
+    }
+
+    fun unsubscribe(id: Long) {
+        viewModelScope.launch { repo.unsubscribe(id) }
+    }
+
+    fun download(id: Long) {
+        viewModelScope.launch {
+            _busy.value = true
+            runCatching { repo.download(id) }
+                .onSuccess { _message.value = "Saved episode" }
+                .onFailure { _message.value = it.message ?: "Download failed" }
+            _busy.value = false
+        }
+    }
+
+    fun deleteDownload(id: Long) {
+        viewModelScope.launch { repo.deleteDownload(id) }
+    }
+
+    fun play(episode: EpisodeEntity, podcast: PodcastEntity) {
+        PlayerService.play(getApplication(), episode, podcast.title, podcast.imageUrl)
+    }
+
+    fun play(episode: EpisodeEntity, podcastTitle: String, artwork: String) {
+        PlayerService.play(getApplication(), episode, podcastTitle, artwork)
+    }
+
+    fun togglePlay() = PlayerService.instance?.togglePlay()
+    fun skip(forward: Boolean) = PlayerService.instance?.skip(forward)
+    fun seek(ms: Long) = PlayerService.instance?.seek(ms)
+    fun setSpeed(speed: Float) = PlayerService.instance?.setSpeed(speed)
+
+    fun loadExtras(episode: EpisodeEntity) {
+        viewModelScope.launch {
+            _chapters.value = repo.loadChapters(episode)
+            _transcript.value = repo.loadTranscript(episode)
+        }
+    }
+
+    fun setDownloadFolder(uri: Uri) {
+        viewModelScope.launch {
+            runCatching { repo.persistTreeUri(uri) }
+            repo.updateSettings { it.copy(downloadTreeUri = uri.toString()) }
+        }
+    }
+
+    fun setNaming(pattern: String) {
+        viewModelScope.launch { repo.updateSettings { it.copy(namingPattern = pattern) } }
+    }
+
+    fun setSkip(forward: Int, back: Int) {
+        viewModelScope.launch {
+            repo.updateSettings { it.copy(skipForwardSec = forward, skipBackSec = back) }
+            PlayerService.instance?.setSkipSeconds(forward, back)
+        }
+    }
+
+    fun setDefaults(autoDownload: Boolean, autoDelete: Boolean) {
+        viewModelScope.launch {
+            repo.updateSettings { it.copy(autoDownloadDefault = autoDownload, autoDeleteDefault = autoDelete) }
+        }
+    }
+
+    fun setEq(enabled: Boolean) {
+        viewModelScope.launch {
+            val controller = PlayerService.instance?.equalizer()
+            controller?.setEnabled(enabled)
+            repo.updateSettings {
+                it.copy(eqEnabled = enabled, eqBandsJson = controller?.snapshotJson() ?: it.eqBandsJson)
+            }
+        }
+    }
+
+    fun setEqBand(index: Short, level: Short) {
+        val controller = PlayerService.instance?.equalizer() ?: return
+        controller.setBand(index, level)
+        viewModelScope.launch {
+            repo.updateSettings { it.copy(eqBandsJson = controller.snapshotJson(), eqEnabled = true) }
+        }
+    }
+
+    fun createPlaylist(name: String) {
+        viewModelScope.launch { repo.createPlaylist(name) }
+    }
+
+    fun renamePlaylist(id: Long, name: String) {
+        viewModelScope.launch { repo.renamePlaylist(id, name) }
+    }
+
+    fun deletePlaylist(entity: PlaylistEntity) {
+        viewModelScope.launch { repo.deletePlaylist(entity) }
+    }
+
+    fun addToPlaylist(playlistId: Long, episodeId: Long) {
+        viewModelScope.launch { repo.addToPlaylist(playlistId, episodeId) }
+    }
+
+    fun removeFromPlaylist(playlistId: Long, episodeId: Long) {
+        viewModelScope.launch { repo.removeFromPlaylist(playlistId, episodeId) }
+    }
+
+    fun consumeMessage() {
+        _message.value = null
+    }
+}
