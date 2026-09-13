@@ -12,6 +12,7 @@ import com.openpod.app.data.db.PlaylistEntity
 import com.openpod.app.data.db.PodcastEntity
 import com.openpod.app.data.search.SearchHit
 import com.openpod.app.playback.PlayerService
+import com.openpod.app.work.PodcastSyncWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,6 +38,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val transcript = _transcript.asStateFlow()
 
     fun episodes(podcastId: Long) = repo.episodes(podcastId)
+    fun episodes(podcastId: Long, showArchived: Boolean) = repo.episodes(podcastId, showArchived)
     fun episode(id: Long) = repo.episode(id)
     fun playlistItems(id: Long) = repo.playlistItems(id)
 
@@ -159,9 +161,62 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun setShowArchived(show: Boolean) {
+        viewModelScope.launch { repo.updateSettings { it.copy(showArchived = show) } }
+    }
+
+    fun setSyncSchedule(frequency: String, hour: Int, minute: Int) {
+        viewModelScope.launch {
+            repo.updateSettings {
+                it.copy(syncFrequency = frequency, syncHour = hour, syncMinute = minute)
+            }
+            PodcastSyncWorker.enqueue(getApplication(), frequency, hour, minute)
+            _message.value = "Sync schedule saved"
+        }
+    }
+
+    fun archiveMany(ids: List<Long>, archived: Boolean) {
+        viewModelScope.launch {
+            repo.setArchived(ids, archived)
+            _message.value = if (archived) "Archived ${ids.size}" else "Unarchived ${ids.size}"
+        }
+    }
+
+    fun downloadMany(ids: List<Long>) {
+        viewModelScope.launch {
+            _busy.value = true
+            repo.downloadMany(ids)
+            _busy.value = false
+            _message.value = "Download finished for ${ids.size} episode(s)"
+        }
+    }
+
+    fun deleteDownloadsMany(ids: List<Long>) {
+        viewModelScope.launch {
+            repo.deleteDownloads(ids)
+            _message.value = "Removed files for ${ids.size} episode(s)"
+        }
+    }
+
+    fun addManyToPlaylist(playlistId: Long, ids: List<Long>) {
+        viewModelScope.launch {
+            repo.addManyToPlaylist(playlistId, ids)
+            _message.value = "Added ${ids.size} to playlist"
+        }
+    }
+
     fun createPlaylist(name: String) {
         viewModelScope.launch { repo.createPlaylist(name) }
     }
+
+    fun createSmartPlaylist(name: String, playFilter: String, downloadFilter: String) {
+        viewModelScope.launch {
+            repo.createPlaylist(name, isSmart = true, playFilter = playFilter, downloadFilter = downloadFilter)
+        }
+    }
+
+    suspend fun smartEpisodes(playFilter: String, downloadFilter: String) =
+        repo.matchingEpisodes(playFilter, downloadFilter)
 
     fun renamePlaylist(id: Long, name: String) {
         viewModelScope.launch { repo.renamePlaylist(id, name) }

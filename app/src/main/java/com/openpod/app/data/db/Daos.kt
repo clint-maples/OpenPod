@@ -37,8 +37,17 @@ interface EpisodeDao {
     @Query("SELECT * FROM episodes WHERE podcastId = :podcastId ORDER BY pubDate DESC")
     fun observeForPodcast(podcastId: Long): Flow<List<EpisodeEntity>>
 
+    @Query("SELECT * FROM episodes WHERE podcastId = :podcastId AND (:includeArchived = 1 OR archived = 0) ORDER BY pubDate DESC")
+    fun observeForPodcastFiltered(podcastId: Long, includeArchived: Boolean): Flow<List<EpisodeEntity>>
+
     @Query("SELECT * FROM episodes WHERE podcastId = :podcastId ORDER BY pubDate DESC")
     suspend fun forPodcast(podcastId: Long): List<EpisodeEntity>
+
+    @Query("SELECT * FROM episodes WHERE archived = 0 ORDER BY pubDate DESC")
+    suspend fun allActive(): List<EpisodeEntity>
+
+    @Query("UPDATE episodes SET archived = :archived WHERE id IN (:ids)")
+    suspend fun setArchived(ids: List<Long>, archived: Boolean)
 
     @Query("SELECT * FROM episodes WHERE id = :id")
     suspend fun byId(id: Long): EpisodeEntity?
@@ -66,6 +75,9 @@ interface EpisodeDao {
 interface PlaylistDao {
     @Query("SELECT * FROM playlists ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<PlaylistEntity>>
+
+    @Query("SELECT * FROM playlists WHERE id = :id")
+    suspend fun byId(id: Long): PlaylistEntity?
 
     @Insert
     suspend fun insert(playlist: PlaylistEntity): Long

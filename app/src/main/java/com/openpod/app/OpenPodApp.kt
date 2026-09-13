@@ -4,7 +4,12 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import com.openpod.app.data.db.AppDatabase
+import com.openpod.app.data.db.SettingsEntity
 import com.openpod.app.work.PodcastSyncWorker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class OpenPodApp : Application() {
     override fun onCreate() {
@@ -19,6 +24,14 @@ class OpenPodApp : Application() {
                 )
             )
         }
-        PodcastSyncWorker.enqueue(this)
+        CoroutineScope(Dispatchers.IO).launch {
+            val settings = AppDatabase.get(this@OpenPodApp).settings().get() ?: SettingsEntity()
+            PodcastSyncWorker.enqueue(
+                this@OpenPodApp,
+                settings.syncFrequency,
+                settings.syncHour,
+                settings.syncMinute
+            )
+        }
     }
 }

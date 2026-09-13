@@ -4,9 +4,13 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -21,8 +25,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.FastForward
@@ -38,8 +46,10 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -83,8 +93,8 @@ import coil.compose.AsyncImage
 import com.openpod.app.data.db.EpisodeEntity
 import com.openpod.app.data.db.PlaylistEntity
 import com.openpod.app.data.db.PodcastEntity
+import com.openpod.app.data.db.SettingsEntity
 import com.openpod.app.playback.PlayerService
-import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -252,21 +262,77 @@ private fun DiscoverScreen(vm: AppViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -> Unit) {
     val podcasts by vm.podcasts.collectAsState()
+    val settings by vm.settings.collectAsState()
+    val playlists by vm.playlists.collectAsState()
     val podcast = podcasts.find { it.id == podcastId }
-    val episodes by vm.episodes(podcastId).collectAsState(initial = emptyList())
+    val episodes by vm.episodes(podcastId, settings.showArchived).collectAsState(initial = emptyList())
+    var selecting by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf(setOf<Long>()) }
+    var moveDialog by remember { mutableStateOf(false) }
     if (podcast == null) {
         Text("Podcast not found")
         return
     }
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(podcast.title, maxLines = 1) }, actions = {
-            IconButton({ vm.refresh(podcastId) }) { Icon(Icons.Default.Refresh, "Refresh") }
-        })
-    }) { padding ->
+    val selectedEpisodes = episodes.filter { it.id in selected }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        if (selecting) "${selected.size} selected" else podcast.title,
+                        maxLines = 1
+                    )
+                },
+                navigationIcon = {
+                    if (selecting) {
+                        IconButton({
+                            selecting = false
+                            selected = emptySet()
+                        }) { Icon(Icons.Default.Close, "Cancel") }
+                    }
+                },
+                actions = {
+                    if (selecting) {
+                        IconButton({
+                            selected = if (selected.size == episodes.size) emptySet() else episodes.map { it.id }.toSet()
+                        }) { Icon(Icons.Default.SelectAll, "Select all") }
+                    } else {
+                        IconButton({ vm.refresh(podcastId) }) { Icon(Icons.Default.Refresh, "Refresh") }
+                    }
+                }
+            )
+        },
+        bottomBar = {
+            if (selecting && selected.isNotEmpty()) {
+                val archiveNext = selectedEpisodes.any { !it.archived }
+                BottomAppBar {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        IconButton({ vm.downloadMany(selected.toList()); selecting = false; selected = emptySet() }) {
+                            Icon(Icons.Default.Download, "Download")
+                        }
+                        IconButton({ vm.deleteDownloadsMany(selected.toList()); selecting = false; selected = emptySet() }) {
+                            Icon(Icons.Default.Delete, "Delete files")
+                        }
+                        IconButton({
+                            vm.archiveMany(selected.toList(), archived = archiveNext)
+                            selecting = false
+                            selected = emptySet()
+                        }) {
+                            Icon(
+                                if (archiveNext) Icons.Default.Archive else Icons.Default.Unarchive,
+                                if (archiveNext) "Archive" else "Unarchive"
+                            )
+                        }
+                        IconButton({ moveDialog = true }) { Icon(Icons.Default.PlaylistAdd, "Move to playlist") }
+                    }
+                }
+            }
+        }
+    ) { padding ->
         LazyColumn(Modifier.padding(padding)) {
             item {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -282,38 +348,110 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                             Text("Auto-delete", Modifier.weight(1f))
                             Switch(podcast.autoDelete, { vm.setFlags(podcastId, autoDelete = it) })
                         }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Show archived", Modifier.weight(1f))
+                            Switch(settings.showArchived, { vm.setShowArchived(it) })
+                        }
                     }
                 }
                 Text(stripHtml(podcast.description), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, maxLines = 6)
+                if (!selecting) {
+                    TextButton({
+                        selecting = true
+                        selected = emptySet()
+                    }) { Text("Select episodes") }
+                } else {
+                    Row(Modifier.padding(horizontal = 4.dp)) {
+                        TextButton({ selected = episodes.map { it.id }.toSet() }) { Text("Select all") }
+                        TextButton({ selected = emptySet() }) { Text("Clear") }
+                    }
+                }
             }
             items(episodes, key = { it.id }) { episode ->
-                EpisodeRow(episode, { onEpisode(episode.id) }, { vm.play(episode, podcast) }, { vm.download(episode.id) })
+                EpisodeRow(
+                    episode = episode,
+                    selecting = selecting,
+                    checked = episode.id in selected,
+                    onOpen = { onEpisode(episode.id) },
+                    onPlay = { vm.play(episode, podcast) },
+                    onDownload = { vm.download(episode.id) },
+                    onToggle = {
+                        selected = if (episode.id in selected) selected - episode.id else selected + episode.id
+                    },
+                    onLongPress = {
+                        selecting = true
+                        selected = selected + episode.id
+                    }
+                )
             }
         }
     }
+    if (moveDialog) {
+        AlertDialog(
+            onDismissRequest = { moveDialog = false },
+            title = { Text("Move to playlist") },
+            text = {
+                Column {
+                    playlists.filter { !it.isSmart }.forEach { list ->
+                        Text(list.name, Modifier.fillMaxWidth().clickable {
+                            vm.addManyToPlaylist(list.id, selected.toList())
+                            moveDialog = false
+                            selecting = false
+                            selected = emptySet()
+                        }.padding(8.dp))
+                    }
+                    if (playlists.none { !it.isSmart }) Text("Create a regular playlist first.")
+                }
+            },
+            confirmButton = { TextButton({ moveDialog = false }) { Text("Close") } }
+        )
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EpisodeRow(
     episode: EpisodeEntity,
+    selecting: Boolean,
+    checked: Boolean,
     onOpen: () -> Unit,
     onPlay: () -> Unit,
-    onDownload: () -> Unit
+    onDownload: () -> Unit,
+    onToggle: () -> Unit,
+    onLongPress: () -> Unit
 ) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = { if (selecting) onToggle() else onOpen() }, onLongClick = onLongPress)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (selecting) {
+            Checkbox(checked, { onToggle() })
+            Spacer(Modifier.width(8.dp))
+        }
         Column(Modifier.weight(1f)) {
             Text(episode.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
                 listOfNotNull(
                     formatDate(episode.pubDate).ifBlank { null },
                     episode.episodeNumber?.let { "Ep $it" },
-                    if (episode.downloadStatus == EpisodeEntity.STATUS_DONE) "Saved" else null
+                    if (episode.downloadStatus == EpisodeEntity.STATUS_DONE) "Saved" else null,
+                    if (episode.archived) "Archived" else null,
+                    when {
+                        episode.completed -> "Played"
+                        episode.positionMs > 0 -> "In progress"
+                        else -> "Unplayed"
+                    }
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        IconButton(onDownload) { Icon(Icons.Default.Download, "Download") }
-        IconButton(onPlay) { Icon(Icons.Default.PlayArrow, "Play") }
+        if (!selecting) {
+            IconButton(onDownload) { Icon(Icons.Default.Download, "Download") }
+            IconButton(onPlay) { Icon(Icons.Default.PlayArrow, "Play") }
+        }
     }
 }
 
@@ -354,6 +492,12 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
                     Spacer(Modifier.width(8.dp))
                     if (current.localUri.isNotBlank()) TextButton({ vm.deleteDownload(current.id) }) { Text("Remove file") }
                     IconButton({ addPlaylist = true }) { Icon(Icons.Default.PlaylistAdd, "Playlist") }
+                    IconButton({ vm.archiveMany(listOf(current.id), !current.archived) }) {
+                        Icon(
+                            if (current.archived) Icons.Default.Unarchive else Icons.Default.Archive,
+                            if (current.archived) "Unarchive" else "Archive"
+                        )
+                    }
                 }
                 Text("Status: ${current.downloadStatus}" + if (current.fileName.isNotBlank()) " · ${current.fileName}" else "")
             }
@@ -476,24 +620,55 @@ private fun EqScreen(vm: AppViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun PlaylistsScreen(vm: AppViewModel, onOpen: (Long) -> Unit) {
     val lists by vm.playlists.collectAsState()
     var name by remember { mutableStateOf("") }
+    var smart by remember { mutableStateOf(false) }
+    var playFilter by remember { mutableStateOf(PlaylistEntity.PLAY_ALL) }
+    var downloadFilter by remember { mutableStateOf(PlaylistEntity.DOWNLOAD_ALL) }
     Scaffold(topBar = { TopAppBar(title = { Text("Playlists") }) }) { padding ->
         Column(Modifier.padding(padding).padding(16.dp)) {
             OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("New playlist name") }, singleLine = true)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Smart playlist (filters)", Modifier.weight(1f))
+                Switch(smart, { smart = it })
+            }
+            if (smart) {
+                Text("Play status", style = MaterialTheme.typography.labelLarge)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(playFilter == PlaylistEntity.PLAY_ALL, { playFilter = PlaylistEntity.PLAY_ALL }, label = { Text("All") })
+                    FilterChip(playFilter == PlaylistEntity.PLAY_UNPLAYED, { playFilter = PlaylistEntity.PLAY_UNPLAYED }, label = { Text("Unplayed") })
+                    FilterChip(playFilter == PlaylistEntity.PLAY_IN_PROGRESS, { playFilter = PlaylistEntity.PLAY_IN_PROGRESS }, label = { Text("In progress") })
+                    FilterChip(playFilter == PlaylistEntity.PLAY_PLAYED, { playFilter = PlaylistEntity.PLAY_PLAYED }, label = { Text("Played") })
+                }
+                Text("Download status", style = MaterialTheme.typography.labelLarge)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(downloadFilter == PlaylistEntity.DOWNLOAD_ALL, { downloadFilter = PlaylistEntity.DOWNLOAD_ALL }, label = { Text("All") })
+                    FilterChip(downloadFilter == PlaylistEntity.DOWNLOAD_DOWNLOADED, { downloadFilter = PlaylistEntity.DOWNLOAD_DOWNLOADED }, label = { Text("Downloaded") })
+                    FilterChip(downloadFilter == PlaylistEntity.DOWNLOAD_NOT_DOWNLOADED, { downloadFilter = PlaylistEntity.DOWNLOAD_NOT_DOWNLOADED }, label = { Text("Not downloaded") })
+                }
+            }
             Button({
                 if (name.isNotBlank()) {
-                    vm.createPlaylist(name.trim())
+                    if (smart) vm.createSmartPlaylist(name.trim(), playFilter, downloadFilter)
+                    else vm.createPlaylist(name.trim())
                     name = ""
                 }
             }) { Text("Create") }
             LazyColumn {
                 items(lists, key = { it.id }) { list ->
                     Row(Modifier.fillMaxWidth().clickable { onOpen(list.id) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(list.name, Modifier.weight(1f))
+                        Column(Modifier.weight(1f)) {
+                            Text(list.name)
+                            if (list.isSmart) {
+                                Text(
+                                    "Smart · ${list.playFilter} · ${list.downloadFilter}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
                         IconButton({ vm.deletePlaylist(list) }) { Icon(Icons.Default.Delete, "Delete") }
                     }
                 }
@@ -509,15 +684,22 @@ private fun PlaylistDetailScreen(vm: AppViewModel, playlistId: Long) {
     val items by vm.playlistItems(playlistId).collectAsState(initial = emptyList())
     val list = lists.find { it.id == playlistId }
     var episodes by remember { mutableStateOf<List<EpisodeEntity>>(emptyList()) }
-    LaunchedEffect(items) {
-        episodes = items.mapNotNull { vm.repo.db.episodes().byId(it.episodeId) }
+    LaunchedEffect(items, list?.isSmart, list?.playFilter, list?.downloadFilter) {
+        episodes = if (list?.isSmart == true) {
+            vm.smartEpisodes(list.playFilter, list.downloadFilter)
+        } else {
+            items.mapNotNull { vm.repo.db.episodes().byId(it.episodeId) }
+        }
     }
-    var rename by remember { mutableStateOf(list?.name.orEmpty()) }
+    var rename by remember(list?.name) { mutableStateOf(list?.name.orEmpty()) }
     Scaffold(topBar = { TopAppBar(title = { Text(list?.name ?: "Playlist") }) }) { padding ->
         LazyColumn(Modifier.padding(padding).padding(16.dp)) {
             item {
                 OutlinedTextField(rename, { rename = it }, Modifier.fillMaxWidth(), label = { Text("Rename") })
                 TextButton({ if (rename.isNotBlank()) vm.renamePlaylist(playlistId, rename.trim()) }) { Text("Save name") }
+                if (list?.isSmart == true) {
+                    Text("This smart playlist updates from filters: ${list.playFilter} / ${list.downloadFilter}.")
+                }
             }
             items(episodes, key = { it.id }) { episode ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -525,7 +707,9 @@ private fun PlaylistDetailScreen(vm: AppViewModel, playlistId: Long) {
                     IconButton({
                         vm.play(episode, "", episode.imageUrl)
                     }) { Icon(Icons.Default.PlayArrow, "Play") }
-                    IconButton({ vm.removeFromPlaylist(playlistId, episode.id) }) { Icon(Icons.Default.Delete, "Remove") }
+                    if (list?.isSmart != true) {
+                        IconButton({ vm.removeFromPlaylist(playlistId, episode.id) }) { Icon(Icons.Default.Delete, "Remove") }
+                    }
                 }
             }
         }
@@ -590,6 +774,27 @@ private fun SettingsScreen(vm: AppViewModel) {
                     Text("Auto-delete after completion by default", Modifier.weight(1f))
                     Switch(settings.autoDeleteDefault, { vm.setDefaults(settings.autoDownloadDefault, it) })
                 }
+            }
+            item {
+                Text("Check for new episodes", style = MaterialTheme.typography.titleMedium)
+                var frequency by remember(settings.syncFrequency) { mutableStateOf(settings.syncFrequency) }
+                var hour by remember(settings.syncHour) { mutableStateOf(settings.syncHour.toFloat()) }
+                var minute by remember(settings.syncMinute) { mutableStateOf(settings.syncMinute.toFloat()) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(frequency == SettingsEntity.SYNC_HOURLY, { frequency = SettingsEntity.SYNC_HOURLY }, label = { Text("Hourly") })
+                    FilterChip(frequency == SettingsEntity.SYNC_DAILY, { frequency = SettingsEntity.SYNC_DAILY }, label = { Text("Daily") })
+                    FilterChip(frequency == SettingsEntity.SYNC_WEEKLY, { frequency = SettingsEntity.SYNC_WEEKLY }, label = { Text("Weekly") })
+                }
+                if (frequency != SettingsEntity.SYNC_HOURLY) {
+                    Text("Time of day: ${hour.toInt().toString().padStart(2, '0')}:${minute.toInt().toString().padStart(2, '0')}")
+                    Text("Hour")
+                    Slider(hour, { hour = it }, valueRange = 0f..23f, steps = 22)
+                    Text("Minute")
+                    Slider(minute, { minute = it }, valueRange = 0f..59f, steps = 58)
+                } else {
+                    Text("OpenPod will look for new episodes about every hour.")
+                }
+                TextButton({ vm.setSyncSchedule(frequency, hour.toInt(), minute.toInt()) }) { Text("Save sync schedule") }
             }
         }
     }

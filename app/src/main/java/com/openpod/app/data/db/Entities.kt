@@ -51,7 +51,8 @@ data class EpisodeEntity(
     val fileName: String = "",
     val downloadStatus: String = STATUS_NONE,
     val positionMs: Long = 0L,
-    val completed: Boolean = false
+    val completed: Boolean = false,
+    val archived: Boolean = false
 ) {
     companion object {
         const val STATUS_NONE = "none"
@@ -65,8 +66,21 @@ data class EpisodeEntity(
 @Entity(tableName = "playlists")
 data class PlaylistEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val name: String
-)
+    val name: String,
+    val isSmart: Boolean = false,
+    val playFilter: String = PLAY_ALL,
+    val downloadFilter: String = DOWNLOAD_ALL
+) {
+    companion object {
+        const val PLAY_ALL = "all"
+        const val PLAY_UNPLAYED = "unplayed"
+        const val PLAY_IN_PROGRESS = "in_progress"
+        const val PLAY_PLAYED = "played"
+        const val DOWNLOAD_ALL = "all"
+        const val DOWNLOAD_DOWNLOADED = "downloaded"
+        const val DOWNLOAD_NOT_DOWNLOADED = "not_downloaded"
+    }
+}
 
 @Entity(
     tableName = "playlist_items",
@@ -103,8 +117,18 @@ data class SettingsEntity(
     val autoDownloadDefault: Boolean = false,
     val autoDeleteDefault: Boolean = false,
     val eqEnabled: Boolean = false,
-    val eqBandsJson: String = ""
-)
+    val eqBandsJson: String = "",
+    val showArchived: Boolean = false,
+    val syncFrequency: String = SYNC_DAILY,
+    val syncHour: Int = 6,
+    val syncMinute: Int = 0
+) {
+    companion object {
+        const val SYNC_HOURLY = "hourly"
+        const val SYNC_DAILY = "daily"
+        const val SYNC_WEEKLY = "weekly"
+    }
+}
 
 data class EpisodeWithPodcast(
     val episode: EpisodeEntity,

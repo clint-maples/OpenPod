@@ -27,6 +27,9 @@ class PodRepository(context: Context) {
 
     fun podcasts() = db.podcasts().observeAll()
     fun episodes(podcastId: Long) = db.episodes().observeForPodcast(podcastId)
+
+    fun episodes(podcastId: Long, showArchived: Boolean) =
+        db.episodes().observeForPodcastFiltered(podcastId, showArchived)
     fun episode(id: Long) = db.episodes().observeById(id)
     fun playlists() = db.playlists().observeAll()
     fun playlistItems(id: Long) = db.playlists().observeItems(id)
@@ -162,17 +165,70 @@ class PodRepository(context: Context) {
         }
     }
 
-    suspend fun createPlaylist(name: String): Long = db.playlists().insert(PlaylistEntity(name = name))
+    suspend fun createPlaylist(
+        name: String,
+        isSmart: Boolean = false,
+        playFilter: String = PlaylistEntity.PLAY_ALL,
+        downloadFilter: String = PlaylistEntity.DOWNLOAD_ALL
+    ): Long = db.playlists().insert(
+        PlaylistEntity(
+            name = name,
+            isSmart = isSmart,
+            playFilter = playFilter,
+            downloadFilter = downloadFilter
+        )
+    )
+
     suspend fun renamePlaylist(id: Long, name: String) {
-        db.playlists().update(PlaylistEntity(id, name))
+        val existing = db.playlists().byId(id) ?: return
+        db.playlists().update(existing.copy(name = name))
     }
+
     suspend fun deletePlaylist(entity: PlaylistEntity) = db.playlists().delete(entity)
+
     suspend fun addToPlaylist(playlistId: Long, episodeId: Long) {
         val order = db.playlists().items(playlistId).size
         db.playlists().insertItem(PlaylistItemEntity(playlistId, episodeId, order))
     }
+
+    suspend fun addManyToPlaylist(playlistId: Long, episodeIds: List<Long>) {
+        episodeIds.forEach { addToPlaylist(playlistId, it) }
+    }
+
     suspend fun removeFromPlaylist(playlistId: Long, episodeId: Long) =
         db.playlists().removeItem(playlistId, episodeId)
+
+    suspend fun setArchived(ids: List<Long>, archived: Boolean) {
+        if (ids.isEmpty()) return
+        db.episodes().setArchived(ids, archived)
+    }
+
+    suspend fun downloadMany(ids: List<Long>) {
+        ids.forEach { id ->
+            runCatching { downloader.download(id) }
+        }
+    }
+
+    suspend fun deleteDownloads(ids: List<Long>) {
+        ids.forEach { downloader.deleteLocal(it) }
+    }
+
+    suspend fun matchingEpisodes(playFilter: String, downloadFilter: String): List<EpisodeEntity> {
+        return db.episodes().allActive().filter { episode ->
+            val playOk = when (playFilter) {
+                PlaylistEntity.PLAY_UNPLAYED -> !episode.completed && episode.positionMs <= 0
+                PlaylistEntity.PLAY_IN_PROGRESS -> !episode.completed && episode.positionMs > 0
+                PlaylistEntity.PLAY_PLAYED -> episode.completed
+                else -> true
+            }
+            val downloadOk = when (downloadFilter) {
+                PlaylistEntity.DOWNLOAD_DOWNLOADED -> episode.downloadStatus == EpisodeEntity.STATUS_DONE
+                PlaylistEntity.DOWNLOAD_NOT_DOWNLOADED -> episode.downloadStatus != EpisodeEntity.STATUS_DONE
+                else -> true
+            }
+            playOk && downloadOk
+        }
+    }
 
     suspend fun loadChapters(episode: EpisodeEntity): List<Chapter> = withContext(Dispatchers.IO) {
         if (episode.chaptersUrl.isBlank()) return@withContext emptyList()

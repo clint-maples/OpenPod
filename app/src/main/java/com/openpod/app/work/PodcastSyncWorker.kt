@@ -7,6 +7,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.openpod.app.data.PodRepository
+import com.openpod.app.data.db.SettingsEntity
+import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
 class PodcastSyncWorker(
@@ -23,14 +25,45 @@ class PodcastSyncWorker(
     }
 
     companion object {
-        fun enqueue(context: Context) {
-            val request = PeriodicWorkRequestBuilder<PodcastSyncWorker>(6, TimeUnit.HOURS)
+        private const val UNIQUE = "openpod-sync"
+
+        fun enqueue(
+            context: Context,
+            frequency: String = SettingsEntity.SYNC_DAILY,
+            hour: Int = 6,
+            minute: Int = 0
+        ) {
+            val wm = WorkManager.getInstance(context)
+            val (repeat, unit) = when (frequency) {
+                SettingsEntity.SYNC_HOURLY -> 1L to TimeUnit.HOURS
+                SettingsEntity.SYNC_WEEKLY -> 7L to TimeUnit.DAYS
+                else -> 1L to TimeUnit.DAYS
+            }
+            val delayMs = if (frequency == SettingsEntity.SYNC_HOURLY) {
+                0L
+            } else {
+                delayUntil(hour.coerceIn(0, 23), minute.coerceIn(0, 59), frequency == SettingsEntity.SYNC_WEEKLY)
+            }
+            val request = PeriodicWorkRequestBuilder<PodcastSyncWorker>(repeat, unit)
+                .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
                 .build()
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                "openpod-sync",
-                ExistingPeriodicWorkPolicy.KEEP,
-                request
-            )
+            wm.enqueueUniquePeriodicWork(UNIQUE, ExistingPeriodicWorkPolicy.UPDATE, request)
+        }
+
+        private fun delayUntil(hour: Int, minute: Int, weekly: Boolean): Long {
+            val now = Calendar.getInstance()
+            val next = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            if (!next.after(now)) {
+                next.add(Calendar.DAY_OF_YEAR, if (weekly) 7 else 1)
+            } else if (weekly) {
+                // keep today's time if still upcoming; otherwise already handled
+            }
+            return next.timeInMillis - now.timeInMillis
         }
     }
 }
