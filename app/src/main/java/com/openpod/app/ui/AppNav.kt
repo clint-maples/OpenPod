@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
@@ -50,6 +52,7 @@ import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -80,6 +83,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -94,6 +100,7 @@ import com.openpod.app.data.db.EpisodeEntity
 import com.openpod.app.data.db.PlaylistEntity
 import com.openpod.app.data.db.PodcastEntity
 import com.openpod.app.data.db.SettingsEntity
+import com.openpod.app.download.DownloadProgress
 import com.openpod.app.playback.PlayerService
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -235,17 +242,46 @@ private fun DiscoverScreen(vm: AppViewModel) {
     var query by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
     val results by vm.searchResults.collectAsState()
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    fun hideKeyboard() {
+        keyboard?.hide()
+        focusManager.clearFocus()
+    }
+    fun runSearch() {
+        hideKeyboard()
+        if (query.isNotBlank()) vm.search(query)
+    }
     Scaffold(topBar = { TopAppBar(title = { Text("Discover") }) }) { padding ->
         LazyColumn(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
-                OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text("Search podcasts") }, singleLine = true)
+                OutlinedTextField(
+                    query,
+                    { query = it },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("Search podcasts") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { runSearch() })
+                )
                 Spacer(Modifier.height(8.dp))
-                Button({ vm.search(query) }) { Text("Search") }
+                Button({ runSearch() }) { Text("Search") }
             }
             item {
-                OutlinedTextField(url, { url = it }, Modifier.fillMaxWidth(), label = { Text("Or paste RSS / podcast URL") }, singleLine = true)
+                OutlinedTextField(
+                    url,
+                    { url = it },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("Or paste RSS / podcast URL") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { hideKeyboard() })
+                )
                 Spacer(Modifier.height(8.dp))
-                Button({ if (url.isNotBlank()) vm.subscribe(url.trim()) }) { Text("Add by URL") }
+                Button({
+                    hideKeyboard()
+                    if (url.isNotBlank()) vm.subscribe(url.trim())
+                }) { Text("Add by URL") }
             }
             items(results, key = { it.feedUrl }) { hit ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -270,6 +306,7 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
     val playlists by vm.playlists.collectAsState()
     val podcast = podcasts.find { it.id == podcastId }
     val episodes by vm.episodes(podcastId, settings.showArchived).collectAsState(initial = emptyList())
+    val progressMap by vm.downloadProgress.collectAsState()
     var selecting by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(setOf<Long>()) }
     var moveDialog by remember { mutableStateOf(false) }
@@ -372,6 +409,7 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                     episode = episode,
                     selecting = selecting,
                     checked = episode.id in selected,
+                    progress = progressMap[episode.id],
                     onOpen = { onEpisode(episode.id) },
                     onPlay = { vm.play(episode, podcast) },
                     onDownload = { vm.download(episode.id) },
@@ -414,44 +452,54 @@ private fun EpisodeRow(
     episode: EpisodeEntity,
     selecting: Boolean,
     checked: Boolean,
+    progress: DownloadProgress?,
     onOpen: () -> Unit,
     onPlay: () -> Unit,
     onDownload: () -> Unit,
     onToggle: () -> Unit,
     onLongPress: () -> Unit
 ) {
-    Row(
+    val downloading = isDownloadActive(episode, progress)
+    Column(
         Modifier
             .fillMaxWidth()
             .combinedClickable(onClick = { if (selecting) onToggle() else onOpen() }, onLongClick = onLongPress)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(12.dp)
     ) {
-        if (selecting) {
-            Checkbox(checked, { onToggle() })
-            Spacer(Modifier.width(8.dp))
-        }
-        Column(Modifier.weight(1f)) {
-            Text(episode.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(
-                listOfNotNull(
-                    formatDate(episode.pubDate).ifBlank { null },
-                    episode.episodeNumber?.let { "Ep $it" },
-                    if (episode.downloadStatus == EpisodeEntity.STATUS_DONE) "Saved" else null,
-                    if (episode.archived) "Archived" else null,
-                    when {
-                        episode.completed -> "Played"
-                        episode.positionMs > 0 -> "In progress"
-                        else -> "Unplayed"
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (selecting) {
+                Checkbox(checked, { onToggle() })
+                Spacer(Modifier.width(8.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                Text(episode.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    listOfNotNull(
+                        formatDate(episode.pubDate).ifBlank { null },
+                        episode.episodeNumber?.let { "Ep $it" },
+                        downloadStatusLabel(episode, progress),
+                        if (episode.archived) "Archived" else null,
+                        when {
+                            episode.completed -> "Played"
+                            episode.positionMs > 0 -> "In progress"
+                            else -> "Unplayed"
+                        }
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            if (!selecting) {
+                IconButton(onClick = onDownload, enabled = !downloading) {
+                    if (downloading) {
+                        CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Default.Download, "Download")
                     }
-                ).joinToString(" · "),
-                style = MaterialTheme.typography.bodySmall
-            )
+                }
+                IconButton(onPlay) { Icon(Icons.Default.PlayArrow, "Play") }
+            }
         }
-        if (!selecting) {
-            IconButton(onDownload) { Icon(Icons.Default.Download, "Download") }
-            IconButton(onPlay) { Icon(Icons.Default.PlayArrow, "Play") }
-        }
+        DownloadProgressBlock(episode, progress)
     }
 }
 
@@ -463,6 +511,7 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
     val playlists by vm.playlists.collectAsState()
     val chapters by vm.chapters.collectAsState()
     val transcript by vm.transcript.collectAsState()
+    val progressMap by vm.downloadProgress.collectAsState()
     var addPlaylist by remember { mutableStateOf(false) }
     val current = episode
     LaunchedEffect(episodeId) {
@@ -473,6 +522,8 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
         return
     }
     val podcast = podcasts.find { it.id == current.podcastId }
+    val progress = progressMap[current.id]
+    val downloading = isDownloadActive(current, progress)
     Scaffold(
         topBar = { TopAppBar(title = { Text(current.title, maxLines = 1) }) },
         floatingActionButton = {
@@ -487,8 +538,10 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
                 Text(current.title, style = MaterialTheme.typography.titleLarge)
                 Text(formatDate(current.pubDate))
                 if (current.episodeNumber != null) Text("Episode ${current.episodeNumber}")
-                Row {
-                    Button({ vm.download(current.id) }) { Text("Download") }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Button({ vm.download(current.id) }, enabled = !downloading) {
+                        if (downloading) Text("Downloading…") else Text("Download")
+                    }
                     Spacer(Modifier.width(8.dp))
                     if (current.localUri.isNotBlank()) TextButton({ vm.deleteDownload(current.id) }) { Text("Remove file") }
                     IconButton({ addPlaylist = true }) { Icon(Icons.Default.PlaylistAdd, "Playlist") }
@@ -499,7 +552,16 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
                         )
                     }
                 }
-                Text("Status: ${current.downloadStatus}" + if (current.fileName.isNotBlank()) " · ${current.fileName}" else "")
+                DownloadProgressBlock(current, progress)
+                Text(
+                    buildString {
+                        append(downloadStatusLabel(current, progress) ?: "Not downloaded")
+                        if (current.fileName.isNotBlank()) {
+                            append(" · ")
+                            append(current.fileName)
+                        }
+                    }
+                )
             }
             item {
                 Text("From the publisher", style = MaterialTheme.typography.titleMedium)
@@ -796,6 +858,62 @@ private fun SettingsScreen(vm: AppViewModel) {
                 }
                 TextButton({ vm.setSyncSchedule(frequency, hour.toInt(), minute.toInt()) }) { Text("Save sync schedule") }
             }
+        }
+    }
+}
+
+private fun isDownloadActive(episode: EpisodeEntity, progress: DownloadProgress?): Boolean {
+    return progress != null ||
+        episode.downloadStatus == EpisodeEntity.STATUS_DOWNLOADING ||
+        episode.downloadStatus == EpisodeEntity.STATUS_QUEUED
+}
+
+private fun downloadStatusLabel(episode: EpisodeEntity, progress: DownloadProgress?): String? {
+    return when {
+        progress != null && progress.knownTotal -> "Downloading ${(progress.fraction * 100).toInt()}%"
+        progress != null -> "Downloading"
+        episode.downloadStatus == EpisodeEntity.STATUS_QUEUED -> "Queued"
+        episode.downloadStatus == EpisodeEntity.STATUS_DOWNLOADING -> "Downloading"
+        episode.downloadStatus == EpisodeEntity.STATUS_DONE -> "Saved"
+        episode.downloadStatus == EpisodeEntity.STATUS_ERROR -> "Download failed"
+        else -> null
+    }
+}
+
+@Composable
+private fun DownloadProgressBlock(episode: EpisodeEntity, progress: DownloadProgress?) {
+    val showError = episode.downloadStatus == EpisodeEntity.STATUS_ERROR && progress == null
+    val showBar = progress != null ||
+        episode.downloadStatus == EpisodeEntity.STATUS_DOWNLOADING ||
+        episode.downloadStatus == EpisodeEntity.STATUS_QUEUED
+    if (!showBar && !showError) return
+    Spacer(Modifier.height(8.dp))
+    when {
+        progress != null && progress.knownTotal -> {
+            LinearProgressIndicator(progress = { progress.fraction }, modifier = Modifier.fillMaxWidth())
+            Text(
+                "${formatBytes(progress.bytesRead)} / ${formatBytes(progress.totalBytes)}  ${(progress.fraction * 100).toInt()}%",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        progress != null -> {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+            Text("Downloading ${formatBytes(progress.bytesRead)}", style = MaterialTheme.typography.bodySmall)
+        }
+        episode.downloadStatus == EpisodeEntity.STATUS_QUEUED -> {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+            Text("Queued", style = MaterialTheme.typography.bodySmall)
+        }
+        episode.downloadStatus == EpisodeEntity.STATUS_DOWNLOADING -> {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+            Text("Downloading…", style = MaterialTheme.typography.bodySmall)
+        }
+        showError -> {
+            Text(
+                "Download failed",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
         }
     }
 }

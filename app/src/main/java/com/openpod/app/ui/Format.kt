@@ -19,6 +19,16 @@ fun formatDate(ms: Long): String {
     return SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(ms))
 }
 
+fun formatBytes(bytes: Long): String {
+    if (bytes < 0L) return "—"
+    if (bytes < 1024L) return "$bytes B"
+    val kb = bytes / 1024.0
+    if (kb < 1024.0) return String.format(Locale.US, "%.1f KB", kb)
+    val mb = kb / 1024.0
+    if (mb < 1024.0) return String.format(Locale.US, "%.1f MB", mb)
+    return String.format(Locale.US, "%.2f GB", mb / 1024.0)
+}
+
 fun stripHtml(raw: String): String {
     return raw.replace(Regex("<[^>]+>"), " ")
         .replace("&nbsp;", " ")

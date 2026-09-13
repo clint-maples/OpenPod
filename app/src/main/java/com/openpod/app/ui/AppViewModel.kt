@@ -11,6 +11,7 @@ import com.openpod.app.data.db.EpisodeEntity
 import com.openpod.app.data.db.PlaylistEntity
 import com.openpod.app.data.db.PodcastEntity
 import com.openpod.app.data.search.SearchHit
+import com.openpod.app.download.DownloadTracker
 import com.openpod.app.playback.PlayerService
 import com.openpod.app.work.PodcastSyncWorker
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val podcasts = repo.podcasts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val playlists = repo.playlists().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val settings = repo.settings().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), com.openpod.app.data.db.SettingsEntity())
+    val downloadProgress = DownloadTracker.progress
 
     private val _searchResults = MutableStateFlow<List<SearchHit>>(emptyList())
     val searchResults = _searchResults.asStateFlow()
@@ -87,11 +89,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun download(id: Long) {
         viewModelScope.launch {
-            _busy.value = true
             runCatching { repo.download(id) }
-                .onSuccess { _message.value = "Saved episode" }
+                .onSuccess { result ->
+                    result.onSuccess { _message.value = "Saved episode" }
+                        .onFailure { _message.value = it.message ?: "Download failed" }
+                }
                 .onFailure { _message.value = it.message ?: "Download failed" }
-            _busy.value = false
         }
     }
 
@@ -184,9 +187,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun downloadMany(ids: List<Long>) {
         viewModelScope.launch {
-            _busy.value = true
             repo.downloadMany(ids)
-            _busy.value = false
             _message.value = "Download finished for ${ids.size} episode(s)"
         }
     }

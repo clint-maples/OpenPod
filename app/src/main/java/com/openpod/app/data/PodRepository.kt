@@ -10,6 +10,7 @@ import com.openpod.app.data.db.PodcastEntity
 import com.openpod.app.data.db.SettingsEntity
 import com.openpod.app.data.rss.RssParser
 import com.openpod.app.data.search.ItunesSearch
+import com.openpod.app.download.DownloadTracker
 import com.openpod.app.download.EpisodeDownloader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -146,6 +147,7 @@ class PodRepository(context: Context) {
 
     suspend fun download(episodeId: Long) = downloader.download(episodeId)
     suspend fun deleteDownload(episodeId: Long) = downloader.deleteLocal(episodeId)
+    val downloadProgress = DownloadTracker.progress
 
     suspend fun markProgress(episodeId: Long, positionMs: Long, durationMs: Long) {
         val episode = db.episodes().byId(episodeId) ?: return
@@ -204,6 +206,12 @@ class PodRepository(context: Context) {
     }
 
     suspend fun downloadMany(ids: List<Long>) {
+        ids.forEach { id ->
+            val episode = db.episodes().byId(id) ?: return@forEach
+            if (episode.downloadStatus != EpisodeEntity.STATUS_DOWNLOADING) {
+                db.episodes().setDownloadStatus(id, EpisodeEntity.STATUS_QUEUED)
+            }
+        }
         ids.forEach { id ->
             runCatching { downloader.download(id) }
         }

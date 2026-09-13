@@ -64,6 +64,12 @@ interface EpisodeDao {
     @Update
     suspend fun update(episode: EpisodeEntity)
 
+    @Query("UPDATE episodes SET downloadStatus = :status WHERE id = :id")
+    suspend fun setDownloadStatus(id: Long, status: String)
+
+    @Query("UPDATE episodes SET localUri = :localUri, fileName = :fileName, downloadStatus = :status WHERE id = :id")
+    suspend fun setDownloadResult(id: Long, localUri: String, fileName: String, status: String)
+
     @Query("UPDATE episodes SET positionMs = :position, completed = :completed WHERE id = :id")
     suspend fun updateProgress(id: Long, position: Long, completed: Boolean)
 
