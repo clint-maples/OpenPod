@@ -1,20 +1,27 @@
 package com.openpod.app.playback
 
+import android.app.Notification
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
+import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.openpod.app.R
 import com.openpod.app.data.PodRepository
 import com.openpod.app.data.db.EpisodeEntity
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +34,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 data class PlayerUiState(
     val episodeId: Long = 0L,
@@ -46,9 +54,11 @@ class PlayerService : MediaSessionService() {
     private var session: MediaSession? = null
     private lateinit var repo: PodRepository
     private val eq = EqController()
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var progressJob: Job? = null
     private var currentEpisode: EpisodeEntity? = null
+    private var lastAudioSessionId = 0
 
     private val headset = HeadsetClickTracker(
         onSingle = { togglePlay() },
@@ -60,6 +70,7 @@ class PlayerService : MediaSessionService() {
         super.onCreate()
         instance = this
         repo = PodRepository(this)
+        enterForeground("Starting playback")
         player = ExoPlayer.Builder(this)
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -70,32 +81,37 @@ class PlayerService : MediaSessionService() {
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this)
+                .setChannelId("playback")
+                .setChannelName(R.string.app_name)
+                .setNotificationId(NOTIFICATION_ID)
+                .build()
+        )
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 publish()
-                attachEq()
+                if (!isPlaying) persistProgress()
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 publish()
                 if (playbackState == Player.STATE_ENDED) {
-                    currentEpisode?.let { ep ->
-                        scope.launch {
-                            repo.markProgress(ep.id, player.duration.coerceAtLeast(0), player.duration.coerceAtLeast(0))
-                        }
-                    }
+                    val ep = currentEpisode ?: return
+                    val duration = player.duration.coerceAtLeast(0)
+                    ioScope.launch { repo.markProgress(ep.id, duration, duration) }
                 }
             }
 
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
-                attachEq()
+                attachEq(audioSessionId)
             }
         })
         session = MediaSession.Builder(this, player)
             .setCallback(ButtonCallback())
             .build()
         startProgress()
-        scope.launch {
+        ioScope.launch {
             val settings = repo.settingsOnce()
             _state.update {
                 it.copy(skipForwardSec = settings.skipForwardSec, skipBackSec = settings.skipBackSec)
@@ -109,10 +125,18 @@ class PlayerService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        if (!player.playWhenReady || player.mediaItemCount == 0) {
+            stopSelf()
+        }
+    }
+
     override fun onDestroy() {
         progressJob?.cancel()
+        persistProgressBlocking()
         eq.release()
         session?.release()
+        session = null
         player.release()
         instance = null
         super.onDestroy()
@@ -125,47 +149,56 @@ class PlayerService : MediaSessionService() {
             .setTitle(episode.title)
             .setArtist(podcastTitle)
             .build()
+        val start = if (!episode.completed && episode.positionMs > 0L) episode.positionMs else 0L
         player.setMediaItem(
             MediaItem.Builder()
                 .setUri(uri)
                 .setMediaMetadata(meta)
-                .build()
+                .build(),
+            start
         )
         player.prepare()
-        if (episode.positionMs > 0 && !episode.completed) {
-            player.seekTo(episode.positionMs)
-        }
         player.play()
         _state.update {
             it.copy(
                 episodeId = episode.id,
                 title = episode.title,
                 podcastTitle = podcastTitle,
-                artwork = artwork.ifBlank { episode.imageUrl }
+                artwork = artwork.ifBlank { episode.imageUrl },
+                positionMs = start,
+                durationMs = episode.durationMs
             )
         }
         publish()
-        attachEq()
+        ioScope.launch { repo.setLastEpisode(episode.id) }
+        attachEq(player.audioSessionId)
     }
 
     fun togglePlay() {
+        if (!::player.isInitialized) return
+        if (player.mediaItemCount == 0) return
         if (player.isPlaying) player.pause() else player.play()
     }
 
     fun skip(forward: Boolean) {
+        if (!::player.isInitialized) return
         val amount = if (forward) _state.value.skipForwardSec else _state.value.skipBackSec
         val delta = amount * 1000L * if (forward) 1 else -1
         val next = (player.currentPosition + delta).coerceAtLeast(0)
         player.seekTo(next)
         publish()
+        persistProgress()
     }
 
     fun seek(positionMs: Long) {
+        if (!::player.isInitialized) return
         player.seekTo(positionMs)
         publish()
+        persistProgress()
     }
 
     fun setSpeed(speed: Float) {
+        if (!::player.isInitialized) return
         player.setPlaybackSpeed(speed)
         _state.update { it.copy(speed = speed) }
     }
@@ -176,10 +209,29 @@ class PlayerService : MediaSessionService() {
 
     fun equalizer(): EqController = eq
 
-    private fun attachEq() {
-        scope.launch {
+    fun stopAndClear() {
+        if (::player.isInitialized) {
+            persistProgressBlocking()
+            runCatching { player.stop() }
+            runCatching { player.clearMediaItems() }
+        }
+        currentEpisode = null
+        _state.update {
+            PlayerUiState(
+                skipForwardSec = it.skipForwardSec,
+                skipBackSec = it.skipBackSec
+            )
+        }
+    }
+
+    private fun attachEq(audioSessionId: Int) {
+        if (audioSessionId == 0 || audioSessionId == lastAudioSessionId) return
+        lastAudioSessionId = audioSessionId
+        ioScope.launch {
             val settings = repo.settingsOnce()
-            eq.attach(player.audioSessionId, settings.eqEnabled, settings.eqBandsJson)
+            scope.launch {
+                eq.attach(audioSessionId, settings.eqEnabled, settings.eqBandsJson)
+            }
         }
     }
 
@@ -187,23 +239,56 @@ class PlayerService : MediaSessionService() {
         progressJob = scope.launch {
             while (isActive) {
                 publish()
-                val ep = currentEpisode
-                if (ep != null && player.currentPosition > 0) {
-                    repo.markProgress(ep.id, player.currentPosition, player.duration.coerceAtLeast(0))
-                }
-                delay(1000)
+                persistProgress()
+                delay(2_000)
             }
         }
     }
 
+    private fun persistProgress() {
+        val ep = currentEpisode ?: return
+        if (!::player.isInitialized) return
+        val position = player.currentPosition.coerceAtLeast(0)
+        val duration = player.duration.takeIf { it > 0 } ?: ep.durationMs
+        if (position <= 0L) return
+        ioScope.launch { repo.markProgress(ep.id, position, duration) }
+    }
+
+    private fun persistProgressBlocking() {
+        val ep = currentEpisode ?: return
+        if (!::player.isInitialized) return
+        val position = player.currentPosition.coerceAtLeast(0)
+        val duration = player.duration.takeIf { it > 0 } ?: ep.durationMs
+        if (position <= 0L) return
+        runBlocking(Dispatchers.IO) { repo.markProgress(ep.id, position, duration) }
+    }
+
     private fun publish() {
+        if (!::player.isInitialized) return
+        val duration = player.duration.takeIf { it > 0 } ?: _state.value.durationMs
         _state.update {
             it.copy(
                 playing = player.isPlaying,
                 positionMs = player.currentPosition.coerceAtLeast(0),
-                durationMs = player.duration.coerceAtLeast(0)
+                durationMs = duration.coerceAtLeast(0)
             )
         }
+    }
+
+    private fun enterForeground(text: String) {
+        val notification: Notification = NotificationCompat.Builder(this, "playback")
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setOngoing(true)
+            .setSilent(true)
+            .build()
+        val type = if (Build.VERSION.SDK_INT >= 29) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+        } else {
+            0
+        }
+        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type)
     }
 
     private inner class ButtonCallback : MediaSession.Callback {
@@ -242,6 +327,7 @@ class PlayerService : MediaSessionService() {
     }
 
     companion object {
+        const val NOTIFICATION_ID = 1001
         private val _state = MutableStateFlow(PlayerUiState())
         val state = _state.asStateFlow()
         var instance: PlayerService? = null
@@ -256,7 +342,30 @@ class PlayerService : MediaSessionService() {
             }
             pending = Triple(episode, podcastTitle, artwork)
             val intent = Intent(context, PlayerService::class.java)
-            androidx.core.content.ContextCompat.startForegroundService(context, intent)
+            context.startService(intent)
+        }
+
+        fun restoreSession(episode: EpisodeEntity, podcastTitle: String, artwork: String) {
+            if (_state.value.episodeId != 0L && instance != null) return
+            _state.update {
+                it.copy(
+                    episodeId = episode.id,
+                    title = episode.title,
+                    podcastTitle = podcastTitle,
+                    artwork = artwork.ifBlank { episode.imageUrl },
+                    playing = false,
+                    positionMs = if (episode.completed) 0L else episode.positionMs,
+                    durationMs = episode.durationMs
+                )
+            }
+        }
+
+        fun stopAndClear() {
+            pending = null
+            instance?.stopAndClear()
+            if (instance == null) {
+                _state.value = PlayerUiState()
+            }
         }
     }
 }

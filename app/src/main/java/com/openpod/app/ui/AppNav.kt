@@ -151,7 +151,12 @@ fun OpenPodRoot(vm: AppViewModel) {
                     PlaylistDetailScreen(vm, it.arguments!!.getLong("id"))
                 }
                 composable("podcast/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) {
-                    PodcastScreen(vm, it.arguments!!.getLong("id")) { epId -> nav.navigate("episode/$epId") }
+                    PodcastScreen(
+                        vm,
+                        it.arguments!!.getLong("id"),
+                        onEpisode = { epId -> nav.navigate("episode/$epId") },
+                        onRemoved = { nav.popBackStack() }
+                    )
                 }
                 composable("episode/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) {
                     EpisodeScreen(vm, it.arguments!!.getLong("id")) { nav.navigate("player") }
@@ -205,6 +210,7 @@ private fun MiniPlayer(player: com.openpod.app.playback.PlayerUiState, vm: AppVi
 @Composable
 private fun LibraryScreen(vm: AppViewModel, onOpen: (Long) -> Unit, onRefresh: () -> Unit) {
     val podcasts by vm.podcasts.collectAsState()
+    var pendingRemove by remember { mutableStateOf<PodcastEntity?>(null) }
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Library") }, actions = {
@@ -217,15 +223,35 @@ private fun LibraryScreen(vm: AppViewModel, onOpen: (Long) -> Unit, onRefresh: (
         } else {
             LazyColumn(Modifier.padding(padding)) {
                 items(podcasts, key = { it.id }) { podcast ->
-                    PodcastRow(podcast) { onOpen(podcast.id) }
+                    PodcastRow(
+                        podcast = podcast,
+                        onClick = { onOpen(podcast.id) },
+                        onRemove = { pendingRemove = podcast }
+                    )
                 }
             }
         }
     }
+    pendingRemove?.let { podcast ->
+        AlertDialog(
+            onDismissRequest = { pendingRemove = null },
+            title = { Text("Remove podcast") },
+            text = {
+                Text("Remove ${podcast.title} from your library? Downloaded episodes for this show will be deleted.")
+            },
+            confirmButton = {
+                TextButton({
+                    vm.unsubscribe(podcast.id)
+                    pendingRemove = null
+                }) { Text("Remove") }
+            },
+            dismissButton = { TextButton({ pendingRemove = null }) { Text("Cancel") } }
+        )
+    }
 }
 
 @Composable
-private fun PodcastRow(podcast: PodcastEntity, onClick: () -> Unit) {
+private fun PodcastRow(podcast: PodcastEntity, onClick: () -> Unit, onRemove: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
         AsyncImage(podcast.imageUrl, podcast.title, Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
         Spacer(Modifier.width(12.dp))
@@ -233,6 +259,7 @@ private fun PodcastRow(podcast: PodcastEntity, onClick: () -> Unit) {
             Text(podcast.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(podcast.author, style = MaterialTheme.typography.bodySmall, maxLines = 1)
         }
+        IconButton(onRemove) { Icon(Icons.Default.Delete, "Remove from library") }
     }
 }
 
@@ -300,7 +327,7 @@ private fun DiscoverScreen(vm: AppViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -> Unit) {
+private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -> Unit, onRemoved: () -> Unit) {
     val podcasts by vm.podcasts.collectAsState()
     val settings by vm.settings.collectAsState()
     val playlists by vm.playlists.collectAsState()
@@ -310,6 +337,7 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
     var selecting by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(setOf<Long>()) }
     var moveDialog by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf(false) }
     if (podcast == null) {
         Text("Podcast not found")
         return
@@ -339,6 +367,7 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                         }) { Icon(Icons.Default.SelectAll, "Select all") }
                     } else {
                         IconButton({ vm.refresh(podcastId) }) { Icon(Icons.Default.Refresh, "Refresh") }
+                        IconButton({ confirmRemove = true }) { Icon(Icons.Default.Delete, "Remove from library") }
                     }
                 }
             )
@@ -442,6 +471,23 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                 }
             },
             confirmButton = { TextButton({ moveDialog = false }) { Text("Close") } }
+        )
+    }
+    if (confirmRemove) {
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text("Remove podcast") },
+            text = {
+                Text("Remove ${podcast.title} from your library? Downloaded episodes for this show will be deleted.")
+            },
+            confirmButton = {
+                TextButton({
+                    vm.unsubscribe(podcast.id)
+                    confirmRemove = false
+                    onRemoved()
+                }) { Text("Remove") }
+            },
+            dismissButton = { TextButton({ confirmRemove = false }) { Text("Cancel") } }
         )
     }
 }
@@ -620,6 +666,13 @@ private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit) {
             IconButton(onEq) { Icon(Icons.Default.Equalizer, "Equalizer") }
         })
     }) { padding ->
+        if (player.episodeId == 0L) {
+            Text(
+                "Nothing playing yet. Pick an episode from your library, and OpenPod will remember it here.",
+                Modifier.padding(padding).padding(24.dp)
+            )
+            return@Scaffold
+        }
         Column(Modifier.padding(padding).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             AsyncImage(player.artwork, player.title, Modifier.size(220.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
             Spacer(Modifier.height(16.dp))
@@ -627,19 +680,33 @@ private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit) {
             Text(player.podcastTitle, style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(16.dp))
             Slider(
-                value = if (player.durationMs > 0) player.positionMs.toFloat() / player.durationMs else 0f,
+                value = if (player.durationMs > 0) (player.positionMs.toFloat() / player.durationMs).coerceIn(0f, 1f) else 0f,
                 onValueChange = { if (player.durationMs > 0) vm.seek((it * player.durationMs).toLong()) }
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(formatMs(player.positionMs))
                 Text(formatMs(player.durationMs))
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton({ vm.skip(false) }) { Icon(Icons.Default.SkipPrevious, "Back ${settings.skipBackSec}s") }
-                IconButton({ vm.togglePlay() }, Modifier.size(72.dp)) {
-                    Icon(if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play", Modifier.size(48.dp))
+            val controlSize = 108.dp
+            val iconSize = 72.dp
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                IconButton({ vm.skip(false) }, Modifier.size(controlSize)) {
+                    Icon(Icons.Default.SkipPrevious, "Back ${settings.skipBackSec}s", Modifier.size(iconSize))
                 }
-                IconButton({ vm.skip(true) }) { Icon(Icons.Default.SkipNext, "Forward ${settings.skipForwardSec}s") }
+                IconButton({ vm.togglePlay() }, Modifier.size(controlSize)) {
+                    Icon(
+                        if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        "Play",
+                        Modifier.size(iconSize)
+                    )
+                }
+                IconButton({ vm.skip(true) }, Modifier.size(controlSize)) {
+                    Icon(Icons.Default.SkipNext, "Forward ${settings.skipForwardSec}s", Modifier.size(iconSize))
+                }
             }
             Text("Skip ${settings.skipBackSec}s / ${settings.skipForwardSec}s")
             Spacer(Modifier.height(8.dp))

@@ -28,6 +28,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val settings = repo.settings().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), com.openpod.app.data.db.SettingsEntity())
     val downloadProgress = DownloadTracker.progress
 
+    init {
+        viewModelScope.launch { restoreLastEpisode() }
+    }
+
     private val _searchResults = MutableStateFlow<List<SearchHit>>(emptyList())
     val searchResults = _searchResults.asStateFlow()
     private val _busy = MutableStateFlow(false)
@@ -84,7 +88,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun unsubscribe(id: Long) {
-        viewModelScope.launch { repo.unsubscribe(id) }
+        viewModelScope.launch {
+            val playingId = PlayerService.state.value.episodeId
+            if (playingId != 0L) {
+                val playing = repo.db.episodes().byId(playingId)
+                if (playing?.podcastId == id) {
+                    PlayerService.stopAndClear()
+                    repo.setLastEpisode(0L)
+                }
+            }
+            repo.unsubscribe(id)
+            _message.value = "Removed from library"
+        }
     }
 
     fun download(id: Long) {
@@ -103,17 +118,64 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun play(episode: EpisodeEntity, podcast: PodcastEntity) {
-        PlayerService.play(getApplication(), episode, podcast.title, podcast.imageUrl)
+        viewModelScope.launch {
+            val fresh = repo.db.episodes().byId(episode.id) ?: episode
+            PlayerService.play(getApplication(), fresh, podcast.title, podcast.imageUrl)
+        }
     }
 
     fun play(episode: EpisodeEntity, podcastTitle: String, artwork: String) {
-        PlayerService.play(getApplication(), episode, podcastTitle, artwork)
+        viewModelScope.launch {
+            val fresh = repo.db.episodes().byId(episode.id) ?: episode
+            val podcast = repo.db.podcasts().byId(fresh.podcastId)
+            PlayerService.play(
+                getApplication(),
+                fresh,
+                podcastTitle.ifBlank { podcast?.title.orEmpty() },
+                artwork.ifBlank { podcast?.imageUrl ?: fresh.imageUrl }
+            )
+        }
     }
 
-    fun togglePlay() = PlayerService.instance?.togglePlay()
+    fun togglePlay() {
+        val svc = PlayerService.instance
+        if (svc != null && PlayerService.state.value.episodeId != 0L) {
+            svc.togglePlay()
+            return
+        }
+        viewModelScope.launch { resumeLastEpisode() }
+    }
+
     fun skip(forward: Boolean) = PlayerService.instance?.skip(forward)
     fun seek(ms: Long) = PlayerService.instance?.seek(ms)
     fun setSpeed(speed: Float) = PlayerService.instance?.setSpeed(speed)
+
+    private suspend fun restoreLastEpisode() {
+        if (PlayerService.state.value.episodeId != 0L) return
+        val lastId = repo.settingsOnce().lastEpisodeId
+        if (lastId == 0L) return
+        val episode = repo.db.episodes().byId(lastId) ?: return
+        val podcast = repo.db.podcasts().byId(episode.podcastId)
+        PlayerService.restoreSession(
+            episode,
+            podcast?.title.orEmpty(),
+            podcast?.imageUrl ?: episode.imageUrl
+        )
+    }
+
+    private suspend fun resumeLastEpisode() {
+        val id = PlayerService.state.value.episodeId.takeIf { it != 0L }
+            ?: repo.settingsOnce().lastEpisodeId
+        if (id == 0L) return
+        val episode = repo.db.episodes().byId(id) ?: return
+        val podcast = repo.db.podcasts().byId(episode.podcastId)
+        PlayerService.play(
+            getApplication(),
+            episode,
+            podcast?.title.orEmpty(),
+            podcast?.imageUrl ?: episode.imageUrl
+        )
+    }
 
     fun loadExtras(episode: EpisodeEntity) {
         viewModelScope.launch {

@@ -152,11 +152,15 @@ class PodRepository(context: Context) {
     suspend fun markProgress(episodeId: Long, positionMs: Long, durationMs: Long) {
         val episode = db.episodes().byId(episodeId) ?: return
         val completed = durationMs > 0 && positionMs >= durationMs - 5000
-        db.episodes().updateProgress(episodeId, positionMs, completed || episode.completed)
+        db.episodes().updateProgress(episodeId, positionMs, completed)
         if (completed) {
             val podcast = db.podcasts().byId(episode.podcastId)
             if (podcast?.autoDelete == true) downloader.deleteLocal(episodeId)
         }
+    }
+
+    suspend fun setLastEpisode(episodeId: Long) {
+        updateSettings { it.copy(lastEpisodeId = episodeId) }
     }
 
     suspend fun autoDeleteCompleted() {

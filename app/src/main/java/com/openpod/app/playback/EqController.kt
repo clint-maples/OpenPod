@@ -12,10 +12,14 @@ class EqController {
     fun attach(audioSessionId: Int, enabled: Boolean, saved: String) {
         release()
         if (audioSessionId == 0) return
-        val eq = Equalizer(0, audioSessionId)
-        eq.enabled = enabled
-        if (saved.isNotBlank()) {
-            try {
+        val eq = try {
+            Equalizer(0, audioSessionId)
+        } catch (_: Throwable) {
+            return
+        }
+        try {
+            eq.enabled = enabled
+            if (saved.isNotBlank()) {
                 val arr = JSONObject(saved).optJSONArray("bands") ?: JSONArray()
                 for (i in 0 until arr.length()) {
                     val obj = arr.optJSONObject(i) ?: continue
@@ -25,10 +29,15 @@ class EqController {
                         eq.setBandLevel(index.toShort(), level)
                     }
                 }
+            }
+            equalizer = eq
+        } catch (_: Throwable) {
+            try {
+                eq.release()
             } catch (_: Exception) {
             }
+            equalizer = null
         }
-        equalizer = eq
     }
 
     fun setEnabled(enabled: Boolean) {
