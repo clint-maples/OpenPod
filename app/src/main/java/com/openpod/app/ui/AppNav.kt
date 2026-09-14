@@ -207,19 +207,32 @@ private fun RowScope.NavItem(
 
 @Composable
 private fun MiniPlayer(player: com.openpod.app.playback.PlayerUiState, vm: AppViewModel, onOpen: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(player.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(player.podcastTitle, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+    val progress = if (player.durationMs > 0L) {
+        (player.positionMs.toFloat() / player.durationMs.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    Column(Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(player.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(player.podcastTitle, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+            }
+            IconButton({ vm.skip(false) }) { Icon(Icons.Default.FastRewind, "Back") }
+            IconButton({ vm.togglePlay() }) {
+                Icon(if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play")
+            }
+            IconButton({ vm.skip(true) }) { Icon(Icons.Default.FastForward, "Forward") }
         }
-        IconButton({ vm.skip(false) }) { Icon(Icons.Default.FastRewind, "Back") }
-        IconButton({ vm.togglePlay() }) {
-            Icon(if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play")
-        }
-        IconButton({ vm.skip(true) }) { Icon(Icons.Default.FastForward, "Forward") }
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.fillMaxWidth().height(2.dp),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
+        )
     }
 }
 
