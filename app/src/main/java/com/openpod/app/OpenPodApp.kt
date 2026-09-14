@@ -18,6 +18,16 @@ class OpenPodApp : Application() {
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(
                 NotificationChannel(
+                    "playback_media",
+                    "Now playing",
+                    NotificationManager.IMPORTANCE_DEFAULT
+                ).apply {
+                    setShowBadge(false)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                }
+            )
+            manager.createNotificationChannel(
+                NotificationChannel(
                     "playback",
                     "Playback",
                     NotificationManager.IMPORTANCE_LOW

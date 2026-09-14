@@ -20,12 +20,11 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
-import androidx.core.graphics.drawable.IconCompat
+import androidx.core.content.ContextCompat
 import androidx.media3.session.CommandButton
-import androidx.media3.session.MediaNotification
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import androidx.media3.session.MediaStyleNotificationHelper
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
@@ -111,7 +110,9 @@ class PlayerService : MediaSessionService() {
             .setSeekBackIncrementMs(_state.value.skipBackSec * 1000L)
             .setSeekForwardIncrementMs(_state.value.skipForwardSec * 1000L)
             .build()
-        setMediaNotificationProvider(OpenPodNotificationProvider(this))
+        val notifications = OpenPodNotificationProvider(this)
+        notifications.setSmallIcon(R.drawable.ic_notification)
+        setMediaNotificationProvider(notifications)
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 publish()
@@ -334,13 +335,14 @@ class PlayerService : MediaSessionService() {
     }
 
     private fun enterForeground(text: String) {
-        val notification: Notification = NotificationCompat.Builder(this, "playback")
+        val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .setSilent(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .build()
         val type = if (Build.VERSION.SDK_INT >= 29) {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
@@ -355,13 +357,15 @@ class PlayerService : MediaSessionService() {
             session: MediaSession,
             controller: MediaSession.ControllerInfo
         ): MediaSession.ConnectionResult {
-            val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
-                .add(SessionCommand(OpenPodNotificationProvider.ACTION_REWIND, Bundle.EMPTY))
-                .add(SessionCommand(OpenPodNotificationProvider.ACTION_FORWARD, Bundle.EMPTY))
+            val result = super.onConnect(session, controller)
+            if (!result.isAccepted) return result
+            val sessionCommands = result.availableSessionCommands.buildUpon()
+                .add(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
+                .add(SessionCommand(ACTION_FORWARD, Bundle.EMPTY))
                 .build()
             return MediaSession.ConnectionResult.accept(
                 sessionCommands,
-                MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS
+                result.availablePlayerCommands
             )
         }
 
@@ -371,22 +375,23 @@ class PlayerService : MediaSessionService() {
             intent: Intent
         ): Boolean {
             val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT) ?: return false
+            val handled = event.keyCode == KeyEvent.KEYCODE_HEADSETHOOK ||
+                event.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ||
+                event.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY ||
+                event.keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE ||
+                event.keyCode == KeyEvent.KEYCODE_MEDIA_NEXT ||
+                event.keyCode == KeyEvent.KEYCODE_MEDIA_PREVIOUS ||
+                event.keyCode == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD ||
+                event.keyCode == KeyEvent.KEYCODE_MEDIA_REWIND
+            if (!handled) return false
             if (event.action != KeyEvent.ACTION_UP) return true
-            return when (event.keyCode) {
-                KeyEvent.KEYCODE_HEADSETHOOK, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
-                    headset.onClick()
-                    true
-                }
-                KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
-                    skip(true)
-                    true
-                }
-                KeyEvent.KEYCODE_MEDIA_PREVIOUS, KeyEvent.KEYCODE_MEDIA_REWIND -> {
-                    skip(false)
-                    true
-                }
-                else -> false
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_HEADSETHOOK -> headset.onClick()
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE -> togglePlay()
+                KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> skip(true)
+                KeyEvent.KEYCODE_MEDIA_PREVIOUS, KeyEvent.KEYCODE_MEDIA_REWIND -> skip(false)
             }
+            return true
         }
 
         override fun onCustomCommand(
@@ -396,8 +401,8 @@ class PlayerService : MediaSessionService() {
             args: Bundle
         ): ListenableFuture<SessionResult> {
             when (customCommand.customAction) {
-                OpenPodNotificationProvider.ACTION_REWIND -> skip(false)
-                OpenPodNotificationProvider.ACTION_FORWARD -> skip(true)
+                ACTION_REWIND -> skip(false)
+                ACTION_FORWARD -> skip(true)
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
@@ -405,6 +410,9 @@ class PlayerService : MediaSessionService() {
 
     companion object {
         const val NOTIFICATION_ID = 1001
+        const val CHANNEL_ID = "playback_media"
+        const val ACTION_REWIND = "openpod.REWIND"
+        const val ACTION_FORWARD = "openpod.FORWARD"
         private val _state = MutableStateFlow(PlayerUiState())
         val state = _state.asStateFlow()
         var instance: PlayerService? = null
@@ -431,7 +439,7 @@ class PlayerService : MediaSessionService() {
             }
             pending = Triple(episode, podcastTitle, artwork)
             val intent = Intent(context, PlayerService::class.java)
-            context.startService(intent)
+            ContextCompat.startForegroundService(context, intent)
         }
 
         fun restoreSession(episode: EpisodeEntity, podcastTitle: String, artwork: String) {
@@ -460,96 +468,34 @@ class PlayerService : MediaSessionService() {
 }
 
 @UnstableApi
-private class OpenPodNotificationProvider(
-    private val context: Context
-) : MediaNotification.Provider {
-    override fun createNotification(
-        mediaSession: MediaSession,
-        customLayout: ImmutableList<CommandButton>,
-        actionFactory: MediaNotification.ActionFactory,
-        onNotificationChangedCallback: MediaNotification.Provider.Callback
-    ): MediaNotification {
-        val player = mediaSession.player
-        val playing = player.playWhenReady && player.playbackState != Player.STATE_ENDED &&
-            player.playbackState != Player.STATE_IDLE
-        val title = player.mediaMetadata.displayTitle
-            ?: player.mediaMetadata.title
-            ?: context.getString(R.string.app_name)
-        val duration = player.duration.takeIf { it > 0 } ?: 0L
-        val position = player.currentPosition.coerceAtLeast(0)
-        val time = "${formatPlaybackTime(position)} / ${formatPlaybackTime(duration)}"
-        val rewind = actionFactory.createCustomAction(
-            mediaSession,
-            IconCompat.createWithResource(context, android.R.drawable.ic_media_rew),
-            "Rewind",
-            ACTION_REWIND,
-            Bundle.EMPTY
-        )
-        val playPause = actionFactory.createMediaAction(
-            mediaSession,
-            IconCompat.createWithResource(
-                context,
-                if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
-            ),
-            if (playing) "Pause" else "Play",
-            Player.COMMAND_PLAY_PAUSE
-        )
-        val forward = actionFactory.createCustomAction(
-            mediaSession,
-            IconCompat.createWithResource(context, android.R.drawable.ic_media_ff),
-            "Forward",
-            ACTION_FORWARD,
-            Bundle.EMPTY
-        )
-        val builder = NotificationCompat.Builder(context, "playback")
-            .setContentTitle(title)
-            .setContentText(time)
-            .setSubText(player.mediaMetadata.artist)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setOngoing(playing)
-            .setOnlyAlertOnce(true)
-            .setSilent(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setContentIntent(mediaSession.sessionActivity)
-            .setStyle(
-                MediaStyleNotificationHelper.MediaStyle(mediaSession)
-                    .setShowActionsInCompactView(0, 1, 2)
-            )
-            .addAction(rewind)
-            .addAction(playPause)
-            .addAction(forward)
-        return MediaNotification(PlayerService.NOTIFICATION_ID, builder.build())
-    }
-
-    override fun handleCustomCommand(
+private class OpenPodNotificationProvider(context: Context) : DefaultMediaNotificationProvider(context) {
+    override fun getMediaButtons(
         session: MediaSession,
-        action: String,
-        extras: Bundle
-    ): Boolean {
-        when (action) {
-            ACTION_REWIND -> {
-                PlayerService.instance?.skip(false)
-                return true
-            }
-            ACTION_FORWARD -> {
-                PlayerService.instance?.skip(true)
-                return true
-            }
-        }
-        return false
-    }
-
-    companion object {
-        const val ACTION_REWIND = "openpod.REWIND"
-        const val ACTION_FORWARD = "openpod.FORWARD"
-
-        private fun formatPlaybackTime(ms: Long): String {
-            if (ms <= 0L) return "0:00"
-            val totalSec = (ms / 1000).toInt()
-            val h = totalSec / 3600
-            val m = (totalSec % 3600) / 60
-            val s = totalSec % 60
-            return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
-        }
+        playerCommands: Player.Commands,
+        customLayout: ImmutableList<CommandButton>,
+        showPauseButton: Boolean
+    ): ImmutableList<CommandButton> {
+        val rewind = CommandButton.Builder()
+            .setPlayerCommand(Player.COMMAND_SEEK_BACK)
+            .setDisplayName("Rewind")
+            .setIconResId(android.R.drawable.ic_media_rew)
+            .setEnabled(true)
+            .build()
+        val playPause = CommandButton.Builder()
+            .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
+            .setDisplayName(if (showPauseButton) "Pause" else "Play")
+            .setIconResId(
+                if (showPauseButton) android.R.drawable.ic_media_pause
+                else android.R.drawable.ic_media_play
+            )
+            .setEnabled(true)
+            .build()
+        val forward = CommandButton.Builder()
+            .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
+            .setDisplayName("Forward")
+            .setIconResId(android.R.drawable.ic_media_ff)
+            .setEnabled(true)
+            .build()
+        return ImmutableList.of(rewind, playPause, forward)
     }
 }
