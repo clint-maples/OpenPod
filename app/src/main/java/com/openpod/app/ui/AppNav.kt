@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,6 +25,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -41,6 +45,7 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -48,6 +53,7 @@ import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -221,15 +227,48 @@ private fun MiniPlayer(player: com.openpod.app.playback.PlayerUiState, vm: AppVi
 @Composable
 private fun LibraryScreen(vm: AppViewModel, onOpen: (Long) -> Unit, onRefresh: () -> Unit) {
     val podcasts by vm.podcasts.collectAsState()
+    val settings by vm.settings.collectAsState()
+    val grid = settings.libraryLayout == SettingsEntity.LAYOUT_GRID
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Library") }, actions = {
+                IconButton({
+                    vm.setLibraryLayout(
+                        if (grid) SettingsEntity.LAYOUT_LIST else SettingsEntity.LAYOUT_GRID
+                    )
+                }) {
+                    Icon(
+                        if (grid) Icons.Default.ViewList else Icons.Default.GridView,
+                        if (grid) "List layout" else "Grid layout"
+                    )
+                }
                 IconButton(onRefresh) { Icon(Icons.Default.Refresh, "Refresh") }
             })
         }
     ) { padding ->
         if (podcasts.isEmpty()) {
             Text("Add a show from Discover, or paste an RSS URL.", Modifier.padding(padding).padding(24.dp))
+        } else if (grid) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(5),
+                modifier = Modifier.padding(padding).fillMaxSize(),
+                contentPadding = PaddingValues(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                gridItems(podcasts, key = { it.id }) { podcast ->
+                    AsyncImage(
+                        model = podcast.imageUrl,
+                        contentDescription = podcast.title,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { onOpen(podcast.id) },
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
         } else {
             LazyColumn(Modifier.padding(padding)) {
                 items(podcasts, key = { it.id }) { podcast ->

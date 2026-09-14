@@ -2,10 +2,10 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.3  
-**Download:** [OpenPod 1.3 APK](https://github.com/clint-maples/OpenPod/releases/download/1.3/OpenPod-1.3.apk)
+**Current version:** 1.4  
+**Download:** [OpenPod 1.4 APK](https://github.com/clint-maples/OpenPod/releases/download/1.4/OpenPod-1.4.apk)
 
-Previous: [1.2](https://github.com/clint-maples/OpenPod/releases/download/1.2/OpenPod-1.2.apk) · [1.1](https://github.com/clint-maples/OpenPod/releases/download/1.1/OpenPod-1.1.apk) · [1.0](https://github.com/clint-maples/OpenPod/releases/download/1.0/OpenPod-1.0.apk)
+Previous: [1.3](https://github.com/clint-maples/OpenPod/releases/download/1.3/OpenPod-1.3.apk) · [1.2](https://github.com/clint-maples/OpenPod/releases/download/1.2/OpenPod-1.2.apk) · [1.1](https://github.com/clint-maples/OpenPod/releases/download/1.1/OpenPod-1.1.apk) · [1.0](https://github.com/clint-maples/OpenPod/releases/download/1.0/OpenPod-1.0.apk)
 
 **Stack:** Kotlin, Jetpack Compose, Room, Media3, WorkManager, iTunes search + RSS.
 
@@ -16,6 +16,7 @@ Previous: [1.2](https://github.com/clint-maples/OpenPod/releases/download/1.2/Op
 - Batch **download**, **delete downloaded files**, **archive / unarchive**, or **add to a playlist**
 - Remove a show from the podcast screen (trash icon), not the main library list
 - Archive hides episodes; turn on **Show archived** on the podcast screen to see them again
+- Library layout toggle: list, or a scrolling **5-wide thumbnail grid**
 
 ## Playlists
 

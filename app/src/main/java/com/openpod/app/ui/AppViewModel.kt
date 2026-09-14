@@ -251,6 +251,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.updateSettings { it.copy(showArchived = show) } }
     }
 
+    fun setLibraryLayout(layout: String) {
+        viewModelScope.launch { repo.updateSettings { it.copy(libraryLayout = layout) } }
+    }
+
     fun setSyncSchedule(frequency: String, hour: Int, minute: Int) {
         viewModelScope.launch {
             repo.updateSettings {

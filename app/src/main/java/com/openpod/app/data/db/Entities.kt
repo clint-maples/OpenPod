@@ -123,12 +123,15 @@ data class SettingsEntity(
     val syncHour: Int = 6,
     val syncMinute: Int = 0,
     val lastEpisodeId: Long = 0L,
-    val volumeBoost: Float = 0f
+    val volumeBoost: Float = 0f,
+    val libraryLayout: String = LAYOUT_LIST
 ) {
     companion object {
         const val SYNC_HOURLY = "hourly"
         const val SYNC_DAILY = "daily"
         const val SYNC_WEEKLY = "weekly"
+        const val LAYOUT_LIST = "list"
+        const val LAYOUT_GRID = "grid"
     }
 }
 
