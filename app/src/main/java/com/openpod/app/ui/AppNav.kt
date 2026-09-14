@@ -1,7 +1,10 @@
 package com.openpod.app.ui
 
+import android.Manifest
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.text.method.LinkMovementMethod
 import android.widget.TextView
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -95,6 +98,8 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.app.NotificationManagerCompat
+import com.openpod.app.BuildConfig
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
@@ -1089,6 +1094,14 @@ private fun SettingsScreen(vm: AppViewModel) {
     var pattern by remember(settings.namingPattern) { mutableStateOf(settings.namingPattern) }
     var fwd by remember(settings.skipForwardSec) { mutableStateOf(settings.skipForwardSec.toFloat()) }
     var back by remember(settings.skipBackSec) { mutableStateOf(settings.skipBackSec.toFloat()) }
+    var notificationsOn by remember {
+        mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
+    }
+    val notifyPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        notificationsOn = NotificationManagerCompat.from(context).areNotificationsEnabled()
+    }
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
         LazyColumn(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
@@ -1151,6 +1164,43 @@ private fun SettingsScreen(vm: AppViewModel) {
                     Text("OpenPod will look for new episodes about every hour.")
                 }
                 TextButton({ vm.setSyncSchedule(frequency, hour.toInt(), minute.toInt()) }) { Text("Save sync schedule") }
+            }
+            item {
+                Text("Notifications", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    if (notificationsOn) {
+                        "Notifications are on. Lock-screen and notification-shade controls appear while an episode is playing."
+                    } else {
+                        "Notifications are off. Android 13 and newer require this permission for the lock-screen and notification player."
+                    },
+                    style = MaterialTheme.typography.bodySmall
+                )
+                if (!notificationsOn) {
+                    Button({
+                        if (Build.VERSION.SDK_INT >= 33) {
+                            notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            context.startActivity(
+                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                }
+                            )
+                        }
+                    }) { Text("Enable notifications") }
+                } else {
+                    TextButton({
+                        context.startActivity(
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            }
+                        )
+                    }) { Text("Notification settings") }
+                }
+            }
+            item {
+                Text("About", style = MaterialTheme.typography.titleMedium)
+                Text("OpenPod ${BuildConfig.VERSION_NAME}")
+                Text("Build ${BuildConfig.VERSION_CODE}", style = MaterialTheme.typography.bodySmall)
             }
         }
     }

@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
-import android.os.Bundle
 import android.view.KeyEvent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -21,15 +20,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.core.content.ContextCompat
-import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import androidx.media3.session.SessionCommand
-import androidx.media3.session.SessionResult
-import com.google.common.collect.ImmutableList
-import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
 import com.openpod.app.MainActivity
 import com.openpod.app.R
 import com.openpod.app.data.PodRepository
@@ -110,9 +103,14 @@ class PlayerService : MediaSessionService() {
             .setSeekBackIncrementMs(_state.value.skipBackSec * 1000L)
             .setSeekForwardIncrementMs(_state.value.skipForwardSec * 1000L)
             .build()
-        val notifications = OpenPodNotificationProvider(this)
-        notifications.setSmallIcon(R.drawable.ic_notification)
-        setMediaNotificationProvider(notifications)
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this)
+                .setChannelId(CHANNEL_ID)
+                .setChannelName(R.string.playback_channel_name)
+                .setNotificationId(NOTIFICATION_ID)
+                .build()
+                .also { it.setSmallIcon(R.drawable.ic_notification) }
+        )
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 publish()
@@ -209,6 +207,7 @@ class PlayerService : MediaSessionService() {
         player.prepare()
         player.setPlaybackSpeed(_state.value.speed.coerceIn(0.5f, 5.0f))
         player.play()
+        session?.let { onUpdateNotification(it, true) }
         _state.update {
             it.copy(
                 episodeId = episode.id,
@@ -353,66 +352,21 @@ class PlayerService : MediaSessionService() {
     }
 
     private inner class ButtonCallback : MediaSession.Callback {
-        override fun onConnect(
-            session: MediaSession,
-            controller: MediaSession.ControllerInfo
-        ): MediaSession.ConnectionResult {
-            val result = super.onConnect(session, controller)
-            if (!result.isAccepted) return result
-            val sessionCommands = result.availableSessionCommands.buildUpon()
-                .add(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
-                .add(SessionCommand(ACTION_FORWARD, Bundle.EMPTY))
-                .build()
-            return MediaSession.ConnectionResult.accept(
-                sessionCommands,
-                result.availablePlayerCommands
-            )
-        }
-
         override fun onMediaButtonEvent(
             session: MediaSession,
             controllerInfo: MediaSession.ControllerInfo,
             intent: Intent
         ): Boolean {
             val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT) ?: return false
-            val handled = event.keyCode == KeyEvent.KEYCODE_HEADSETHOOK ||
-                event.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ||
-                event.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY ||
-                event.keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE ||
-                event.keyCode == KeyEvent.KEYCODE_MEDIA_NEXT ||
-                event.keyCode == KeyEvent.KEYCODE_MEDIA_PREVIOUS ||
-                event.keyCode == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD ||
-                event.keyCode == KeyEvent.KEYCODE_MEDIA_REWIND
-            if (!handled) return false
-            if (event.action != KeyEvent.ACTION_UP) return true
-            when (event.keyCode) {
-                KeyEvent.KEYCODE_HEADSETHOOK -> headset.onClick()
-                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE -> togglePlay()
-                KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> skip(true)
-                KeyEvent.KEYCODE_MEDIA_PREVIOUS, KeyEvent.KEYCODE_MEDIA_REWIND -> skip(false)
-            }
+            if (event.keyCode != KeyEvent.KEYCODE_HEADSETHOOK) return false
+            if (event.action == KeyEvent.ACTION_UP) headset.onClick()
             return true
-        }
-
-        override fun onCustomCommand(
-            session: MediaSession,
-            controller: MediaSession.ControllerInfo,
-            customCommand: SessionCommand,
-            args: Bundle
-        ): ListenableFuture<SessionResult> {
-            when (customCommand.customAction) {
-                ACTION_REWIND -> skip(false)
-                ACTION_FORWARD -> skip(true)
-            }
-            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
     }
 
     companion object {
         const val NOTIFICATION_ID = 1001
         const val CHANNEL_ID = "playback_media"
-        const val ACTION_REWIND = "openpod.REWIND"
-        const val ACTION_FORWARD = "openpod.FORWARD"
         private val _state = MutableStateFlow(PlayerUiState())
         val state = _state.asStateFlow()
         var instance: PlayerService? = null
@@ -464,38 +418,5 @@ class PlayerService : MediaSessionService() {
                 _state.value = PlayerUiState()
             }
         }
-    }
-}
-
-@UnstableApi
-private class OpenPodNotificationProvider(context: Context) : DefaultMediaNotificationProvider(context) {
-    override fun getMediaButtons(
-        session: MediaSession,
-        playerCommands: Player.Commands,
-        customLayout: ImmutableList<CommandButton>,
-        showPauseButton: Boolean
-    ): ImmutableList<CommandButton> {
-        val rewind = CommandButton.Builder()
-            .setPlayerCommand(Player.COMMAND_SEEK_BACK)
-            .setDisplayName("Rewind")
-            .setIconResId(android.R.drawable.ic_media_rew)
-            .setEnabled(true)
-            .build()
-        val playPause = CommandButton.Builder()
-            .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
-            .setDisplayName(if (showPauseButton) "Pause" else "Play")
-            .setIconResId(
-                if (showPauseButton) android.R.drawable.ic_media_pause
-                else android.R.drawable.ic_media_play
-            )
-            .setEnabled(true)
-            .build()
-        val forward = CommandButton.Builder()
-            .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
-            .setDisplayName("Forward")
-            .setIconResId(android.R.drawable.ic_media_ff)
-            .setEnabled(true)
-            .build()
-        return ImmutableList.of(rewind, playPause, forward)
     }
 }
