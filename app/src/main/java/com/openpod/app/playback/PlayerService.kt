@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
-import android.view.KeyEvent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.media3.common.AudioAttributes
@@ -66,18 +65,13 @@ class PlayerService : MediaSessionService() {
     private var currentEpisode: EpisodeEntity? = null
     private var lastAudioSessionId = 0
 
-    private val headset = HeadsetClickTracker(
-        onSingle = { togglePlay() },
-        onDouble = { skip(true) },
-        onTriple = { skip(false) }
-    )
 
     override fun onCreate() {
         super.onCreate()
         instance = this
         repo = PodRepository(this)
-        // Do not startForeground with a plain notification before MediaSession exists —
-        // that sticks a non-media FGS notice in the tray and blocks lock-screen controls.
+        // startForegroundService() requires startForeground() quickly â€” do that first.
+        enterForeground(getString(R.string.app_name))
         val renderers = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
                 context: Context,
@@ -116,10 +110,12 @@ class PlayerService : MediaSessionService() {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 publish()
                 if (!isPlaying) persistProgress()
+                refreshMediaNotification()
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 publish()
+                refreshMediaNotification()
                 if (playbackState == Player.STATE_ENDED) {
                     val ep = currentEpisode ?: return
                     val duration = player.duration.coerceAtLeast(0)
@@ -139,13 +135,13 @@ class PlayerService : MediaSessionService() {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        // No custom Callback so notification/lock-screen controllers get default
+        // Media3 play/pause/seek command handling without interference.
         session = MediaSession.Builder(this, player)
-            .setCallback(ButtonCallback())
+            .setId("openpod")
             .setSessionActivity(sessionActivity)
             .build()
-        // Promote to foreground only after the session exists so Media3 can post a
-        // real media-style notification (lock screen + system tray player).
-        session?.let { onUpdateNotification(it, true) }
+        refreshMediaNotification()
         startProgress()
         ioScope.launch {
             val settings = repo.settingsOnce()
@@ -211,7 +207,7 @@ class PlayerService : MediaSessionService() {
         player.prepare()
         player.setPlaybackSpeed(_state.value.speed.coerceIn(0.5f, 5.0f))
         player.play()
-        session?.let { onUpdateNotification(it, true) }
+        refreshMediaNotification()
         _state.update {
             it.copy(
                 episodeId = episode.id,
@@ -337,13 +333,20 @@ class PlayerService : MediaSessionService() {
         }
     }
 
+    private fun refreshMediaNotification() {
+        val active = session ?: return
+        // Media3 posts a MediaStyle notification tied to the session
+        // (required for lock screen + system tray player).
+        onUpdateNotification(active, true)
+    }
+
     private fun enterForeground(text: String) {
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
-            .setSilent(true)
+            .setOnlyAlertOnce(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .build()
@@ -355,33 +358,6 @@ class PlayerService : MediaSessionService() {
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type)
     }
 
-    private inner class ButtonCallback : MediaSession.Callback {
-        override fun onConnect(
-            session: MediaSession,
-            controller: MediaSession.ControllerInfo
-        ): MediaSession.ConnectionResult {
-            // Accept system UI / notification controller so lock-screen and tray
-            // media controls can attach (Media3 default, made explicit).
-            val result = super.onConnect(session, controller)
-            if (!result.isAccepted) {
-                return MediaSession.ConnectionResult.AcceptedResultBuilder(session).build()
-            }
-            return result
-        }
-
-        override fun onMediaButtonEvent(
-            session: MediaSession,
-            controllerInfo: MediaSession.ControllerInfo,
-            intent: Intent
-        ): Boolean {
-            val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT) ?: return false
-            // Only intercept headset hook; let Media3 handle play/pause/skip from
-            // notification and lock-screen buttons via the player commands.
-            if (event.keyCode != KeyEvent.KEYCODE_HEADSETHOOK) return false
-            if (event.action == KeyEvent.ACTION_UP) headset.onClick()
-            return true
-        }
-    }
 
     companion object {
         const val NOTIFICATION_ID = 1001
