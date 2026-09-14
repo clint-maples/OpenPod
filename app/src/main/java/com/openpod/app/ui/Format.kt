@@ -19,6 +19,17 @@ fun formatDate(ms: Long): String {
     return SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(ms))
 }
 
+const val SPEED_MIN = 0.5f
+const val SPEED_MAX = 5.0f
+const val SPEED_STEP = 0.1f
+
+fun clampSpeed(value: Float): Float {
+    val rounded = kotlin.math.round(value * 10f) / 10f
+    return rounded.coerceIn(SPEED_MIN, SPEED_MAX)
+}
+
+fun formatSpeed(speed: Float): String = String.format(Locale.US, "%.1f", clampSpeed(speed))
+
 fun formatBytes(bytes: Long): String {
     if (bytes < 0L) return "—"
     if (bytes < 1024L) return "$bytes B"

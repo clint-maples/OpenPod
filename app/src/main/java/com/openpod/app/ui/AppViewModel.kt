@@ -148,7 +148,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun skip(forward: Boolean) = PlayerService.instance?.skip(forward)
     fun seek(ms: Long) = PlayerService.instance?.seek(ms)
-    fun setSpeed(speed: Float) = PlayerService.instance?.setSpeed(speed)
+    fun setSpeed(speed: Float) = PlayerService.setSpeed(clampSpeed(speed))
 
     private suspend fun restoreLastEpisode() {
         if (PlayerService.state.value.episodeId != 0L) return

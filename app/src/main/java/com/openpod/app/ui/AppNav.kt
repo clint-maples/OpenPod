@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
@@ -85,7 +86,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -210,7 +214,6 @@ private fun MiniPlayer(player: com.openpod.app.playback.PlayerUiState, vm: AppVi
 @Composable
 private fun LibraryScreen(vm: AppViewModel, onOpen: (Long) -> Unit, onRefresh: () -> Unit) {
     val podcasts by vm.podcasts.collectAsState()
-    var pendingRemove by remember { mutableStateOf<PodcastEntity?>(null) }
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Library") }, actions = {
@@ -223,35 +226,15 @@ private fun LibraryScreen(vm: AppViewModel, onOpen: (Long) -> Unit, onRefresh: (
         } else {
             LazyColumn(Modifier.padding(padding)) {
                 items(podcasts, key = { it.id }) { podcast ->
-                    PodcastRow(
-                        podcast = podcast,
-                        onClick = { onOpen(podcast.id) },
-                        onRemove = { pendingRemove = podcast }
-                    )
+                    PodcastRow(podcast) { onOpen(podcast.id) }
                 }
             }
         }
     }
-    pendingRemove?.let { podcast ->
-        AlertDialog(
-            onDismissRequest = { pendingRemove = null },
-            title = { Text("Remove podcast") },
-            text = {
-                Text("Remove ${podcast.title} from your library? Downloaded episodes for this show will be deleted.")
-            },
-            confirmButton = {
-                TextButton({
-                    vm.unsubscribe(podcast.id)
-                    pendingRemove = null
-                }) { Text("Remove") }
-            },
-            dismissButton = { TextButton({ pendingRemove = null }) { Text("Cancel") } }
-        )
-    }
 }
 
 @Composable
-private fun PodcastRow(podcast: PodcastEntity, onClick: () -> Unit, onRemove: () -> Unit) {
+private fun PodcastRow(podcast: PodcastEntity, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
         AsyncImage(podcast.imageUrl, podcast.title, Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
         Spacer(Modifier.width(12.dp))
@@ -259,7 +242,6 @@ private fun PodcastRow(podcast: PodcastEntity, onClick: () -> Unit, onRemove: ()
             Text(podcast.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(podcast.author, style = MaterialTheme.typography.bodySmall, maxLines = 1)
         }
-        IconButton(onRemove) { Icon(Icons.Default.Delete, "Remove from library") }
     }
 }
 
@@ -325,7 +307,7 @@ private fun DiscoverScreen(vm: AppViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -> Unit, onRemoved: () -> Unit) {
     val podcasts by vm.podcasts.collectAsState()
@@ -427,8 +409,19 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                         selected = emptySet()
                     }) { Text("Select episodes") }
                 } else {
-                    Row(Modifier.padding(horizontal = 4.dp)) {
+                    FlowRow(
+                        Modifier.padding(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         TextButton({ selected = episodes.map { it.id }.toSet() }) { Text("Select all") }
+                        TextButton({
+                            selected = episodes.filter { it.downloadStatus == EpisodeEntity.STATUS_DONE }
+                                .map { it.id }.toSet()
+                        }) { Text("Downloaded") }
+                        TextButton({
+                            selected = episodes.filter { it.downloadStatus != EpisodeEntity.STATUS_DONE }
+                                .map { it.id }.toSet()
+                        }) { Text("Not downloaded") }
                         TextButton({ selected = emptySet() }) { Text("Clear") }
                     }
                 }
@@ -660,7 +653,6 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
 private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit) {
     val player by vm.player.collectAsState()
     val settings by vm.settings.collectAsState()
-    val speeds = listOf(0.8f, 1f, 1.1f, 1.25f, 1.5f, 1.75f, 2f)
     Scaffold(topBar = {
         TopAppBar(title = { Text("Now playing") }, actions = {
             IconButton(onEq) { Icon(Icons.Default.Equalizer, "Equalizer") }
@@ -709,12 +701,64 @@ private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit) {
                 }
             }
             Text("Skip ${settings.skipBackSec}s / ${settings.skipForwardSec}s")
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                speeds.forEach { speed ->
-                    FilterChip(selected = player.speed == speed, onClick = { vm.setSpeed(speed) }, label = { Text("${speed}x") })
-                }
-            }
+            Spacer(Modifier.height(16.dp))
+            Text("Playback speed", style = MaterialTheme.typography.labelLarge)
+            SpeedControl(player.speed, { vm.setSpeed(it) })
+        }
+    }
+}
+
+@Composable
+private fun SpeedControl(speed: Float, onSpeed: (Float) -> Unit) {
+    val focusManager = LocalFocusManager.current
+    var text by remember { mutableStateOf(formatSpeed(speed)) }
+    LaunchedEffect(speed) {
+        val formatted = formatSpeed(speed)
+        if (text.toFloatOrNull()?.let { kotlin.math.abs(it - speed) > 0.05f } != false) {
+            text = formatted
+        }
+    }
+    fun apply(raw: String) {
+        val parsed = raw.trim().removeSuffix("x").replace(',', '.').toFloatOrNull()
+        if (parsed != null) {
+            val clamped = clampSpeed(parsed)
+            text = formatSpeed(clamped)
+            onSpeed(clamped)
+        } else {
+            text = formatSpeed(speed)
+        }
+    }
+    fun nudge(delta: Float) {
+        val current = text.toFloatOrNull() ?: speed
+        val next = clampSpeed(current + delta)
+        text = formatSpeed(next)
+        onSpeed(next)
+    }
+    val current = text.toFloatOrNull() ?: speed
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+        IconButton({ nudge(-SPEED_STEP) }, enabled = current > SPEED_MIN) {
+            Icon(Icons.Default.Remove, "Slower")
+        }
+        OutlinedTextField(
+            value = text,
+            onValueChange = { value ->
+                text = value.filter { it.isDigit() || it == '.' || it == ',' }.take(4)
+            },
+            modifier = Modifier.width(100.dp),
+            singleLine = true,
+            textStyle = TextStyle(textAlign = TextAlign.Center),
+            suffix = { Text("x") },
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Decimal,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(onDone = {
+                apply(text)
+                focusManager.clearFocus()
+            })
+        )
+        IconButton({ nudge(SPEED_STEP) }, enabled = current < SPEED_MAX) {
+            Icon(Icons.Default.Add, "Faster")
         }
     }
 }

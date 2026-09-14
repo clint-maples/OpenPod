@@ -158,6 +158,7 @@ class PlayerService : MediaSessionService() {
             start
         )
         player.prepare()
+        player.setPlaybackSpeed(_state.value.speed.coerceIn(0.5f, 5.0f))
         player.play()
         _state.update {
             it.copy(
@@ -333,6 +334,12 @@ class PlayerService : MediaSessionService() {
         var instance: PlayerService? = null
             private set
         private var pending: Triple<EpisodeEntity, String, String>? = null
+
+        fun setSpeed(speed: Float) {
+            val clamped = speed.coerceIn(0.5f, 5.0f)
+            _state.update { it.copy(speed = clamped) }
+            instance?.setSpeed(clamped)
+        }
 
         fun play(context: android.content.Context, episode: EpisodeEntity, podcastTitle: String, artwork: String) {
             val existing = instance
