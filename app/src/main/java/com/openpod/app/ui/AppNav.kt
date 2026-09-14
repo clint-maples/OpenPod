@@ -2,6 +2,8 @@ package com.openpod.app.ui
 
 import android.content.Intent
 import android.net.Uri
+import android.text.method.LinkMovementMethod
+import android.widget.TextView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -82,6 +85,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -92,6 +97,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -602,9 +608,12 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
                     }
                 )
             }
-            item {
-                Text("From the publisher", style = MaterialTheme.typography.titleMedium)
-                Text(stripHtml(current.description), style = MaterialTheme.typography.bodyMedium)
+            if (current.description.isNotBlank()) {
+                item {
+                    Text("From the publisher", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    PublisherText(current.description)
+                }
             }
             if (chapters.isNotEmpty()) {
                 item { Text("Chapters", style = MaterialTheme.typography.titleMedium) }
@@ -653,6 +662,14 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
 private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit) {
     val player by vm.player.collectAsState()
     val settings by vm.settings.collectAsState()
+    val episode by vm.episode(player.episodeId).collectAsState(initial = null)
+    val chapters by vm.chapters.collectAsState()
+    val transcript by vm.transcript.collectAsState()
+    LaunchedEffect(player.episodeId) {
+        if (player.episodeId != 0L) {
+            vm.repo.db.episodes().byId(player.episodeId)?.let { vm.loadExtras(it) }
+        }
+    }
     Scaffold(topBar = {
         TopAppBar(title = { Text("Now playing") }, actions = {
             IconButton(onEq) { Icon(Icons.Default.Equalizer, "Equalizer") }
@@ -665,58 +682,116 @@ private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit) {
             )
             return@Scaffold
         }
-        Column(Modifier.padding(padding).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            AsyncImage(player.artwork, player.title, Modifier.size(220.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
-            Spacer(Modifier.height(16.dp))
-            Text(player.title, style = MaterialTheme.typography.titleLarge, maxLines = 2)
-            Text(player.podcastTitle, style = MaterialTheme.typography.bodyMedium)
-            Spacer(Modifier.height(16.dp))
-            Slider(
-                value = if (player.durationMs > 0) (player.positionMs.toFloat() / player.durationMs).coerceIn(0f, 1f) else 0f,
-                onValueChange = { if (player.durationMs > 0) vm.seek((it * player.durationMs).toLong()) }
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(formatMs(player.positionMs))
-                Text(formatMs(player.durationMs))
-            }
-            val controlSize = 108.dp
-            val iconSize = 72.dp
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                IconButton({ vm.skip(false) }, Modifier.size(controlSize)) {
-                    Icon(Icons.Default.SkipPrevious, "Back ${settings.skipBackSec}s", Modifier.size(iconSize))
-                }
-                IconButton({ vm.togglePlay() }, Modifier.size(controlSize)) {
-                    Icon(
-                        if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        "Play",
-                        Modifier.size(iconSize)
+        LazyColumn(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+            contentPadding = PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    AsyncImage(player.artwork, player.title, Modifier.size(220.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
+                    Spacer(Modifier.height(16.dp))
+                    Text(player.title, style = MaterialTheme.typography.titleLarge, maxLines = 2)
+                    Text(player.podcastTitle, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(16.dp))
+                    Slider(
+                        value = if (player.durationMs > 0) (player.positionMs.toFloat() / player.durationMs).coerceIn(0f, 1f) else 0f,
+                        onValueChange = { if (player.durationMs > 0) vm.seek((it * player.durationMs).toLong()) }
                     )
-                }
-                IconButton({ vm.skip(true) }, Modifier.size(controlSize)) {
-                    Icon(Icons.Default.SkipNext, "Forward ${settings.skipForwardSec}s", Modifier.size(iconSize))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(formatMs(player.positionMs))
+                        Text(formatMs(player.durationMs))
+                    }
+                    val controlSize = 108.dp
+                    val iconSize = 72.dp
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        IconButton({ vm.skip(false) }, Modifier.size(controlSize)) {
+                            Icon(Icons.Default.SkipPrevious, "Back ${settings.skipBackSec}s", Modifier.size(iconSize))
+                        }
+                        IconButton({ vm.togglePlay() }, Modifier.size(controlSize)) {
+                            Icon(
+                                if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                "Play",
+                                Modifier.size(iconSize)
+                            )
+                        }
+                        IconButton({ vm.skip(true) }, Modifier.size(controlSize)) {
+                            Icon(Icons.Default.SkipNext, "Forward ${settings.skipForwardSec}s", Modifier.size(iconSize))
+                        }
+                    }
+                    Text("Skip ${settings.skipBackSec}s / ${settings.skipForwardSec}s")
+                    Spacer(Modifier.height(8.dp))
+                    SpeedControl(player.speed, { vm.setSpeed(it) })
                 }
             }
-            Text("Skip ${settings.skipBackSec}s / ${settings.skipForwardSec}s")
-            Spacer(Modifier.height(16.dp))
-            Text("Playback speed", style = MaterialTheme.typography.labelLarge)
-            SpeedControl(player.speed, { vm.setSpeed(it) })
+            val current = episode
+            if (current != null) {
+                if (current.description.isNotBlank()) {
+                    item {
+                        Column(Modifier.fillMaxWidth()) {
+                            Text("From the publisher", style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.height(8.dp))
+                            PublisherText(current.description)
+                        }
+                    }
+                }
+                if (chapters.isNotEmpty()) {
+                    item { Text("Chapters", style = MaterialTheme.typography.titleMedium, modifier = Modifier.fillMaxWidth()) }
+                    items(chapters) { chapter ->
+                        Text(
+                            "${formatMs(chapter.startMs)}  ${chapter.title}",
+                            Modifier.fillMaxWidth().clickable { vm.seek(chapter.startMs) }.padding(vertical = 6.dp)
+                        )
+                    }
+                }
+                if (transcript.isNotEmpty()) {
+                    item { Text("Transcript", style = MaterialTheme.typography.titleMedium, modifier = Modifier.fillMaxWidth()) }
+                    items(transcript.take(400)) { line ->
+                        val prefix = line.startMs?.let { formatMs(it) + "  " }.orEmpty()
+                        Text(prefix + line.text, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp))
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
+private fun PublisherText(html: String, modifier: Modifier = Modifier) {
+    val color = MaterialTheme.colorScheme.onSurface
+    val linkColor = MaterialTheme.colorScheme.primary
+    val sizeSp = MaterialTheme.typography.bodyMedium.fontSize.value
+    val spanned = remember(html) { htmlToSpanned(html) }
+    AndroidView(
+        modifier = modifier.fillMaxWidth(),
+        factory = { context ->
+            TextView(context).apply {
+                setTextIsSelectable(true)
+                movementMethod = LinkMovementMethod.getInstance()
+                setLineSpacing(4f, 1.15f)
+            }
+        },
+        update = { view ->
+            view.setTextColor(color.toArgb())
+            view.setLinkTextColor(linkColor.toArgb())
+            view.textSize = sizeSp
+            view.text = spanned
+        }
+    )
+}
+
+@Composable
 private fun SpeedControl(speed: Float, onSpeed: (Float) -> Unit) {
     val focusManager = LocalFocusManager.current
+    var focused by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf(formatSpeed(speed)) }
     LaunchedEffect(speed) {
-        val formatted = formatSpeed(speed)
-        if (text.toFloatOrNull()?.let { kotlin.math.abs(it - speed) > 0.05f } != false) {
-            text = formatted
-        }
+        if (!focused) text = formatSpeed(speed)
     }
     fun apply(raw: String) {
         val parsed = raw.trim().removeSuffix("x").replace(',', '.').toFloatOrNull()
@@ -735,30 +810,39 @@ private fun SpeedControl(speed: Float, onSpeed: (Float) -> Unit) {
         onSpeed(next)
     }
     val current = text.toFloatOrNull() ?: speed
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-        IconButton({ nudge(-SPEED_STEP) }, enabled = current > SPEED_MIN) {
-            Icon(Icons.Default.Remove, "Slower")
-        }
-        OutlinedTextField(
-            value = text,
-            onValueChange = { value ->
-                text = value.filter { it.isDigit() || it == '.' || it == ',' }.take(4)
-            },
-            modifier = Modifier.width(100.dp),
-            singleLine = true,
-            textStyle = TextStyle(textAlign = TextAlign.Center),
-            suffix = { Text("x") },
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Decimal,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(onDone = {
-                apply(text)
-                focusManager.clearFocus()
-            })
-        )
-        IconButton({ nudge(SPEED_STEP) }, enabled = current < SPEED_MAX) {
-            Icon(Icons.Default.Add, "Faster")
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Playback speed", style = MaterialTheme.typography.labelLarge)
+        Spacer(Modifier.height(16.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            IconButton({ nudge(-SPEED_STEP) }, enabled = current > SPEED_MIN) {
+                Icon(Icons.Default.Remove, "Slower")
+            }
+            OutlinedTextField(
+                value = text,
+                onValueChange = { value ->
+                    text = value.filter { it.isDigit() || it == '.' || it == ',' }.take(4)
+                },
+                modifier = Modifier
+                    .width(140.dp)
+                    .onFocusChanged { focused = it.isFocused },
+                singleLine = true,
+                textStyle = TextStyle(textAlign = TextAlign.Center),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = {
+                    apply(text)
+                    focusManager.clearFocus()
+                })
+            )
+            Text("x", modifier = Modifier.padding(start = 6.dp, end = 4.dp))
+            IconButton({ nudge(SPEED_STEP) }, enabled = current < SPEED_MAX) {
+                Icon(Icons.Default.Add, "Faster")
+            }
         }
     }
 }

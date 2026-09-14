@@ -1,5 +1,7 @@
 package com.openpod.app.ui
 
+import android.text.Spanned
+import androidx.core.text.HtmlCompat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -40,13 +42,21 @@ fun formatBytes(bytes: Long): String {
     return String.format(Locale.US, "%.2f GB", mb / 1024.0)
 }
 
+fun publisherHtml(raw: String): String {
+    val text = raw.trim()
+    if (text.isEmpty()) return ""
+    val hasBlock = Regex("(?i)<(p|br|div|li|h[1-6]|ul|ol|blockquote)\\b").containsMatchIn(text)
+    return if (hasBlock) text else text.replace("\r\n", "\n").replace("\n", "<br>")
+}
+
+fun htmlToSpanned(raw: String): Spanned {
+    return HtmlCompat.fromHtml(publisherHtml(raw), HtmlCompat.FROM_HTML_MODE_LEGACY)
+}
+
 fun stripHtml(raw: String): String {
-    return raw.replace(Regex("<[^>]+>"), " ")
-        .replace("&nbsp;", " ")
-        .replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace(Regex("\\s+"), " ")
+    return htmlToSpanned(raw).toString()
+        .replace(Regex("[ \\t\\x0B\\f\\r]+"), " ")
+        .replace(Regex(" *\\n *"), "\n")
+        .replace(Regex("\\n{3,}"), "\n\n")
         .trim()
 }

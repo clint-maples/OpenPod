@@ -2,10 +2,10 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.1  
-**Download:** [OpenPod 1.1 APK](releases/OpenPod-1.1.apk)
+**Current version:** 1.2  
+**Download:** [OpenPod 1.2 APK](releases/OpenPod-1.2.apk)
 
-Previous: [1.0](releases/OpenPod-1.0.apk)
+Previous: [1.1](releases/OpenPod-1.1.apk) · [1.0](releases/OpenPod-1.0.apk)
 
 **Stack:** Kotlin, Jetpack Compose, Room, Media3, WorkManager, iTunes search + RSS.
 
@@ -24,7 +24,7 @@ Previous: [1.0](releases/OpenPod-1.0.apk)
 
 ## Playback
 
-Now Playing speed is a text box from **0.5x to 5.0x**, with **− / +** stepping by **0.1x**.
+Now Playing speed is a text box from **0.5x to 5.0x**, with **− / +** stepping by **0.1x**. Scroll down on Now Playing for the publisher episode notes.
 
 ## Sync schedule
 
