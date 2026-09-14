@@ -22,6 +22,16 @@ import androidx.core.content.ContextCompat
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import android.os.Bundle
+import androidx.core.graphics.drawable.IconCompat
+import androidx.media3.session.CommandButton
+import androidx.media3.session.MediaNotification
+import androidx.media3.session.MediaStyleNotificationHelper
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
+import com.google.common.collect.ImmutableList
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 import com.openpod.app.MainActivity
 import com.openpod.app.R
 import com.openpod.app.data.PodRepository
@@ -54,7 +64,8 @@ data class PlayerUiState(
 
 @UnstableApi
 class PlayerService : MediaSessionService() {
-    private lateinit var player: ExoPlayer
+    private lateinit var exo: ExoPlayer
+    private lateinit var player: Player
     private var session: MediaSession? = null
     private lateinit var repo: PodRepository
     private val eq = EqController()
@@ -70,7 +81,7 @@ class PlayerService : MediaSessionService() {
         super.onCreate()
         instance = this
         repo = PodRepository(this)
-        // startForegroundService() requires startForeground() quickly â€” do that first.
+        // startForegroundService() requires startForeground() quickly ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â do that first.
         enterForeground(getString(R.string.app_name))
         val renderers = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
@@ -85,7 +96,7 @@ class PlayerService : MediaSessionService() {
                     .build()
             }
         }
-        player = ExoPlayer.Builder(this, renderers)
+        exo = ExoPlayer.Builder(this, renderers)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
@@ -98,14 +109,13 @@ class PlayerService : MediaSessionService() {
             .setSeekBackIncrementMs(_state.value.skipBackSec * 1000L)
             .setSeekForwardIncrementMs(_state.value.skipForwardSec * 1000L)
             .build()
-        setMediaNotificationProvider(
-            DefaultMediaNotificationProvider.Builder(this)
-                .setChannelId(CHANNEL_ID)
-                .setChannelName(R.string.playback_channel_name)
-                .setNotificationId(NOTIFICATION_ID)
-                .build()
-                .also { it.setSmallIcon(R.drawable.ic_notification) }
-        )
+        player = OpenPodPlayer(exo)
+        val notificationProvider = DefaultMediaNotificationProvider.Builder(this)
+            .setChannelId(CHANNEL_ID)
+            .setNotificationId(NOTIFICATION_ID)
+            .build()
+        notificationProvider.setSmallIcon(R.drawable.ic_notification)
+        setMediaNotificationProvider(notificationProvider)
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 publish()
@@ -135,10 +145,9 @@ class PlayerService : MediaSessionService() {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        // No custom Callback so notification/lock-screen controllers get default
-        // Media3 play/pause/seek command handling without interference.
         session = MediaSession.Builder(this, player)
             .setId("openpod")
+            .setCallback(ButtonCallback())
             .setSessionActivity(sessionActivity)
             .build()
         refreshMediaNotification()
@@ -163,6 +172,20 @@ class PlayerService : MediaSessionService() {
         }
     }
 
+    
+        override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        // Do NOT call super: Media3's MediaNotificationManager stopForeground(REMOVE)s
+        // while its MediaController timeline is still empty, which cancels id 1001 and
+        // never re-posts even after PLAYING. Own the MediaStyle FGS notification instead.
+        val title = player.mediaMetadata.displayTitle
+            ?: player.mediaMetadata.title
+            ?: getString(R.string.app_name)
+        val text = player.mediaMetadata.artist
+            ?: player.mediaMetadata.albumTitle
+            ?: title.toString()
+        enterForeground(text.toString().ifBlank { title.toString() })
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -178,6 +201,7 @@ class PlayerService : MediaSessionService() {
         session?.release()
         session = null
         player.release()
+        // exo released via ForwardingPlayer.release()
         instance = null
         super.onDestroy()
     }
@@ -220,7 +244,7 @@ class PlayerService : MediaSessionService() {
         }
         publish()
         ioScope.launch { repo.setLastEpisode(episode.id) }
-        attachEq(player.audioSessionId)
+        attachEq(exo.audioSessionId)
     }
 
     fun togglePlay() {
@@ -341,7 +365,7 @@ class PlayerService : MediaSessionService() {
     }
 
     private fun enterForeground(text: String) {
-        val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_notification)
@@ -349,19 +373,66 @@ class PlayerService : MediaSessionService() {
             .setOnlyAlertOnce(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .build()
+        val active = session
+        if (active != null) {
+            builder.setStyle(MediaStyleNotificationHelper.MediaStyle(active))
+            builder.setContentIntent(active.sessionActivity)
+        }
         val type = if (Build.VERSION.SDK_INT >= 29) {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
         } else {
             0
         }
-        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type)
+        ServiceCompat.startForeground(this, NOTIFICATION_ID, builder.build(), type)
+    }
+
+    private inner class ButtonCallback : MediaSession.Callback {
+        override fun onConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo
+        ): MediaSession.ConnectionResult {
+            val result = super.onConnect(session, controller)
+            val sessionCommands = (
+                if (result.isAccepted) result.availableSessionCommands
+                else MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
+            ).buildUpon()
+                .add(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
+                .add(SessionCommand(ACTION_FORWARD, Bundle.EMPTY))
+                .build()
+            val playerCommands = (
+                if (result.isAccepted) result.availablePlayerCommands
+                else MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS
+            ).buildUpon()
+                .add(Player.COMMAND_SEEK_TO_NEXT)
+                .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+                .add(Player.COMMAND_SEEK_FORWARD)
+                .add(Player.COMMAND_SEEK_BACK)
+                .build()
+            return MediaSession.ConnectionResult.accept(sessionCommands, playerCommands)
+        }
+
+        override fun onCustomCommand(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            customCommand: SessionCommand,
+            args: Bundle
+        ): ListenableFuture<SessionResult> {
+            when (customCommand.customAction) {
+                ACTION_REWIND -> skip(false)
+                ACTION_FORWARD -> skip(true)
+            }
+            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+        }
     }
 
 
     companion object {
         const val NOTIFICATION_ID = 1001
-        const val CHANNEL_ID = "playback_media"
+        const val CHANNEL_ID = "playback_media_v2"
+        const val ACTION_REWIND = "openpod.REWIND"
+        const val ACTION_FORWARD = "openpod.FORWARD"
         private val _state = MutableStateFlow(PlayerUiState())
         val state = _state.asStateFlow()
         var instance: PlayerService? = null
@@ -415,3 +486,4 @@ class PlayerService : MediaSessionService() {
         }
     }
 }
+

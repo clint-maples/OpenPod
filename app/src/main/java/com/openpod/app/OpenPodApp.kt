@@ -26,6 +26,18 @@ class OpenPodApp : Application() {
                     lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                 }
             )
+            // Fresh channel so upgrades aren't stuck with a blocked/min old channel.
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    "playback_media_v2",
+                    "Now playing",
+                    NotificationManager.IMPORTANCE_DEFAULT
+                ).apply {
+                    setShowBadge(false)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                    setSound(null, null)
+                }
+            )
             manager.createNotificationChannel(
                 NotificationChannel(
                     "playback",
