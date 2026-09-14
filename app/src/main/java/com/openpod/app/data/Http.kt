@@ -1,11 +1,14 @@
 package com.openpod.app.data
 
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.Charset
 
 object Http {
+    const val MAX_FEED_BYTES = 8L * 1024 * 1024
+
     fun get(url: String): String {
         var current = url.trim()
         repeat(8) {
@@ -30,7 +33,27 @@ object Http {
                 throw IOException("Could not load feed (HTTP $code) from $current ${err.take(120)}")
             }
             val charset = charsetFrom(conn.contentType)
-            val body = conn.inputStream.bufferedReader(charset).use { it.readText() }
+            val declared = conn.contentLengthLong
+            if (declared > MAX_FEED_BYTES) {
+                conn.disconnect()
+                throw IOException("Feed too large")
+            }
+            val body = conn.inputStream.use { input ->
+                val out = ByteArrayOutputStream()
+                val buf = ByteArray(16 * 1024)
+                var total = 0L
+                while (true) {
+                    val n = input.read(buf)
+                    if (n < 0) break
+                    total += n
+                    if (total > MAX_FEED_BYTES) {
+                        conn.disconnect()
+                        throw IOException("Feed too large")
+                    }
+                    out.write(buf, 0, n)
+                }
+                out.toString(charset.name())
+            }
             conn.disconnect()
             if (body.isBlank()) throw IOException("Feed was empty")
             return body

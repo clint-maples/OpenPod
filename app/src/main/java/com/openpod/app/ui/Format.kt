@@ -1,6 +1,9 @@
 package com.openpod.app.ui
 
+import android.net.Uri
+import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.style.URLSpan
 import androidx.core.text.HtmlCompat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -50,7 +53,21 @@ fun publisherHtml(raw: String): String {
 }
 
 fun htmlToSpanned(raw: String): Spanned {
-    return HtmlCompat.fromHtml(publisherHtml(raw), HtmlCompat.FROM_HTML_MODE_LEGACY)
+    val spanned = HtmlCompat.fromHtml(publisherHtml(raw), HtmlCompat.FROM_HTML_MODE_LEGACY)
+    val out = SpannableStringBuilder(spanned)
+    val spans = out.getSpans(0, out.length, URLSpan::class.java)
+    for (span in spans) {
+        if (!isSafePublisherUrl(span.url)) {
+            out.removeSpan(span)
+        }
+    }
+    return out
+}
+
+fun isSafePublisherUrl(url: String?): Boolean {
+    if (url.isNullOrBlank()) return false
+    val scheme = Uri.parse(url).scheme?.lowercase() ?: return false
+    return scheme == "https" || scheme == "http" || scheme == "mailto"
 }
 
 fun stripHtml(raw: String): String {

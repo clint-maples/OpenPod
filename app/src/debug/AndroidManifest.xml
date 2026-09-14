@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <receiver
+            android:name=".playback.DebugPlayReceiver"
+            android:exported="false"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="com.openpod.app.DEBUG_PLAY" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

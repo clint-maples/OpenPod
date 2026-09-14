@@ -57,6 +57,9 @@ class EpisodeDownloader(private val context: Context) {
                 throw IllegalStateException("Download failed (HTTP $code)")
             }
             val total = http.contentLengthLong
+            if (total > MAX_DOWNLOAD_BYTES) {
+                throw IllegalStateException("Episode file is too large to download")
+            }
             DownloadTracker.update(episodeId, 0L, total)
             val output = context.contentResolver.openOutputStream(dest.uri)
                 ?: return@withContext fail(episodeId, dest, IllegalStateException("Could not write episode file"))
@@ -70,6 +73,9 @@ class EpisodeDownloader(private val context: Context) {
                         if (n < 0) break
                         out.write(buffer, 0, n)
                         read += n
+                        if (read > MAX_DOWNLOAD_BYTES) {
+                            throw IllegalStateException("Episode file is too large to download")
+                        }
                         val now = SystemClock.elapsedRealtime()
                         if (now - lastEmit >= 150L) {
                             lastEmit = now
@@ -119,5 +125,9 @@ class EpisodeDownloader(private val context: Context) {
             }
         }
         db.episodes().setDownloadResult(episodeId, "", "", EpisodeEntity.STATUS_NONE)
+    }
+
+    companion object {
+        const val MAX_DOWNLOAD_BYTES = 2L * 1024 * 1024 * 1024
     }
 }

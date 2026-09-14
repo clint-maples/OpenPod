@@ -6,11 +6,11 @@ import android.content.Intent
 import com.openpod.app.data.db.EpisodeEntity
 
 /**
- * Overnight/QA: adb shell am broadcast -a com.openpod.app.DEBUG_PLAY \
+ * Debug-only. adb: am broadcast -a com.openpod.app.DEBUG_PLAY \
  *   -n com.openpod.app/.playback.DebugPlayReceiver \
  *   --es url "https://..." --es title "Test" --es podcast "OpenPod QA"
  *
- * Kept for automated emulator notification repros (works in release builds too).
+ * Not merged into release. exported=false so only same-uid/adb explicit sends work.
  */
 class DebugPlayReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
