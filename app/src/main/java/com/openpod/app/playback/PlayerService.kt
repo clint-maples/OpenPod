@@ -76,7 +76,8 @@ class PlayerService : MediaSessionService() {
         super.onCreate()
         instance = this
         repo = PodRepository(this)
-        enterForeground("Starting playback")
+        // Do not startForeground with a plain notification before MediaSession exists —
+        // that sticks a non-media FGS notice in the tray and blocks lock-screen controls.
         val renderers = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
                 context: Context,
@@ -142,6 +143,9 @@ class PlayerService : MediaSessionService() {
             .setCallback(ButtonCallback())
             .setSessionActivity(sessionActivity)
             .build()
+        // Promote to foreground only after the session exists so Media3 can post a
+        // real media-style notification (lock screen + system tray player).
+        session?.let { onUpdateNotification(it, true) }
         startProgress()
         ioScope.launch {
             val settings = repo.settingsOnce()
@@ -352,12 +356,27 @@ class PlayerService : MediaSessionService() {
     }
 
     private inner class ButtonCallback : MediaSession.Callback {
+        override fun onConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo
+        ): MediaSession.ConnectionResult {
+            // Accept system UI / notification controller so lock-screen and tray
+            // media controls can attach (Media3 default, made explicit).
+            val result = super.onConnect(session, controller)
+            if (!result.isAccepted) {
+                return MediaSession.ConnectionResult.AcceptedResultBuilder(session).build()
+            }
+            return result
+        }
+
         override fun onMediaButtonEvent(
             session: MediaSession,
             controllerInfo: MediaSession.ControllerInfo,
             intent: Intent
         ): Boolean {
             val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT) ?: return false
+            // Only intercept headset hook; let Media3 handle play/pause/skip from
+            // notification and lock-screen buttons via the player commands.
             if (event.keyCode != KeyEvent.KEYCODE_HEADSETHOOK) return false
             if (event.action == KeyEvent.ACTION_UP) headset.onClick()
             return true
