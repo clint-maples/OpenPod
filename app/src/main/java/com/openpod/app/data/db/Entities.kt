@@ -122,7 +122,8 @@ data class SettingsEntity(
     val syncFrequency: String = SYNC_DAILY,
     val syncHour: Int = 6,
     val syncMinute: Int = 0,
-    val lastEpisodeId: Long = 0L
+    val lastEpisodeId: Long = 0L,
+    val volumeBoost: Float = 0f
 ) {
     companion object {
         const val SYNC_HOURLY = "hourly"

@@ -226,6 +226,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun previewVolumeBoost(value: Float) {
+        PlayerService.setVolumeBoost(value)
+    }
+
+    fun setVolumeBoost(value: Float) {
+        val clamped = value.coerceIn(-1f, 1f)
+        PlayerService.setVolumeBoost(clamped)
+        viewModelScope.launch {
+            repo.updateSettings { it.copy(volumeBoost = clamped) }
+        }
+    }
+
+    fun resetEq() {
+        PlayerService.instance?.equalizer()?.reset()
+        PlayerService.setVolumeBoost(0f)
+        viewModelScope.launch {
+            val json = PlayerService.instance?.equalizer()?.snapshotJson().orEmpty()
+            repo.updateSettings { it.copy(eqBandsJson = json, volumeBoost = 0f) }
+        }
+    }
+
     fun setShowArchived(show: Boolean) {
         viewModelScope.launch { repo.updateSettings { it.copy(showArchived = show) } }
     }

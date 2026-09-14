@@ -112,6 +112,7 @@ import com.openpod.app.data.db.PodcastEntity
 import com.openpod.app.data.db.SettingsEntity
 import com.openpod.app.download.DownloadProgress
 import com.openpod.app.playback.PlayerService
+import com.openpod.app.playback.formatVolumeBoost
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -826,7 +827,7 @@ private fun SpeedControl(speed: Float, onSpeed: (Float) -> Unit) {
                     text = value.filter { it.isDigit() || it == '.' || it == ',' }.take(4)
                 },
                 modifier = Modifier
-                    .width(140.dp)
+                    .width(70.dp)
                     .onFocusChanged { focused = it.isFocused },
                 singleLine = true,
                 textStyle = TextStyle(textAlign = TextAlign.Center),
@@ -839,7 +840,6 @@ private fun SpeedControl(speed: Float, onSpeed: (Float) -> Unit) {
                     focusManager.clearFocus()
                 })
             )
-            Text("x", modifier = Modifier.padding(start = 6.dp, end = 4.dp))
             IconButton({ nudge(SPEED_STEP) }, enabled = current < SPEED_MAX) {
                 Icon(Icons.Default.Add, "Faster")
             }
@@ -851,19 +851,40 @@ private fun SpeedControl(speed: Float, onSpeed: (Float) -> Unit) {
 @Composable
 private fun EqScreen(vm: AppViewModel) {
     val settings by vm.settings.collectAsState()
-    val bands = remember { PlayerService.instance?.equalizer()?.bands().orEmpty() }
-    val range = remember { PlayerService.instance?.equalizer()?.range() ?: (0.toShort() to 0.toShort()) }
+    var eqEpoch by remember { mutableStateOf(0) }
+    val bands = remember(eqEpoch, settings.eqBandsJson) {
+        PlayerService.instance?.equalizer()?.bands().orEmpty()
+    }
+    val range = remember(eqEpoch) {
+        PlayerService.instance?.equalizer()?.range() ?: (0.toShort() to 0.toShort())
+    }
+    var boost by remember(settings.volumeBoost, eqEpoch) { mutableStateOf(settings.volumeBoost) }
     Scaffold(topBar = { TopAppBar(title = { Text("Graphic equalizer") }) }) { padding ->
-        Column(Modifier.padding(padding).padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Enabled", Modifier.weight(1f))
-                Switch(settings.eqEnabled, { vm.setEq(it) })
+        LazyColumn(
+            Modifier.padding(padding).fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Enabled", Modifier.weight(1f))
+                    Switch(settings.eqEnabled, { vm.setEq(it) })
+                }
+            }
+            item {
+                Button({
+                    vm.resetEq()
+                    boost = 0f
+                    eqEpoch++
+                }) { Text("Reset") }
             }
             if (bands.isEmpty()) {
-                Text("Start playback to load equalizer bands for this device.")
+                item { Text("Start playback to load equalizer bands for this device.") }
             } else {
-                bands.forEach { band ->
-                    var value by remember(band.index, band.levelMilliBel) { mutableStateOf(band.levelMilliBel.toFloat()) }
+                items(bands, key = { it.index }) { band ->
+                    var value by remember(eqEpoch, band.index, band.levelMilliBel) {
+                        mutableStateOf(band.levelMilliBel.toFloat())
+                    }
                     Text("${band.freqHz} Hz")
                     Slider(
                         value = value,
@@ -871,6 +892,32 @@ private fun EqScreen(vm: AppViewModel) {
                         onValueChangeFinished = { vm.setEqBand(band.index, value.toInt().toShort()) },
                         valueRange = range.first.toFloat()..range.second.toFloat()
                     )
+                }
+            }
+            item {
+                Spacer(Modifier.height(8.dp))
+                Text("Volume boost", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    formatVolumeBoost(boost),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    "Center is the unadjusted level. Left is quieter than the system volume; right is louder, even if the system volume is already at max.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Slider(
+                    value = boost,
+                    onValueChange = {
+                        boost = it
+                        vm.previewVolumeBoost(it)
+                    },
+                    onValueChangeFinished = { vm.setVolumeBoost(boost) },
+                    valueRange = -1f..1f
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Quieter", style = MaterialTheme.typography.bodySmall)
+                    Text("Default", style = MaterialTheme.typography.bodySmall)
+                    Text("Louder", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

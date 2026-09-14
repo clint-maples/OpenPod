@@ -2,10 +2,10 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.2  
-**Download:** [OpenPod 1.2 APK](https://github.com/clint-maples/OpenPod/releases/download/1.2/OpenPod-1.2.apk)
+**Current version:** 1.3  
+**Download:** [OpenPod 1.3 APK](https://github.com/clint-maples/OpenPod/releases/download/1.3/OpenPod-1.3.apk)
 
-Previous: [1.1](https://github.com/clint-maples/OpenPod/releases/download/1.1/OpenPod-1.1.apk) · [1.0](https://github.com/clint-maples/OpenPod/releases/download/1.0/OpenPod-1.0.apk)
+Previous: [1.2](https://github.com/clint-maples/OpenPod/releases/download/1.2/OpenPod-1.2.apk) · [1.1](https://github.com/clint-maples/OpenPod/releases/download/1.1/OpenPod-1.1.apk) · [1.0](https://github.com/clint-maples/OpenPod/releases/download/1.0/OpenPod-1.0.apk)
 
 **Stack:** Kotlin, Jetpack Compose, Room, Media3, WorkManager, iTunes search + RSS.
 
@@ -24,7 +24,7 @@ Previous: [1.1](https://github.com/clint-maples/OpenPod/releases/download/1.1/Op
 
 ## Playback
 
-Now Playing speed is a text box from **0.5x to 5.0x**, with **− / +** stepping by **0.1x**. Scroll down on Now Playing for the publisher episode notes.
+Now Playing speed is a text box from **0.5x to 5.0x**, with **− / +** stepping by **0.1x**. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer has a reset button and a volume boost slider (center = default; left quieter, right louder than system volume).
 
 ## Sync schedule
 

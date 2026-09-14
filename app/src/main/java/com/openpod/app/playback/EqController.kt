@@ -48,6 +48,16 @@ class EqController {
         equalizer?.setBandLevel(index, level)
     }
 
+    fun reset() {
+        val eq = equalizer ?: return
+        try {
+            for (i in 0 until eq.numberOfBands) {
+                eq.setBandLevel(i.toShort(), 0)
+            }
+        } catch (_: Throwable) {
+        }
+    }
+
     fun bands(): List<Band> {
         val eq = equalizer ?: return emptyList()
         return (0 until eq.numberOfBands).map { i ->
