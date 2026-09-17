@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.openpod.app.data.Chapter
 import com.openpod.app.data.ChapterNav
 import com.openpod.app.data.PodRepository
 import com.openpod.app.data.TranscriptLine
