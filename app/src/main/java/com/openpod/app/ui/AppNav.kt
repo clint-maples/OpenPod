@@ -13,6 +13,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -38,6 +39,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
@@ -212,32 +215,36 @@ private fun RowScope.NavItem(
 
 @Composable
 private fun MiniPlayer(player: com.openpod.app.playback.PlayerUiState, vm: AppViewModel, onOpen: () -> Unit) {
-    val progress = if (player.durationMs > 0L) {
-        (player.positionMs.toFloat() / player.durationMs.toFloat()).coerceIn(0f, 1f)
-    } else {
-        0f
-    }
-    Column(Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
+    val nowPlayingLabel = listOf(player.podcastTitle, player.title)
+        .filter { it.isNotBlank() }
+        .joinToString(" — ")
+        .ifBlank { "Now playing" }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen, onClickLabel = "Open now playing")
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        AsyncImage(
+            player.artwork,
+            nowPlayingLabel,
+            Modifier
+                .align(Alignment.CenterStart)
+                .size(48.dp)
+                .clip(RoundedCornerShape(8.dp)),
+            contentScale = ContentScale.Crop
+        )
         Row(
-            Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            Modifier.align(Alignment.Center),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
         ) {
-            Column(Modifier.weight(1f)) {
-                Text(player.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(player.podcastTitle, style = MaterialTheme.typography.bodySmall, maxLines = 1)
-            }
             IconButton({ vm.skip(false) }) { Icon(Icons.Default.FastRewind, "Back") }
             IconButton({ vm.togglePlay() }) {
                 Icon(if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play")
             }
             IconButton({ vm.skip(true) }) { Icon(Icons.Default.FastForward, "Forward") }
         }
-        LinearProgressIndicator(
-            progress = { progress },
-            modifier = Modifier.fillMaxWidth().height(2.dp),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
-        )
     }
 }
 
@@ -752,6 +759,20 @@ private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit) {
                     Spacer(Modifier.height(16.dp))
                     Text(player.title, style = MaterialTheme.typography.titleLarge, maxLines = 2)
                     Text(player.podcastTitle, style = MaterialTheme.typography.bodyMedium)
+                    if (chapters.isNotEmpty()) {
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            IconButton({ vm.skipChapter(false) }, Modifier.size(36.dp)) {
+                                Icon(Icons.Default.ChevronLeft, "Previous chapter", Modifier.size(22.dp))
+                            }
+                            IconButton({ vm.skipChapter(true) }, Modifier.size(36.dp)) {
+                                Icon(Icons.Default.ChevronRight, "Next chapter", Modifier.size(22.dp))
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(16.dp))
                     Slider(
                         value = if (player.durationMs > 0) (player.positionMs.toFloat() / player.durationMs).coerceIn(0f, 1f) else 0f,

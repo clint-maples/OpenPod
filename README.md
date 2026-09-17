@@ -25,7 +25,7 @@ Previous: [1.13](https://github.com/clint-maples/OpenPod/releases/download/1.13/
 
 ## Playback
 
-Now Playing speed is a text box from **0.5x to 5.0x**, with **− / +** stepping by **0.1x**. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer has a reset button and a volume boost slider (center = default; left quieter, right louder than system volume). The mini player on other tabs has a thin progress line in the same color as the Now Playing slider.
+Now Playing speed is a text box from **0.5x to 5.0x**, with **− / +** stepping by **0.1x**. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer has a reset button and a volume boost slider (center = default; left quieter, right louder than system volume). The mini player on other tabs shows the podcast artwork with skip and play/pause centered in the bar. On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata.
 
 ## Sync schedule
 
