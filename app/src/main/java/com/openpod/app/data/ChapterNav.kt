@@ -15,11 +15,17 @@ object ChapterNav {
         if (rawValues.isEmpty()) return emptyList()
         val asSec = rawValues.map { (it * 1000.0).toLong() }
         val asMs = rawValues.map { it.toLong() }
+        val maxRaw = rawValues.maxOrNull() ?: 0.0
+        // Podcast Index startTime is seconds. Only treat as milliseconds when
+        // seconds would overshoot a known duration, or values exceed 24h in seconds.
+        // Do NOT use a 10_000 cutoff when duration is missing: a 3h Lex episode
+        // has chapter starts around 12_000 seconds, which that rule collapsed
+        // into ~12s seeks (looks like a no-op).
         val useMs = when {
             durationMs > 0L &&
                 asSec.any { it > durationMs + 5_000L } &&
                 asMs.all { it <= durationMs + 5_000L } -> true
-            durationMs <= 0L && (rawValues.maxOrNull() ?: 0.0) >= 10_000.0 -> true
+            durationMs <= 0L && maxRaw > 86_400.0 -> true
             else -> false
         }
         return if (useMs) asMs else asSec
@@ -37,6 +43,44 @@ object ChapterNav {
         }
         if (seconds < 0) return null
         return (seconds * 1000.0).toLong()
+    }
+
+    fun parseOutlineChapters(html: String): List<Chapter> {
+        if (html.isBlank()) return emptyList()
+        val text = html
+            .replace(Regex("(?i)<br\\s*/?>"), "\n")
+            .replace(Regex("(?i)</p>"), "\n")
+        val lineRe = Regex(
+            """^\s*\((\d{1,2}:\d{2}(?::\d{2})?)\)\s*[-–—]\s*(.+?)\s*$"""
+        )
+        val out = ArrayList<Chapter>()
+        for (raw in text.lineSequence()) {
+            val line = decodeBasicEntities(raw.replace(Regex("<[^>]+>"), "")).trim()
+            val match = lineRe.matchEntire(line) ?: continue
+            val startMs = parseClockToMs(match.groupValues[1]) ?: continue
+            val title = match.groupValues[2].trim()
+            if (title.isNotEmpty()) out += Chapter(startMs, title)
+        }
+        return out.distinctBy { it.startMs }.sortedBy { it.startMs }
+    }
+
+    private fun decodeBasicEntities(value: String): String {
+        var text = numericEntity.decode(value)
+        text = text.replace("&ndash;", "–")
+            .replace("&mdash;", "—")
+            .replace("&amp;", "&")
+            .replace("&quot;", "\"")
+            .replace("&apos;", "'")
+            .replace("&nbsp;", " ")
+        return text
+    }
+
+    private val numericEntity = Regex("&#(\\d+);")
+
+    private fun Regex.decode(value: String): String {
+        return replace(value) { match ->
+            match.groupValues[1].toIntOrNull()?.toChar()?.toString() ?: match.value
+        }
     }
 
     /**
