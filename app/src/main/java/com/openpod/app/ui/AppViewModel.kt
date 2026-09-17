@@ -147,6 +147,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun skip(forward: Boolean) = PlayerService.instance?.skip(forward)
+
+    fun skipChapter(forward: Boolean) {
+        val list = _chapters.value
+        if (list.isEmpty()) return
+        val position = PlayerService.state.value.positionMs
+        val current = list.indexOfLast { it.startMs <= position }.coerceAtLeast(0)
+        val target = if (forward) {
+            (current + 1).coerceAtMost(list.lastIndex)
+        } else {
+            (current - 1).coerceAtLeast(0)
+        }
+        seek(list[target].startMs)
+    }
+
     fun seek(ms: Long) = PlayerService.instance?.seek(ms)
     fun setSpeed(speed: Float) = PlayerService.setSpeed(clampSpeed(speed))
 
