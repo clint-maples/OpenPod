@@ -13,8 +13,8 @@ android {
         applicationId "com.openpod.app"
         minSdk 26
         targetSdk 34
-        versionCode 16
-        versionName "1.15"
+        versionCode 17
+        versionName "1.16"
     }
 
     buildTypes {
@@ -67,4 +67,5 @@ dependencies {
     implementation 'androidx.documentfile:documentfile:1.0.1'
     implementation 'io.coil-kt:coil-compose:2.7.0'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+    testImplementation 'junit:junit:4.13.2'
 }

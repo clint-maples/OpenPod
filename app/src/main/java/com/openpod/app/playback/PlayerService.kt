@@ -220,7 +220,13 @@ class PlayerService : MediaSessionService() {
                 if (art.isNotBlank()) setArtworkUri(android.net.Uri.parse(art))
             }
             .build()
-        val start = if (!episode.completed && episode.positionMs > 0L) episode.positionMs else 0L
+        val queued = pendingSeekMs
+        pendingSeekMs = -1L
+        val start = when {
+            queued >= 0L -> queued
+            !episode.completed && episode.positionMs > 0L -> episode.positionMs
+            else -> 0L
+        }
         player.setMediaItem(
             MediaItem.Builder()
                 .setUri(episode.localUri.ifBlank { episode.audioUrl })
@@ -253,6 +259,11 @@ class PlayerService : MediaSessionService() {
         if (player.isPlaying) player.pause() else player.play()
     }
 
+    fun currentPositionMs(): Long {
+        if (!::player.isInitialized || player.mediaItemCount == 0) return _state.value.positionMs
+        return player.currentPosition.coerceAtLeast(0)
+    }
+
     fun skip(forward: Boolean) {
         if (!::player.isInitialized) return
         val amount = if (forward) _state.value.skipForwardSec else _state.value.skipBackSec
@@ -264,9 +275,14 @@ class PlayerService : MediaSessionService() {
     }
 
     fun seek(positionMs: Long) {
-        if (!::player.isInitialized) return
-        player.seekTo(positionMs)
-        publish()
+        if (!::player.isInitialized || player.mediaItemCount == 0) {
+            queueSeek(positionMs)
+            return
+        }
+        val duration = player.duration.takeIf { it > 0 } ?: _state.value.durationMs
+        val clamped = if (duration > 0L) positionMs.coerceIn(0L, duration) else positionMs.coerceAtLeast(0)
+        player.seekTo(clamped)
+        _state.update { it.copy(positionMs = clamped) }
         persistProgress()
     }
 
@@ -438,6 +454,17 @@ class PlayerService : MediaSessionService() {
         var instance: PlayerService? = null
             private set
         private var pending: Triple<EpisodeEntity, String, String>? = null
+        private var pendingSeekMs: Long = -1L
+
+        fun queueSeek(positionMs: Long) {
+            pendingSeekMs = positionMs.coerceAtLeast(0)
+            _state.update { it.copy(positionMs = pendingSeekMs) }
+        }
+
+        fun seekOrQueue(positionMs: Long) {
+            val svc = instance
+            if (svc != null) svc.seek(positionMs) else queueSeek(positionMs)
+        }
 
         fun setSpeed(speed: Float) {
             val clamped = speed.coerceIn(0.5f, 5.0f)
@@ -479,6 +506,7 @@ class PlayerService : MediaSessionService() {
 
         fun stopAndClear() {
             pending = null
+            pendingSeekMs = -1L
             instance?.stopAndClear()
             if (instance == null) {
                 _state.value = PlayerUiState()
