@@ -765,10 +765,10 @@ private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            IconButton({ vm.skipChapter(false) }, Modifier.size(36.dp)) {
+                            IconButton({ vm.skipChapter(false) }) {
                                 Icon(Icons.Default.ChevronLeft, "Previous chapter", Modifier.size(22.dp))
                             }
-                            IconButton({ vm.skipChapter(true) }, Modifier.size(36.dp)) {
+                            IconButton({ vm.skipChapter(true) }) {
                                 Icon(Icons.Default.ChevronRight, "Next chapter", Modifier.size(22.dp))
                             }
                         }

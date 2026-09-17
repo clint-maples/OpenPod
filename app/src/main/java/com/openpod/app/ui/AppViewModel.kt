@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.openpod.app.data.Chapter
+import com.openpod.app.data.ChapterNav
 import com.openpod.app.data.PodRepository
 import com.openpod.app.data.TranscriptLine
 import com.openpod.app.data.db.EpisodeEntity
@@ -149,19 +150,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun skip(forward: Boolean) = PlayerService.instance?.skip(forward)
 
     fun skipChapter(forward: Boolean) {
-        val list = _chapters.value
-        if (list.isEmpty()) return
-        val position = PlayerService.state.value.positionMs
-        val current = list.indexOfLast { it.startMs <= position }.coerceAtLeast(0)
-        val target = if (forward) {
-            (current + 1).coerceAtMost(list.lastIndex)
-        } else {
-            (current - 1).coerceAtLeast(0)
+        val target = ChapterNav.seekTargetMs(
+            chapters = _chapters.value,
+            positionMs = PlayerService.instance?.currentPositionMs() ?: player.value.positionMs,
+            forward = forward
+        ) ?: return
+        if (PlayerService.instance != null) {
+            PlayerService.instance?.seek(target)
+            return
         }
-        seek(list[target].startMs)
+        PlayerService.queueSeek(target)
+        viewModelScope.launch { resumeLastEpisode() }
     }
 
-    fun seek(ms: Long) = PlayerService.instance?.seek(ms)
+    fun seek(ms: Long) = PlayerService.seekOrQueue(ms)
     fun setSpeed(speed: Float) = PlayerService.setSpeed(clampSpeed(speed))
 
     private suspend fun restoreLastEpisode() {
