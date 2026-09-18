@@ -479,6 +479,7 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                         selecting = true
                         selected = emptySet()
                     }) { Text("Select episodes") }
+                    TextButton({ vm.scanDownloads(podcastId) }) { Text("Find existing downloads") }
                 } else {
                     FlowRow(
                         Modifier.padding(horizontal = 4.dp),
@@ -1112,6 +1113,18 @@ private fun SettingsScreen(vm: AppViewModel) {
             vm.setDownloadFolder(uri)
         }
     }
+    var pendingImport by remember { mutableStateOf<Uri?>(null) }
+    var confirmReplace by remember { mutableStateOf(false) }
+    val exportSubscriptions = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/xml")
+    ) { uri ->
+        if (uri != null) vm.exportSubscriptions(uri)
+    }
+    val importSubscriptions = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) pendingImport = uri
+    }
     var pattern by remember(settings.namingPattern) { mutableStateOf(settings.namingPattern) }
     var fwd by remember(settings.skipForwardSec) { mutableStateOf(settings.skipForwardSec.toFloat()) }
     var back by remember(settings.skipBackSec) { mutableStateOf(settings.skipBackSec.toFloat()) }
@@ -1125,6 +1138,25 @@ private fun SettingsScreen(vm: AppViewModel) {
     }
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
         LazyColumn(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            item {
+                Text("Subscriptions", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Save every show you follow as an OPML file. Import to add missing podcasts, or replace the library if you want a clean restore. OPML also works in other podcast apps.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(Modifier.height(8.dp))
+                Button({ exportSubscriptions.launch("OpenPod-subscriptions.opml") }) {
+                    Text("Export subscriptions")
+                }
+                Spacer(Modifier.height(8.dp))
+                Button({
+                    importSubscriptions.launch(
+                        arrayOf("text/xml", "text/x-opml", "application/xml", "application/octet-stream", "*/*")
+                    )
+                }) {
+                    Text("Import subscriptions")
+                }
+            }
             item {
                 Text("Episode save location", style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -1140,7 +1172,7 @@ private fun SettingsScreen(vm: AppViewModel) {
             }
             item {
                 Text("File naming", style = MaterialTheme.typography.titleMedium)
-                Text("Tokens: {podcast} {title} {episode} {season} {date}", style = MaterialTheme.typography.bodySmall)
+                Text("Tokens: {podcast} {title} {episode} {season} {date} {guid}", style = MaterialTheme.typography.bodySmall)
                 OutlinedTextField(pattern, { pattern = it }, Modifier.fillMaxWidth(), singleLine = true)
                 TextButton({ vm.setNaming(pattern) }) { Text("Save pattern") }
             }
@@ -1224,6 +1256,47 @@ private fun SettingsScreen(vm: AppViewModel) {
                 Text("Build ${BuildConfig.VERSION_CODE}", style = MaterialTheme.typography.bodySmall)
             }
         }
+    }
+    val importUri = pendingImport
+    if (importUri != null && !confirmReplace) {
+        AlertDialog(
+            onDismissRequest = { pendingImport = null },
+            title = { Text("Import subscriptions") },
+            text = {
+                Text("Add missing podcasts (recommended), or replace your library with this file? Replace removes shows that are not in the backup and deletes their downloaded files.")
+            },
+            confirmButton = {
+                TextButton({
+                    vm.importSubscriptions(importUri, replace = false)
+                    pendingImport = null
+                }) { Text("Add missing") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton({ confirmReplace = true }) { Text("Replace") }
+                    TextButton({ pendingImport = null }) { Text("Cancel") }
+                }
+            }
+        )
+    }
+    if (importUri != null && confirmReplace) {
+        AlertDialog(
+            onDismissRequest = { confirmReplace = false },
+            title = { Text("Replace library?") },
+            text = {
+                Text("Podcasts that are not in this file will be removed, and their downloaded episode files will be deleted.")
+            },
+            confirmButton = {
+                TextButton({
+                    vm.importSubscriptions(importUri, replace = true)
+                    pendingImport = null
+                    confirmReplace = false
+                }) { Text("Replace") }
+            },
+            dismissButton = {
+                TextButton({ confirmReplace = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 

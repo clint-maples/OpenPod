@@ -17,6 +17,9 @@ class EpisodeDownloader(private val context: Context) {
     suspend fun download(episodeId: Long): Result<String> = withContext(Dispatchers.IO) {
         val episode = db.episodes().byId(episodeId)
             ?: return@withContext Result.failure(IllegalStateException("Missing episode"))
+        if (episode.downloadStatus == EpisodeEntity.STATUS_DONE && localFileExists(episode)) {
+            return@withContext Result.success(episode.localUri)
+        }
         val podcast = db.podcasts().byId(episode.podcastId)
             ?: return@withContext Result.failure(IllegalStateException("Missing podcast"))
         val settings = db.settings().get()
@@ -113,6 +116,15 @@ class EpisodeDownloader(private val context: Context) {
         db.episodes().setDownloadStatus(episodeId, EpisodeEntity.STATUS_ERROR)
         DownloadTracker.clear(episodeId)
         return Result.failure(error)
+    }
+
+    fun localFileExists(episode: EpisodeEntity): Boolean {
+        if (episode.localUri.isBlank()) return false
+        return try {
+            DocumentFile.fromSingleUri(context, Uri.parse(episode.localUri))?.exists() == true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     suspend fun deleteLocal(episodeId: Long) = withContext(Dispatchers.IO) {

@@ -2,6 +2,9 @@ package com.openpod.app.data
 
 import android.content.Context
 import android.net.Uri
+import com.openpod.app.data.backup.Opml
+import com.openpod.app.data.backup.OpmlFeed
+import com.openpod.app.data.backup.SubscriptionImportResult
 import com.openpod.app.data.db.AppDatabase
 import com.openpod.app.data.db.EpisodeEntity
 import com.openpod.app.data.db.PlaylistEntity
@@ -10,6 +13,8 @@ import com.openpod.app.data.db.PodcastEntity
 import com.openpod.app.data.db.SettingsEntity
 import com.openpod.app.data.rss.RssParser
 import com.openpod.app.data.search.ItunesSearch
+import com.openpod.app.download.DownloadFolderScanner
+import com.openpod.app.download.DownloadScanResult
 import com.openpod.app.download.DownloadTracker
 import com.openpod.app.download.EpisodeDownloader
 import kotlinx.coroutines.Dispatchers
@@ -51,8 +56,57 @@ class PodRepository(context: Context) {
 
     suspend fun search(query: String) = withContext(Dispatchers.IO) { ItunesSearch.search(query) }
 
+    suspend fun exportOpml(): String = withContext(Dispatchers.IO) {
+        Opml.export(db.podcasts().all())
+    }
+
+    suspend fun importSubscriptions(opmlXml: String, replace: Boolean = false): SubscriptionImportResult =
+        withContext(Dispatchers.IO) {
+            val feeds = Opml.parse(opmlXml)
+            if (feeds.isEmpty()) {
+                throw IllegalArgumentException("No podcast feeds found in this file")
+            }
+            var removed = 0
+            if (replace) {
+                val incoming = feeds.map { Opml.normalizeFeedUrl(it.xmlUrl) }.toSet()
+                db.podcasts().all()
+                    .filter { Opml.normalizeFeedUrl(it.feedUrl) !in incoming }
+                    .forEach { podcast ->
+                        unsubscribe(podcast.id)
+                        removed++
+                    }
+            }
+            var added = 0
+            var existing = 0
+            var failed = 0
+            val addedTitles = mutableListOf<String>()
+            val failedTitles = mutableListOf<String>()
+            for (feed in feeds) {
+                if (podcastByFeed(feed.xmlUrl) != null) {
+                    existing++
+                    continue
+                }
+                try {
+                    subscribeImported(feed)
+                    added++
+                    addedTitles += feed.title.ifBlank { feed.xmlUrl }
+                } catch (e: Exception) {
+                    failed++
+                    failedTitles += feed.title.ifBlank { feed.xmlUrl }
+                }
+            }
+            SubscriptionImportResult(
+                added = added,
+                existing = existing,
+                failed = failed,
+                removed = removed,
+                addedTitles = addedTitles,
+                failedTitles = failedTitles
+            )
+        }
+
     suspend fun subscribe(feedUrl: String): PodcastEntity = withContext(Dispatchers.IO) {
-        val existing = db.podcasts().byFeed(feedUrl)
+        val existing = podcastByFeed(feedUrl)
         if (existing != null) {
             refreshPodcast(existing.id)
             return@withContext db.podcasts().byId(existing.id)!!
@@ -77,6 +131,48 @@ class PodRepository(context: Context) {
             db.episodes().forPodcast(id).firstOrNull()?.let { downloader.download(it.id) }
         }
         db.podcasts().byId(id)!!
+    }
+
+    private suspend fun podcastByFeed(feedUrl: String): PodcastEntity? {
+        val trimmed = feedUrl.trim()
+        db.podcasts().byFeed(trimmed)?.let { return it }
+        db.podcasts().byFeed(Opml.canonicalizeFeedUrl(trimmed))?.let { return it }
+        val normalized = Opml.normalizeFeedUrl(trimmed)
+        return db.podcasts().all().find { Opml.normalizeFeedUrl(it.feedUrl) == normalized }
+    }
+
+    private suspend fun subscribeImported(feed: OpmlFeed): PodcastEntity {
+        val defaults = settingsOnce()
+        val url = Opml.canonicalizeFeedUrl(feed.xmlUrl)
+        val parsed = try {
+            RssParser.parse(Http.get(url))
+        } catch (_: Exception) {
+            null
+        }
+        val title = parsed?.title?.ifBlank { null } ?: feed.title.ifBlank { url }
+        val folder = feed.folderName?.ifBlank { null } ?: parsed?.title ?: title
+        val id = db.podcasts().insert(
+            PodcastEntity(
+                title = title,
+                feedUrl = url,
+                siteUrl = parsed?.siteUrl?.ifBlank { feed.htmlUrl } ?: feed.htmlUrl,
+                author = parsed?.author.orEmpty(),
+                description = parsed?.description.orEmpty(),
+                imageUrl = parsed?.imageUrl.orEmpty(),
+                autoDownload = feed.autoDownload ?: defaults.autoDownloadDefault,
+                autoDelete = feed.autoDelete ?: defaults.autoDeleteDefault,
+                folderName = folder
+            )
+        )
+        if (parsed != null) {
+            upsertEpisodes(id, parsed)
+            if (feed.autoDownload ?: defaults.autoDownloadDefault) {
+                db.episodes().forPodcast(id).firstOrNull()?.let { downloader.download(it.id) }
+            }
+        } else {
+            runCatching { refreshPodcast(id) }
+        }
+        return db.podcasts().byId(id)!!
     }
 
     suspend fun refreshPodcast(podcastId: Long) = withContext(Dispatchers.IO) {
@@ -149,6 +245,23 @@ class PodRepository(context: Context) {
     suspend fun deleteDownload(episodeId: Long) = downloader.deleteLocal(episodeId)
     val downloadProgress = DownloadTracker.progress
 
+    suspend fun scanPodcastDownloads(podcastId: Long): DownloadScanResult = withContext(Dispatchers.IO) {
+        val podcast = db.podcasts().byId(podcastId)
+            ?: throw IllegalStateException("Missing podcast")
+        val settings = settingsOnce()
+        val episodes = db.episodes().forPodcast(podcastId)
+        val (result, links) = DownloadFolderScanner(app).scan(podcast, episodes, settings)
+        links.forEach { link ->
+            db.episodes().setDownloadResult(
+                link.episodeId,
+                link.uri,
+                link.fileName,
+                EpisodeEntity.STATUS_DONE
+            )
+        }
+        result.copy(linked = links.size)
+    }
+
     suspend fun markProgress(episodeId: Long, positionMs: Long, durationMs: Long) {
         val episode = db.episodes().byId(episodeId) ?: return
         val completed = durationMs > 0 && positionMs >= durationMs - 5000
@@ -209,16 +322,22 @@ class PodRepository(context: Context) {
         db.episodes().setArchived(ids, archived)
     }
 
-    suspend fun downloadMany(ids: List<Long>) {
-        ids.forEach { id ->
+    suspend fun downloadMany(ids: List<Long>): Int {
+        val pending = ids.filter { id ->
+            val episode = db.episodes().byId(id) ?: return@filter false
+            episode.downloadStatus != EpisodeEntity.STATUS_DONE &&
+                !downloader.localFileExists(episode)
+        }
+        pending.forEach { id ->
             val episode = db.episodes().byId(id) ?: return@forEach
             if (episode.downloadStatus != EpisodeEntity.STATUS_DOWNLOADING) {
                 db.episodes().setDownloadStatus(id, EpisodeEntity.STATUS_QUEUED)
             }
         }
-        ids.forEach { id ->
+        pending.forEach { id ->
             runCatching { downloader.download(id) }
         }
+        return pending.size
     }
 
     suspend fun deleteDownloads(ids: List<Long>) {

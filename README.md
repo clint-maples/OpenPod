@@ -2,12 +2,20 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.18  
-**Download:** [OpenPod 1.18 APK](https://github.com/clint-maples/OpenPod/releases/download/1.18/OpenPod-1.18.apk)
+**Current version:** 1.19  
+**Download:** [OpenPod 1.19 APK](https://github.com/clint-maples/OpenPod/releases/download/1.19/OpenPod-1.19.apk)
 
-Previous: [1.17](https://github.com/clint-maples/OpenPod/releases/download/1.17/OpenPod-1.17.apk) · [1.16](https://github.com/clint-maples/OpenPod/releases/download/1.16/OpenPod-1.16.apk) · [1.15](https://github.com/clint-maples/OpenPod/releases/download/1.15/OpenPod-1.15.apk) · [1.14](https://github.com/clint-maples/OpenPod/releases/download/1.14/OpenPod-1.14.apk) · [1.13](https://github.com/clint-maples/OpenPod/releases/download/1.13/OpenPod-1.13.apk) · [1.12](https://github.com/clint-maples/OpenPod/releases/download/1.12/OpenPod-1.12.apk) · [1.11](https://github.com/clint-maples/OpenPod/releases/download/1.11/OpenPod-1.11.apk) · [1.10](https://github.com/clint-maples/OpenPod/releases/download/1.10/OpenPod-1.10.apk) · [1.9](https://github.com/clint-maples/OpenPod/releases/download/1.9/OpenPod-1.9.apk) · [1.8](https://github.com/clint-maples/OpenPod/releases/download/1.8/OpenPod-1.8.apk) · [1.7](https://github.com/clint-maples/OpenPod/releases/download/1.7/OpenPod-1.7.apk) · [1.6](https://github.com/clint-maples/OpenPod/releases/download/1.6/OpenPod-1.6.apk) · [1.5](https://github.com/clint-maples/OpenPod/releases/download/1.5/OpenPod-1.5.apk) · [1.4](https://github.com/clint-maples/OpenPod/releases/download/1.4/OpenPod-1.4.apk) · [1.3](https://github.com/clint-maples/OpenPod/releases/download/1.3/OpenPod-1.3.apk) · [1.2](https://github.com/clint-maples/OpenPod/releases/download/1.2/OpenPod-1.2.apk) · [1.1](https://github.com/clint-maples/OpenPod/releases/download/1.1/OpenPod-1.1.apk) · [1.0](https://github.com/clint-maples/OpenPod/releases/download/1.0/OpenPod-1.0.apk)
+Previous: [1.18](https://github.com/clint-maples/OpenPod/releases/download/1.18/OpenPod-1.18.apk) · [1.17](https://github.com/clint-maples/OpenPod/releases/download/1.17/OpenPod-1.17.apk) · [1.16](https://github.com/clint-maples/OpenPod/releases/download/1.16/OpenPod-1.16.apk) · [1.15](https://github.com/clint-maples/OpenPod/releases/download/1.15/OpenPod-1.15.apk) · [1.14](https://github.com/clint-maples/OpenPod/releases/download/1.14/OpenPod-1.14.apk) · [1.13](https://github.com/clint-maples/OpenPod/releases/download/1.13/OpenPod-1.13.apk) · [1.12](https://github.com/clint-maples/OpenPod/releases/download/1.12/OpenPod-1.12.apk) · [1.11](https://github.com/clint-maples/OpenPod/releases/download/1.11/OpenPod-1.11.apk) · [1.10](https://github.com/clint-maples/OpenPod/releases/download/1.10/OpenPod-1.10.apk) · [1.9](https://github.com/clint-maples/OpenPod/releases/download/1.9/OpenPod-1.9.apk) · [1.8](https://github.com/clint-maples/OpenPod/releases/download/1.8/OpenPod-1.8.apk) · [1.7](https://github.com/clint-maples/OpenPod/releases/download/1.7/OpenPod-1.7.apk) · [1.6](https://github.com/clint-maples/OpenPod/releases/download/1.6/OpenPod-1.6.apk) · [1.5](https://github.com/clint-maples/OpenPod/releases/download/1.5/OpenPod-1.5.apk) · [1.4](https://github.com/clint-maples/OpenPod/releases/download/1.4/OpenPod-1.4.apk) · [1.3](https://github.com/clint-maples/OpenPod/releases/download/1.3/OpenPod-1.3.apk) · [1.2](https://github.com/clint-maples/OpenPod/releases/download/1.2/OpenPod-1.2.apk) · [1.1](https://github.com/clint-maples/OpenPod/releases/download/1.1/OpenPod-1.1.apk) · [1.0](https://github.com/clint-maples/OpenPod/releases/download/1.0/OpenPod-1.0.apk)
 
 **Stack:** Kotlin, Jetpack Compose, Room, Media3, WorkManager, iTunes search + RSS.
+
+## Subscriptions
+
+Settings → **Export subscriptions** writes an OPML file you can keep or open in other podcast apps. **Import subscriptions** adds missing shows (default) or can replace the library after a confirmation. OpenPod extras (auto-download, auto-delete, folder name) are stored in an `openpod:` extension and round-trip on import. After import, feeds are fetched so episodes appear.
+
+## Downloads
+
+On a podcast screen, **Find existing downloads** scans that show’s folder for files that already match OpenPod’s naming pattern, episode title, or a distinctive guid. High-confidence matches are marked downloaded and play locally; **Not downloaded** / bulk download skip them.
 
 ## Library
 
