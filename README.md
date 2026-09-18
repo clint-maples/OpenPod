@@ -2,10 +2,10 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.22  
-**Download:** [OpenPod 1.22 APK](https://github.com/clint-maples/OpenPod/releases/download/1.22/OpenPod-1.22.apk)
+**Current version:** 1.23  
+**Download:** [OpenPod 1.23 APK](https://github.com/clint-maples/OpenPod/releases/download/1.23/OpenPod-1.23.apk)
 
-Previous: [1.21](https://github.com/clint-maples/OpenPod/releases/download/1.21/OpenPod-1.21.apk) � [1.20](https://github.com/clint-maples/OpenPod/releases/download/1.20/OpenPod-1.20.apk) � [1.19](https://github.com/clint-maples/OpenPod/releases/download/1.19/OpenPod-1.19.apk) · [1.18](https://github.com/clint-maples/OpenPod/releases/download/1.18/OpenPod-1.18.apk) · [1.17](https://github.com/clint-maples/OpenPod/releases/download/1.17/OpenPod-1.17.apk) · [1.16](https://github.com/clint-maples/OpenPod/releases/download/1.16/OpenPod-1.16.apk) · [1.15](https://github.com/clint-maples/OpenPod/releases/download/1.15/OpenPod-1.15.apk) · [1.14](https://github.com/clint-maples/OpenPod/releases/download/1.14/OpenPod-1.14.apk) · [1.13](https://github.com/clint-maples/OpenPod/releases/download/1.13/OpenPod-1.13.apk) · [1.12](https://github.com/clint-maples/OpenPod/releases/download/1.12/OpenPod-1.12.apk) · [1.11](https://github.com/clint-maples/OpenPod/releases/download/1.11/OpenPod-1.11.apk) · [1.10](https://github.com/clint-maples/OpenPod/releases/download/1.10/OpenPod-1.10.apk) · [1.9](https://github.com/clint-maples/OpenPod/releases/download/1.9/OpenPod-1.9.apk) · [1.8](https://github.com/clint-maples/OpenPod/releases/download/1.8/OpenPod-1.8.apk) · [1.7](https://github.com/clint-maples/OpenPod/releases/download/1.7/OpenPod-1.7.apk) · [1.6](https://github.com/clint-maples/OpenPod/releases/download/1.6/OpenPod-1.6.apk) · [1.5](https://github.com/clint-maples/OpenPod/releases/download/1.5/OpenPod-1.5.apk) · [1.4](https://github.com/clint-maples/OpenPod/releases/download/1.4/OpenPod-1.4.apk) · [1.3](https://github.com/clint-maples/OpenPod/releases/download/1.3/OpenPod-1.3.apk) · [1.2](https://github.com/clint-maples/OpenPod/releases/download/1.2/OpenPod-1.2.apk) · [1.1](https://github.com/clint-maples/OpenPod/releases/download/1.1/OpenPod-1.1.apk) · [1.0](https://github.com/clint-maples/OpenPod/releases/download/1.0/OpenPod-1.0.apk)
+Previous: [1.22](https://github.com/clint-maples/OpenPod/releases/download/1.22/OpenPod-1.22.apk) � [1.21](https://github.com/clint-maples/OpenPod/releases/download/1.21/OpenPod-1.21.apk) � [1.20](https://github.com/clint-maples/OpenPod/releases/download/1.20/OpenPod-1.20.apk) � [1.19](https://github.com/clint-maples/OpenPod/releases/download/1.19/OpenPod-1.19.apk) · [1.18](https://github.com/clint-maples/OpenPod/releases/download/1.18/OpenPod-1.18.apk) · [1.17](https://github.com/clint-maples/OpenPod/releases/download/1.17/OpenPod-1.17.apk) · [1.16](https://github.com/clint-maples/OpenPod/releases/download/1.16/OpenPod-1.16.apk) · [1.15](https://github.com/clint-maples/OpenPod/releases/download/1.15/OpenPod-1.15.apk) · [1.14](https://github.com/clint-maples/OpenPod/releases/download/1.14/OpenPod-1.14.apk) · [1.13](https://github.com/clint-maples/OpenPod/releases/download/1.13/OpenPod-1.13.apk) · [1.12](https://github.com/clint-maples/OpenPod/releases/download/1.12/OpenPod-1.12.apk) · [1.11](https://github.com/clint-maples/OpenPod/releases/download/1.11/OpenPod-1.11.apk) · [1.10](https://github.com/clint-maples/OpenPod/releases/download/1.10/OpenPod-1.10.apk) · [1.9](https://github.com/clint-maples/OpenPod/releases/download/1.9/OpenPod-1.9.apk) · [1.8](https://github.com/clint-maples/OpenPod/releases/download/1.8/OpenPod-1.8.apk) · [1.7](https://github.com/clint-maples/OpenPod/releases/download/1.7/OpenPod-1.7.apk) · [1.6](https://github.com/clint-maples/OpenPod/releases/download/1.6/OpenPod-1.6.apk) · [1.5](https://github.com/clint-maples/OpenPod/releases/download/1.5/OpenPod-1.5.apk) · [1.4](https://github.com/clint-maples/OpenPod/releases/download/1.4/OpenPod-1.4.apk) · [1.3](https://github.com/clint-maples/OpenPod/releases/download/1.3/OpenPod-1.3.apk) · [1.2](https://github.com/clint-maples/OpenPod/releases/download/1.2/OpenPod-1.2.apk) · [1.1](https://github.com/clint-maples/OpenPod/releases/download/1.1/OpenPod-1.1.apk) · [1.0](https://github.com/clint-maples/OpenPod/releases/download/1.0/OpenPod-1.0.apk)
 
 **Stack:** Kotlin, Jetpack Compose, Room, Media3, WorkManager, iTunes search + RSS.
 
@@ -43,6 +43,7 @@ On a podcast screen, **Find existing downloads** scans that show’s folder for 
 - Remove a show from the podcast screen (trash icon), not the main library list
 - Archive hides episodes; turn on **Show archived** on the podcast screen to see them again
 - Library layout toggle: list, or a scrolling **5-wide thumbnail grid**
+- On a podcast screen, search/filter episodes by title (useful for long feeds)
 
 ## Playlists
 
@@ -51,13 +52,23 @@ On a podcast screen, **Find existing downloads** scans that show’s folder for 
 
 ## Playback
 
-Now Playing speed is a text box from **0.5x to 5.0x**, with **− / +** stepping by **0.1x**. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer has a reset button and a volume boost slider (center = default; left quieter, right louder than system volume). The mini player on other tabs shows the podcast artwork with skip and play/pause centered in the bar. On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata. Tap the artwork on Now Playing to open that show's episode list.
+Now Playing speed is a text box from **0.5x to 5.0x**, with **− / +** stepping by **0.1x**. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer has a reset button and a volume boost slider (center = default; left quieter, right louder than system volume). The mini player on other tabs shows the podcast artwork with skip and play/pause centered in the bar. On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata. Tap the artwork on Now Playing to open that show's episode list. Share an episode from Now Playing, the episode screen, or the episode-row overflow -- the system share sheet sends the show name, episode title, and public stream URL (plus permalink when we have one).
 
 ## Sync schedule
 
 Settings → **Check for new episodes**: hourly, daily, or weekly. Daily and weekly also take a time of day.
 
 Built for Clint Maples.
+
+
+## Discover
+
+One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+
+## 1.23
+Unified Discover search (keyboard Search / Enter, trailing x, add-by-URL when the field looks like a feed). Interoperable episode share from Now Playing and episode overflow (podcast title, episode title, enclosure URL, permalink if available). Episode title search on the podcast screen.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `24dbaa22516c28e0d65a37065527edee963a17125d33de3eef3fc82bbdc77f2a`
 
 ## 1.22
 Chapters: Experts Only Radio #062 run-on HTML tracklists (glued clocks, including `00: 28:27`). Now Playing artwork opens that podcast's episode list.
