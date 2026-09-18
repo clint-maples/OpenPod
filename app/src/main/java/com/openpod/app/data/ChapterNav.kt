@@ -34,8 +34,8 @@ object ChapterNav {
     fun parseClockToMs(raw: String): Long? {
         val text = raw.trim()
         if (text.isEmpty() || text.toDoubleOrNull() != null) return null
-        val parts = text.split(":")
-        if (parts.size !in 2..3) return null
+        val parts = text.split(":").map { it.trim() }
+        if (parts.size !in 2..3 || parts.any { it.isEmpty() }) return null
         val nums = parts.map { it.toDoubleOrNull() ?: return null }
         val seconds = when (nums.size) {
             3 -> nums[0] * 3600 + nums[1] * 60 + nums[2]
@@ -47,25 +47,40 @@ object ChapterNav {
 
     fun parseOutlineChapters(html: String): List<Chapter> {
         if (html.isBlank()) return emptyList()
-        val text = html
+        val markup = html
             .replace(Regex("(?i)<br\\s*/?>"), "\n")
             .replace(Regex("(?i)</p>"), "\n")
+        // Optional spaces after colons: Experts Only #062 has "00: 28:27".
+        val clock = """\d{1,2}:\s*\d{2}(?::\s*\d{2})?"""
         // Dash after ) is optional: Lex uses "(00:00) – Title", All-In uses "(0:00) Title".
         val leadingClockRe = Regex(
-            """^\s*\((\d{1,2}:\d{2}(?::\d{2})?)\)\s*(?:[-–—]\s*)?(.+?)\s*$"""
+            """^\s*\(($clock)\)\s*(?:[-–—]\s*)?(.+?)\s*$"""
         )
         // Experts Only Radio: "Artist - Track 00:04:07" (clock at end of the line).
         val trailingClockRe = Regex(
-            """^\s*(.+?)\s+(\d{1,2}:\d{2}(?::\d{2})?)\s*$"""
+            """^\s*(.+?)\s+($clock)\s*$"""
         )
+        val gluedTrailingClockRe = Regex("""(.+?)\s+($clock)""")
         val out = ArrayList<Chapter>()
-        for (raw in text.lineSequence()) {
+        for (raw in markup.lineSequence()) {
             val line = decodeBasicEntities(raw.replace(Regex("<[^>]+>"), "")).trim()
             if (line.isEmpty()) continue
             val chapter = parseOutlineLine(line, leadingClockRe, trailingClockRe) ?: continue
             out += chapter
         }
-        val chapters = out.distinctBy { it.startMs }.sortedBy { it.startMs }
+        var chapters = out.distinctBy { it.startMs }.sortedBy { it.startMs }
+        if (chapters.size < 2) {
+            // #062 (and similar) glue every track into one HTML blob with no
+            // newlines between clocks. Scan the stripped text for title+clock.
+            val full = decodeBasicEntities(markup.replace(Regex("<[^>]+>"), ""))
+            val glued = ArrayList<Chapter>()
+            for (match in gluedTrailingClockRe.findAll(full)) {
+                val title = match.groupValues[1].trim()
+                val startMs = parseClockToMs(match.groupValues[2]) ?: continue
+                if (title.isNotEmpty()) glued += Chapter(startMs, title)
+            }
+            chapters = glued.distinctBy { it.startMs }.sortedBy { it.startMs }
+        }
         return if (chapters.size >= 2) chapters else emptyList()
     }
 

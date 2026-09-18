@@ -48,4 +48,34 @@ class ExpertsOnlyChapterFixtureTest {
             ChapterNav.parseOutlineChapters("Adam Ten & Rafael - Toys 00:00:06")
         )
     }
+
+    @Test
+    fun expertsOnly062RunOnHtmlParsesManyChapters() {
+        // Live #062 description is one HTML blob: </p> then <ol><li>…</li>…
+        // with no newlines between tracks. After tag strip the clocks are glued
+        // ("UTOPIA 00:00:07FENIK…") and one clock is "00: 28:27".
+        val chapters = ChapterNav.parseOutlineChapters(resource("experts_only_ep062_description.html"))
+        assertTrue(chapters.size >= 15)
+        assertEquals(16, chapters.size)
+        assertEquals(7_000L, chapters[0].startMs)
+        assertTrue(chapters[0].title.contains("UTOPIA"))
+        assertEquals(353_000L, chapters[1].startMs)
+        assertTrue(chapters[1].title.contains("Voices"))
+        assertEquals(1_707_000L, chapters[7].startMs)
+        assertTrue(chapters[7].title.contains("In My Mind"))
+        assertEquals(3_406_000L, chapters.last().startMs)
+        assertTrue(chapters.last().title.contains("UTOPIA"))
+        assertEquals(353_000L, ChapterNav.seekTargetMs(chapters, 10_000L, forward = true))
+    }
+
+    @Test
+    fun gluedTrailingClocksWithoutNewlinesParse() {
+        val html = "Walker & Royce, FENIK - UTOPIA 00:00:07FENIK ft. Modern Lover - Voices 00:05:53Kyle Watson x W&R - ID 00:09:43"
+        val chapters = ChapterNav.parseOutlineChapters(html)
+        assertEquals(3, chapters.size)
+        assertEquals(7_000L, chapters[0].startMs)
+        assertTrue(chapters[0].title.contains("UTOPIA"))
+        assertEquals(353_000L, chapters[1].startMs)
+        assertEquals(583_000L, chapters[2].startMs)
+    }
 }

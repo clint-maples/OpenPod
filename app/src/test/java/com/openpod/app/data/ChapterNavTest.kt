@@ -63,6 +63,7 @@ class ChapterNavTest {
     fun parsesClockStrings() {
         assertEquals(3_000L, ChapterNav.parseClockToMs("0:03"))
         assertEquals(3_830_000L, ChapterNav.parseClockToMs("1:03:50"))
+        assertEquals(1_707_000L, ChapterNav.parseClockToMs("00: 28:27"))
         assertNull(ChapterNav.parseClockToMs("95"))
     }
 

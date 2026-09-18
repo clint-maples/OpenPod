@@ -50,6 +50,7 @@ import kotlinx.coroutines.runBlocking
 
 data class PlayerUiState(
     val episodeId: Long = 0L,
+    val podcastId: Long = 0L,
     val title: String = "",
     val podcastTitle: String = "",
     val artwork: String = "",
@@ -241,6 +242,7 @@ class PlayerService : MediaSessionService() {
         _state.update {
             it.copy(
                 episodeId = episode.id,
+                podcastId = episode.podcastId,
                 title = episode.title,
                 podcastTitle = podcastTitle,
                 artwork = art,
@@ -494,6 +496,7 @@ class PlayerService : MediaSessionService() {
             _state.update {
                 it.copy(
                     episodeId = episode.id,
+                    podcastId = episode.podcastId,
                     title = episode.title,
                     podcastTitle = podcastTitle,
                     artwork = artwork.ifBlank { episode.imageUrl },
