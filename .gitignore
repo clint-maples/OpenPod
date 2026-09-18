@@ -38,3 +38,8 @@ captures/
 # Misc
 *.log
 design/*.png.bak
+
+# Release signing material (never commit)
+*.jks
+*.keystore
+*passwords.json
