@@ -7,10 +7,13 @@ import com.openpod.app.data.backup.OpmlFeed
 import com.openpod.app.data.backup.SubscriptionImportResult
 import com.openpod.app.data.db.AppDatabase
 import com.openpod.app.data.db.EpisodeEntity
+import com.openpod.app.data.db.EpisodeWithPodcast
 import com.openpod.app.data.db.PlaylistEntity
 import com.openpod.app.data.db.PlaylistItemEntity
 import com.openpod.app.data.db.PodcastEntity
+import com.openpod.app.data.db.QueueItemEntity
 import com.openpod.app.data.db.SettingsEntity
+import com.openpod.app.playback.PlaybackQueue
 import com.openpod.app.data.rss.RssParser
 import com.openpod.app.data.search.ItunesSearch
 import com.openpod.app.download.DownloadFolderScanner
@@ -39,6 +42,8 @@ class PodRepository(context: Context) {
     fun episode(id: Long) = db.episodes().observeById(id)
     fun playlists() = db.playlists().observeAll()
     fun playlistItems(id: Long) = db.playlists().observeItems(id)
+    fun queuedEpisodeIds(): Flow<Set<Long>> = db.queue().observeEpisodeIds().map { it.toSet() }
+    fun upcomingQueue(): Flow<List<EpisodeWithPodcast>> = db.queue().observeUpcoming()
     fun settings(): Flow<SettingsEntity> = db.settings().observe().map { it ?: SettingsEntity() }
     fun downloaded() = db.episodes().observeDownloaded()
 
@@ -323,6 +328,51 @@ class PodRepository(context: Context) {
 
     suspend fun removeFromPlaylist(playlistId: Long, episodeId: Long) =
         db.playlists().removeItem(playlistId, episodeId)
+
+    suspend fun upcomingIds(): List<Long> = db.queue().all().map { it.episodeId }
+
+    suspend fun persistQueue(ids: List<Long>) {
+        val desired = ids.toSet()
+        db.queue().all()
+            .filter { it.episodeId !in desired }
+            .forEach { db.queue().remove(it.episodeId) }
+        if (ids.isNotEmpty()) {
+            db.queue().upsertAll(ids.mapIndexed { index, id -> QueueItemEntity(id, index) })
+        }
+    }
+
+    suspend fun queuePlayNext(episodeId: Long, nowPlayingId: Long) {
+        persistQueue(PlaybackQueue.playNext(nowPlayingId, upcomingIds(), episodeId).upcoming)
+    }
+
+    suspend fun queueAdd(episodeId: Long, nowPlayingId: Long) {
+        persistQueue(PlaybackQueue.add(nowPlayingId, upcomingIds(), episodeId).upcoming)
+    }
+
+    suspend fun queueMove(episodeId: Long, delta: Int) {
+        persistQueue(PlaybackQueue.move(upcomingIds(), episodeId, delta).upcoming)
+    }
+
+    suspend fun removeFromQueue(episodeId: Long) {
+        persistQueue(PlaybackQueue.remove(upcomingIds(), episodeId).upcoming)
+    }
+
+    suspend fun clearQueue() {
+        db.queue().clear()
+    }
+
+    suspend fun popNextQueued(): EpisodeWithPodcast? {
+        val (nextId, rest) = PlaybackQueue.advance(upcomingIds())
+        if (nextId == 0L) return null
+        persistQueue(rest.upcoming)
+        val episode = db.episodes().byId(nextId) ?: return null
+        val podcast = db.podcasts().byId(episode.podcastId)
+        return EpisodeWithPodcast(
+            episode,
+            podcast?.title.orEmpty(),
+            podcast?.imageUrl ?: episode.imageUrl
+        )
+    }
 
     suspend fun setArchived(ids: List<Long>, archived: Boolean) {
         if (ids.isEmpty()) return

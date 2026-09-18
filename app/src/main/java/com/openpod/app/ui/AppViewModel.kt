@@ -27,6 +27,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val player = PlayerService.state
     val podcasts = repo.podcasts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val playlists = repo.playlists().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val queuedIds = repo.queuedEpisodeIds().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    val upcomingQueue = repo.upcomingQueue().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val settings = repo.settings().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), com.openpod.app.data.db.SettingsEntity())
     val downloadProgress = DownloadTracker.progress
 
@@ -140,6 +142,59 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 podcastTitle.ifBlank { podcast?.title.orEmpty() },
                 artwork.ifBlank { podcast?.imageUrl ?: fresh.imageUrl }
             )
+        }
+    }
+
+    fun playOrToggle(episode: EpisodeEntity, podcast: PodcastEntity) {
+        if (player.value.episodeId == episode.id) {
+            togglePlay()
+            return
+        }
+        play(episode, podcast)
+    }
+
+    fun playOrToggle(episode: EpisodeEntity, podcastTitle: String = "", artwork: String = "") {
+        if (player.value.episodeId == episode.id) {
+            togglePlay()
+            return
+        }
+        play(episode, podcastTitle, artwork)
+    }
+
+    fun playNext(episode: EpisodeEntity) {
+        viewModelScope.launch {
+            val nowPlaying = PlayerService.state.value.episodeId
+            if (nowPlaying == 0L) {
+                play(episode, "", "")
+                return@launch
+            }
+            if (nowPlaying == episode.id) return@launch
+            repo.queuePlayNext(episode.id, nowPlaying)
+            _message.value = "Playing next"
+        }
+    }
+
+    fun addToQueue(episode: EpisodeEntity) {
+        viewModelScope.launch {
+            val nowPlaying = PlayerService.state.value.episodeId
+            if (nowPlaying == episode.id) return@launch
+            repo.queueAdd(episode.id, nowPlaying)
+            _message.value = "Added to Up Next"
+        }
+    }
+
+    fun moveQueueItem(episodeId: Long, delta: Int) {
+        viewModelScope.launch { repo.queueMove(episodeId, delta) }
+    }
+
+    fun removeFromQueue(episodeId: Long) {
+        viewModelScope.launch { repo.removeFromQueue(episodeId) }
+    }
+
+    fun clearQueue() {
+        viewModelScope.launch {
+            repo.clearQueue()
+            _message.value = "Queue cleared"
         }
     }
 
