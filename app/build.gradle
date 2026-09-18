@@ -5,6 +5,24 @@ plugins {
     id 'com.google.devtools.ksp'
 }
 
+def clintAndroidKeystore = System.getenv("CLINT_ANDROID_KEYSTORE")
+def clintAndroidStorePassword = System.getenv("CLINT_ANDROID_STORE_PASSWORD")
+def clintAndroidKeyAlias = System.getenv("CLINT_ANDROID_KEY_ALIAS")
+def clintAndroidKeyPassword = System.getenv("CLINT_ANDROID_KEY_PASSWORD")
+def clintReleaseSigningReady = [clintAndroidKeystore, clintAndroidStorePassword, clintAndroidKeyAlias, clintAndroidKeyPassword].every { it }
+
+def requestedReleaseBuild = gradle.startParameter.taskNames.any { name ->
+    def n = name.toLowerCase()
+    n.contains("release") || n == "assemble" || n.endsWith(":assemble") || n == "build" || n.endsWith(":build")
+}
+if (requestedReleaseBuild && !clintReleaseSigningReady) {
+    throw new GradleException(
+        "Release signing requires environment variables: " +
+        "CLINT_ANDROID_KEYSTORE, CLINT_ANDROID_STORE_PASSWORD, " +
+        "CLINT_ANDROID_KEY_ALIAS, CLINT_ANDROID_KEY_PASSWORD"
+    )
+}
+
 android {
     namespace 'com.openpod.app'
     compileSdk 36
@@ -13,14 +31,28 @@ android {
         applicationId "com.openpod.app"
         minSdk 26
         targetSdk 34
-        versionCode 20
-        versionName "1.19"
+        versionCode 21
+        versionName "1.20"
+    }
+
+    signingConfigs {
+        if (clintReleaseSigningReady) {
+            release {
+                storeFile file(clintAndroidKeystore)
+                storePassword clintAndroidStorePassword
+                keyAlias clintAndroidKeyAlias
+                keyPassword clintAndroidKeyPassword
+            }
+        }
     }
 
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (clintReleaseSigningReady) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 
