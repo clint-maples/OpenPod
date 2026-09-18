@@ -44,15 +44,17 @@ On a podcast screen, **Find existing downloads** scans that showâ€™s folder for 
 - Archive hides episodes; turn on **Show archived** on the podcast screen to see them again
 - Library layout toggle: list, or a scrolling **5-wide thumbnail grid**
 - On a podcast screen, search/filter episodes by title (useful for long feeds)
+- Episode rows show remaining time when in progress, a downloaded mark, **In queue** when queued, and one-tap play/pause without opening Now Playing
 
 ## Playlists
 
 - Regular playlists you add episodes to
 - Smart playlists that filter by play status (unplayed / in progress / played) and download status (all / downloaded / not downloaded)
+- Separate from **Up Next**: playlists are saved lists; the queue is what plays after the current episode
 
 ## Playback
 
-Now Playing speed is a text box from **0.5x to 5.0x**, with **- / +** stepping by **0.1x**. Skip back/forward on Now Playing and the mini player use the Settings amounts (**10 / 15 / 30 / 45 / 60** seconds; changes apply immediately). Sleep timer on Now Playing can fade out at the end of the episode, after **5–60** minutes, or whichever comes first — cancel it while it is running. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer has a reset button and a volume boost slider (center = default; left quieter, right louder than system volume). The mini player stays on other tabs with artwork, title, skip, play/pause, tap-to-expand, and an **Up Next** shortcut (full queue reorder/clear is 1.25). On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata. Tap the artwork on Now Playing to open that show's episode list. Share an episode from Now Playing, the episode screen, or the episode-row overflow -- the system share sheet sends the show name, episode title, and public stream URL (plus permalink when we have one).
+Now Playing speed is a text box from **0.5x to 5.0x**, with **- / +** stepping by **0.1x**. Skip back/forward on Now Playing and the mini player use the Settings amounts (**10 / 15 / 30 / 45 / 60** seconds; changes apply immediately). Sleep timer on Now Playing can fade out at the end of the episode, after **5–60** minutes, or whichever comes first — cancel it while it is running. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer has a reset button and a volume boost slider (center = default; left quieter, right louder than system volume). The mini player stays on other tabs with artwork, title, skip, play/pause, tap-to-expand, and an **Up Next** shortcut. Up Next is a real queue (not a playlist): **Play next** inserts at the front, **Add to Up Next** appends, and you can reorder or clear. Playing an episode starts it now and removes it from the queue if it was listed; when an episode ends, the next queued item starts. On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata. Tap the artwork on Now Playing to open that show's episode list. Share an episode from Now Playing, the episode screen, or the episode-row overflow -- the system share sheet sends the show name, episode title, and public stream URL (plus permalink when we have one).
 
 ## Sync schedule
 

@@ -136,9 +136,16 @@ class PlayerService : MediaSessionService() {
                 if (playbackState == Player.STATE_ENDED) {
                     val ep = currentEpisode ?: return
                     val duration = player.duration.coerceAtLeast(0)
-                    ioScope.launch { repo.markProgress(ep.id, duration, duration) }
-                    if (_state.value.sleepEndOfEpisode) {
-                        finishSleepTimer()
+                    ioScope.launch {
+                        repo.markProgress(ep.id, duration, duration)
+                        if (_state.value.sleepEndOfEpisode) {
+                            scope.launch { finishSleepTimer() }
+                            return@launch
+                        }
+                        val next = repo.popNextQueued() ?: return@launch
+                        scope.launch {
+                            playEpisode(next.episode, next.podcastTitle, next.podcastImage)
+                        }
                     }
                 }
             }
@@ -258,7 +265,10 @@ class PlayerService : MediaSessionService() {
             )
         }
         publish()
-        ioScope.launch { repo.setLastEpisode(episode.id) }
+        ioScope.launch {
+            repo.removeFromQueue(episode.id)
+            repo.setLastEpisode(episode.id)
+        }
         attachEq(exo.audioSessionId)
     }
 

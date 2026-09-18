@@ -111,6 +111,38 @@ interface PlaylistDao {
 }
 
 @Dao
+interface QueueDao {
+    @Query("SELECT * FROM queue_items ORDER BY sortOrder ASC")
+    fun observeAll(): Flow<List<QueueItemEntity>>
+
+    @Query("SELECT * FROM queue_items ORDER BY sortOrder ASC")
+    suspend fun all(): List<QueueItemEntity>
+
+    @Query("SELECT episodeId FROM queue_items")
+    fun observeEpisodeIds(): Flow<List<Long>>
+
+    @Query(
+        """
+        SELECT episodes.*, podcasts.title AS podcastTitle, podcasts.imageUrl AS podcastImage
+        FROM queue_items
+        INNER JOIN episodes ON episodes.id = queue_items.episodeId
+        INNER JOIN podcasts ON podcasts.id = episodes.podcastId
+        ORDER BY queue_items.sortOrder ASC
+        """
+    )
+    fun observeUpcoming(): Flow<List<EpisodeWithPodcast>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(items: List<QueueItemEntity>)
+
+    @Query("DELETE FROM queue_items WHERE episodeId = :episodeId")
+    suspend fun remove(episodeId: Long)
+
+    @Query("DELETE FROM queue_items")
+    suspend fun clear()
+}
+
+@Dao
 interface SettingsDao {
     @Query("SELECT * FROM settings WHERE id = 1")
     fun observe(): Flow<SettingsEntity?>
