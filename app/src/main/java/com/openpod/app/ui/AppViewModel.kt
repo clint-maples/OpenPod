@@ -57,6 +57,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun clearSearch() {
+        _searchResults.value = emptyList()
+    }
+
     fun subscribe(feedUrl: String) {
         viewModelScope.launch {
             _busy.value = true

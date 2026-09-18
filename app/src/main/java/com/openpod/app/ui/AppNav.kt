@@ -334,6 +334,15 @@ private fun DiscoverScreen(vm: AppViewModel) {
         hideKeyboard()
         if (query.isNotBlank()) vm.search(query)
     }
+    fun clearQuery() {
+        hideKeyboard()
+        query = ""
+        vm.clearSearch()
+    }
+    fun clearUrl() {
+        hideKeyboard()
+        url = ""
+    }
     Scaffold(topBar = { TopAppBar(title = { Text("Discover") }) }) { padding ->
         LazyColumn(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
@@ -347,7 +356,13 @@ private fun DiscoverScreen(vm: AppViewModel) {
                     keyboardActions = KeyboardActions(onSearch = { runSearch() })
                 )
                 Spacer(Modifier.height(8.dp))
-                Button({ runSearch() }) { Text("Search") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button({ runSearch() }) { Text("Search") }
+                    Button(
+                        onClick = { clearQuery() },
+                        enabled = query.isNotBlank() || results.isNotEmpty()
+                    ) { Text("Clear") }
+                }
             }
             item {
                 OutlinedTextField(
@@ -360,10 +375,16 @@ private fun DiscoverScreen(vm: AppViewModel) {
                     keyboardActions = KeyboardActions(onDone = { hideKeyboard() })
                 )
                 Spacer(Modifier.height(8.dp))
-                Button({
-                    hideKeyboard()
-                    if (url.isNotBlank()) vm.subscribe(url.trim())
-                }) { Text("Add by URL") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button({
+                        hideKeyboard()
+                        if (url.isNotBlank()) vm.subscribe(url.trim())
+                    }) { Text("Add by URL") }
+                    Button(
+                        onClick = { clearUrl() },
+                        enabled = url.isNotBlank()
+                    ) { Text("Clear") }
+                }
             }
             items(results, key = { it.feedUrl }) { hit ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
