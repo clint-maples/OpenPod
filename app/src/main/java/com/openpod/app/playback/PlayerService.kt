@@ -58,10 +58,16 @@ data class PlayerUiState(
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
     val speed: Float = 1f,
-    val skipForwardSec: Int = 30,
-    val skipBackSec: Int = 15,
-    val volumeBoost: Float = 0f
-)
+    val skipForwardSec: Int = SkipIntervals.DEFAULT_FORWARD,
+    val skipBackSec: Int = SkipIntervals.DEFAULT_BACK,
+    val volumeBoost: Float = 0f,
+    val sleepDeadlineMs: Long = 0L,
+    val sleepEndOfEpisode: Boolean = false,
+    val sleepRemainingMs: Long = 0L,
+    val sleepMinutes: Int = 0
+) {
+    val sleepActive: Boolean get() = sleepDeadlineMs > 0L || sleepEndOfEpisode
+}
 
 @UnstableApi
 class PlayerService : MediaSessionService() {
@@ -130,7 +136,17 @@ class PlayerService : MediaSessionService() {
                 if (playbackState == Player.STATE_ENDED) {
                     val ep = currentEpisode ?: return
                     val duration = player.duration.coerceAtLeast(0)
-                    ioScope.launch { repo.markProgress(ep.id, duration, duration) }
+                    ioScope.launch {
+                        repo.markProgress(ep.id, duration, duration)
+                        if (_state.value.sleepEndOfEpisode) {
+                            scope.launch { finishSleepTimer() }
+                            return@launch
+                        }
+                        val next = repo.popNextQueued() ?: return@launch
+                        scope.launch {
+                            playEpisode(next.episode, next.podcastTitle, next.podcastImage)
+                        }
+                    }
                 }
             }
 
@@ -155,16 +171,14 @@ class PlayerService : MediaSessionService() {
         startProgress()
         ioScope.launch {
             val settings = repo.settingsOnce()
+            val fwd = SkipIntervals.nearest(settings.skipForwardSec)
+            val back = SkipIntervals.nearest(settings.skipBackSec)
+            if (fwd != settings.skipForwardSec || back != settings.skipBackSec) {
+                repo.updateSettings { it.copy(skipForwardSec = fwd, skipBackSec = back) }
+            }
             scope.launch {
                 applyVolumeBoost(settings.volumeBoost)
-                setSkipSeconds(settings.skipForwardSec, settings.skipBackSec)
-                _state.update {
-                    it.copy(
-                        skipForwardSec = settings.skipForwardSec,
-                        skipBackSec = settings.skipBackSec,
-                        volumeBoost = settings.volumeBoost
-                    )
-                }
+                setSkipSeconds(fwd, back)
             }
         }
         pending?.let { (episode, title, art) ->
@@ -251,7 +265,10 @@ class PlayerService : MediaSessionService() {
             )
         }
         publish()
-        ioScope.launch { repo.setLastEpisode(episode.id) }
+        ioScope.launch {
+            repo.removeFromQueue(episode.id)
+            repo.setLastEpisode(episode.id)
+        }
         attachEq(exo.audioSessionId)
     }
 
@@ -268,10 +285,14 @@ class PlayerService : MediaSessionService() {
 
     fun skip(forward: Boolean) {
         if (!::player.isInitialized) return
-        val amount = if (forward) _state.value.skipForwardSec else _state.value.skipBackSec
+        val amount = if (forward) {
+            SkipIntervals.nearest(_state.value.skipForwardSec)
+        } else {
+            SkipIntervals.nearest(_state.value.skipBackSec)
+        }
         val delta = amount * 1000L * if (forward) 1 else -1
         val next = (player.currentPosition + delta).coerceAtLeast(0)
-        player.seekTo(next)
+        exo.seekTo(next)
         publish()
         persistProgress()
     }
@@ -295,7 +316,22 @@ class PlayerService : MediaSessionService() {
     }
 
     fun setSkipSeconds(forward: Int, back: Int) {
-        _state.update { it.copy(skipForwardSec = forward, skipBackSec = back) }
+        Companion.setSkipSeconds(forward, back)
+    }
+
+    fun setSleepMinutes(minutes: Int) {
+        Companion.setSleepMinutes(minutes)
+        applySleepVolume()
+    }
+
+    fun setSleepEndOfEpisode(enabled: Boolean) {
+        Companion.setSleepEndOfEpisode(enabled)
+        applySleepVolume()
+    }
+
+    fun cancelSleepTimer() {
+        Companion.cancelSleepTimer()
+        restoreSleepVolume()
     }
 
     fun applyVolumeBoost(slider: Float) {
@@ -313,6 +349,7 @@ class PlayerService : MediaSessionService() {
             runCatching { player.clearMediaItems() }
         }
         currentEpisode = null
+        restoreSleepVolume()
         _state.update {
             PlayerUiState(
                 skipForwardSec = it.skipForwardSec,
@@ -339,9 +376,69 @@ class PlayerService : MediaSessionService() {
         progressJob = scope.launch {
             while (isActive) {
                 publish()
+                tickSleepTimer()
                 persistProgress()
                 delay(1_000)
             }
+        }
+    }
+
+    private fun tickSleepTimer() {
+        if (!::player.isInitialized) return
+        val current = _state.value
+        val remaining = SleepTimerLogic.remainingMs(
+            nowMs = System.currentTimeMillis(),
+            deadlineMs = current.sleepDeadlineMs,
+            endOfEpisode = current.sleepEndOfEpisode,
+            positionMs = player.currentPosition.coerceAtLeast(0),
+            durationMs = player.duration.takeIf { it > 0 } ?: current.durationMs
+        )
+        _state.update { it.copy(sleepRemainingMs = remaining ?: 0L) }
+        if (remaining == null) {
+            restoreSleepVolume()
+            return
+        }
+        if (remaining <= 0L) {
+            if (player.isPlaying) player.pause()
+            finishSleepTimer()
+            return
+        }
+        applySleepVolume(remaining)
+    }
+
+    private fun applySleepVolume(remainingMs: Long? = null) {
+        if (!::exo.isInitialized) return
+        val remaining = remainingMs ?: SleepTimerLogic.remainingMs(
+            nowMs = System.currentTimeMillis(),
+            deadlineMs = _state.value.sleepDeadlineMs,
+            endOfEpisode = _state.value.sleepEndOfEpisode,
+            positionMs = if (::player.isInitialized) player.currentPosition.coerceAtLeast(0) else _state.value.positionMs,
+            durationMs = if (::player.isInitialized) {
+                player.duration.takeIf { it > 0 } ?: _state.value.durationMs
+            } else {
+                _state.value.durationMs
+            }
+        )
+        if (remaining == null) {
+            restoreSleepVolume()
+            return
+        }
+        exo.volume = SleepTimerLogic.fadeVolume(remaining)
+    }
+
+    private fun restoreSleepVolume() {
+        if (::exo.isInitialized) exo.volume = 1f
+    }
+
+    private fun finishSleepTimer() {
+        restoreSleepVolume()
+        _state.update {
+            it.copy(
+                sleepDeadlineMs = 0L,
+                sleepEndOfEpisode = false,
+                sleepRemainingMs = 0L,
+                sleepMinutes = 0
+            )
         }
     }
 
@@ -366,11 +463,20 @@ class PlayerService : MediaSessionService() {
     private fun publish() {
         if (!::player.isInitialized) return
         val duration = player.duration.takeIf { it > 0 } ?: _state.value.durationMs
+        val position = player.currentPosition.coerceAtLeast(0)
+        val remaining = SleepTimerLogic.remainingMs(
+            nowMs = System.currentTimeMillis(),
+            deadlineMs = _state.value.sleepDeadlineMs,
+            endOfEpisode = _state.value.sleepEndOfEpisode,
+            positionMs = position,
+            durationMs = duration.coerceAtLeast(0)
+        )
         _state.update {
             it.copy(
                 playing = player.isPlaying,
-                positionMs = player.currentPosition.coerceAtLeast(0),
-                durationMs = duration.coerceAtLeast(0)
+                positionMs = position,
+                durationMs = duration.coerceAtLeast(0),
+                sleepRemainingMs = remaining ?: 0L
             )
         }
     }
@@ -468,6 +574,42 @@ class PlayerService : MediaSessionService() {
             if (svc != null) svc.seek(positionMs) else queueSeek(positionMs)
         }
 
+        fun setSkipSeconds(forward: Int, back: Int) {
+            val fwd = SkipIntervals.nearest(forward)
+            val backSec = SkipIntervals.nearest(back)
+            _state.update { it.copy(skipForwardSec = fwd, skipBackSec = backSec) }
+        }
+
+        fun setSleepMinutes(minutes: Int) {
+            val duration = minutes.coerceAtLeast(1)
+            val end = System.currentTimeMillis() + duration * 60_000L
+            _state.update {
+                it.copy(
+                    sleepDeadlineMs = end,
+                    sleepRemainingMs = duration * 60_000L,
+                    sleepMinutes = duration
+                )
+            }
+            instance?.applySleepVolume()
+        }
+
+        fun setSleepEndOfEpisode(enabled: Boolean) {
+            _state.update { it.copy(sleepEndOfEpisode = enabled) }
+            instance?.applySleepVolume()
+        }
+
+        fun cancelSleepTimer() {
+            _state.update {
+                it.copy(
+                    sleepDeadlineMs = 0L,
+                    sleepEndOfEpisode = false,
+                    sleepRemainingMs = 0L,
+                    sleepMinutes = 0
+                )
+            }
+            instance?.restoreSleepVolume()
+        }
+
         fun setSpeed(speed: Float) {
             val clamped = speed.coerceIn(0.5f, 5.0f)
             _state.update { it.copy(speed = clamped) }
@@ -512,7 +654,13 @@ class PlayerService : MediaSessionService() {
             pendingSeekMs = -1L
             instance?.stopAndClear()
             if (instance == null) {
-                _state.value = PlayerUiState()
+                val keep = _state.value
+                _state.value = PlayerUiState(
+                    skipForwardSec = keep.skipForwardSec,
+                    skipBackSec = keep.skipBackSec,
+                    volumeBoost = keep.volumeBoost,
+                    speed = keep.speed
+                )
             }
         }
     }

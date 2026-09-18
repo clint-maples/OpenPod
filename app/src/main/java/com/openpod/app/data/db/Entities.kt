@@ -1,5 +1,6 @@
 package com.openpod.app.data.db
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -108,6 +109,23 @@ data class PlaylistItemEntity(
     val sortOrder: Int
 )
 
+@Entity(
+    tableName = "queue_items",
+    foreignKeys = [
+        ForeignKey(
+            entity = EpisodeEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["episodeId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("sortOrder")]
+)
+data class QueueItemEntity(
+    @PrimaryKey val episodeId: Long,
+    val sortOrder: Int
+)
+
 @Entity(tableName = "settings", primaryKeys = ["id"])
 data class SettingsEntity(
     val id: Int = 1,
@@ -137,7 +155,7 @@ data class SettingsEntity(
 }
 
 data class EpisodeWithPodcast(
-    val episode: EpisodeEntity,
+    @Embedded val episode: EpisodeEntity,
     val podcastTitle: String,
     val podcastImage: String
 )

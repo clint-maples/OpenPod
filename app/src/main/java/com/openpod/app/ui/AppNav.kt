@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,32 +40,37 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.FastForward
-import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.QueuePlayNext
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
@@ -76,6 +82,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -87,6 +94,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -133,6 +141,8 @@ import com.openpod.app.download.DownloadProgress
 import com.openpod.app.download.EpisodeDownloadAction
 import com.openpod.app.download.episodeDownloadAction
 import com.openpod.app.playback.PlayerService
+import com.openpod.app.playback.SkipIntervals
+import com.openpod.app.playback.SleepTimerLogic
 import com.openpod.app.playback.formatVolumeBoost
 import com.openpod.app.share.EpisodeShare
 
@@ -163,7 +173,7 @@ fun OpenPodRoot(vm: AppViewModel) {
                 NavItem("Playlists", Icons.Default.QueueMusic, back.startsWith("playlist")) {
                     nav.navigate("playlists") { launchSingleTop = true }
                 }
-                NavItem("Now playing", Icons.Default.PlayArrow, back == "player" || back == "eq") {
+                NavItem("Now playing", Icons.Default.PlayArrow, back == "player" || back == "eq" || back == "upnext") {
                     nav.navigate("player") { launchSingleTop = true }
                 }
                 NavItem("Settings", Icons.Default.Settings, back == "settings") {
@@ -198,14 +208,23 @@ fun OpenPodRoot(vm: AppViewModel) {
                     PlayerScreen(
                         vm,
                         onEq = { nav.navigate("eq") },
-                        onOpenPodcast = { podcastId -> nav.navigate("podcast/$podcastId") }
+                        onOpenPodcast = { podcastId -> nav.navigate("podcast/$podcastId") },
+                        onUpNext = { nav.navigate("upnext") }
                     )
+                }
+                composable("upnext") {
+                    UpNextScreen(vm) { nav.navigate("player") }
                 }
                 composable("eq") { EqScreen(vm) }
                 composable("settings") { SettingsScreen(vm) }
             }
-            if (player.episodeId != 0L && back != "player") {
-                MiniPlayer(player, vm) { nav.navigate("player") }
+            if (MiniPlayerVisibility.shouldShow(back, player.episodeId)) {
+                MiniPlayer(
+                    player,
+                    vm,
+                    onOpen = { nav.navigate("player") },
+                    onUpNext = { nav.navigate("upnext") }
+                )
             }
         }
     }
@@ -228,36 +247,81 @@ private fun RowScope.NavItem(
 }
 
 @Composable
-private fun MiniPlayer(player: com.openpod.app.playback.PlayerUiState, vm: AppViewModel, onOpen: () -> Unit) {
+private fun MiniPlayer(
+    player: com.openpod.app.playback.PlayerUiState,
+    vm: AppViewModel,
+    onOpen: () -> Unit,
+    onUpNext: () -> Unit
+) {
     val nowPlayingLabel = listOf(player.podcastTitle, player.title)
         .filter { it.isNotBlank() }
         .joinToString(" — ")
         .ifBlank { "Now playing" }
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onOpen, onClickLabel = "Open now playing")
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-    ) {
-        AsyncImage(
-            player.artwork,
-            nowPlayingLabel,
-            Modifier
-                .align(Alignment.CenterStart)
-                .size(48.dp)
-                .clip(RoundedCornerShape(8.dp)),
-            contentScale = ContentScale.Crop
-        )
-        Row(
-            Modifier.align(Alignment.Center),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            IconButton({ vm.skip(false) }) { Icon(Icons.Default.FastRewind, "Back") }
-            IconButton({ vm.togglePlay() }) {
-                Icon(if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play")
+    Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
+        Column {
+            HorizontalDivider()
+            if (player.durationMs > 0L) {
+                LinearProgressIndicator(
+                    progress = { (player.positionMs.toFloat() / player.durationMs).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
-            IconButton({ vm.skip(true) }) { Icon(Icons.Default.FastForward, "Forward") }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 64.dp)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    Modifier
+                        .weight(1f)
+                        .clickable(onClick = onOpen, onClickLabel = "Open now playing"),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AsyncImage(
+                        player.artwork,
+                        nowPlayingLabel,
+                        Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(player.title.ifBlank { "Now playing" }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            player.podcastTitle.ifBlank { "Open episode" },
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (player.sleepActive) {
+                            Text(
+                                "Sleep ${SleepTimerLogic.formatRemaining(player.sleepRemainingMs)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+                SkipIconButton(
+                    seconds = player.skipBackSec,
+                    forward = false,
+                    onClick = { vm.skip(false) },
+                    compact = true
+                )
+                IconButton({ vm.togglePlay() }) {
+                    Icon(if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play")
+                }
+                SkipIconButton(
+                    seconds = player.skipForwardSec,
+                    forward = true,
+                    onClick = { vm.skip(true) },
+                    compact = true
+                )
+                IconButton(onUpNext) { Icon(Icons.Default.QueueMusic, "Up Next") }
+            }
         }
     }
 }
@@ -399,6 +463,8 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
     val playlists by vm.playlists.collectAsState()
     val podcast = podcasts.find { it.id == podcastId }
     val episodes by vm.episodes(podcastId, settings.showArchived).collectAsState(initial = emptyList())
+    val player by vm.player.collectAsState()
+    val queuedIds by vm.queuedIds.collectAsState()
     val progressMap by vm.downloadProgress.collectAsState()
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -554,8 +620,12 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                     selecting = selecting,
                     checked = episode.id in selected,
                     progress = progressMap[episode.id],
+                    player = player,
+                    queued = episode.id in queuedIds,
                     onOpen = { onEpisode(episode.id) },
-                    onPlay = { vm.play(episode, podcast) },
+                    onPlay = { vm.playOrToggle(episode, podcast) },
+                    onPlayNext = { vm.playNext(episode) },
+                    onAddToQueue = { vm.addToQueue(episode) },
                     onDownload = { vm.download(episode.id) },
                     onDeleteDownload = { vm.deleteDownload(episode.id) },
                     onShare = {
@@ -618,8 +688,12 @@ private fun EpisodeRow(
     selecting: Boolean,
     checked: Boolean,
     progress: DownloadProgress?,
+    player: com.openpod.app.playback.PlayerUiState,
+    queued: Boolean,
     onOpen: () -> Unit,
     onPlay: () -> Unit,
+    onPlayNext: () -> Unit,
+    onAddToQueue: () -> Unit,
     onDownload: () -> Unit,
     onDeleteDownload: () -> Unit,
     onShare: () -> Unit,
@@ -628,6 +702,10 @@ private fun EpisodeRow(
 ) {
     val downloading = isDownloadActive(episode, progress)
     val downloadAction = episodeDownloadAction(episode, downloading)
+    val isCurrent = player.episodeId == episode.id
+    val durationMs = if (isCurrent && player.durationMs > 0L) player.durationMs else episode.durationMs
+    val positionMs = if (isCurrent) player.positionMs else episode.positionMs
+    val completed = if (isCurrent) false else episode.completed
     var menuOpen by remember { mutableStateOf(false) }
     Column(
         Modifier
@@ -641,19 +719,27 @@ private fun EpisodeRow(
                 Spacer(Modifier.width(8.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text(episode.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(episode.title, Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (EpisodeRowChrome.isDownloaded(episode)) {
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            "Downloaded",
+                            Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
                 Text(
-                    listOfNotNull(
-                        formatDate(episode.pubDate).ifBlank { null },
-                        episode.episodeNumber?.let { "Ep $it" },
-                        downloadStatusLabel(episode, progress),
-                        if (episode.archived) "Archived" else null,
-                        when {
-                            episode.completed -> "Played"
-                            episode.positionMs > 0 -> "In progress"
-                            else -> "Unplayed"
-                        }
-                    ).joinToString(" · "),
+                    EpisodeRowChrome.metaParts(
+                        dateLabel = formatDate(episode.pubDate),
+                        episodeNumber = episode.episodeNumber,
+                        playbackLabel = EpisodeRowChrome.playbackLabel(durationMs, positionMs, completed),
+                        downloadLabel = downloadStatusLabel(episode, progress),
+                        queued = queued,
+                        archived = episode.archived
+                    ),
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -674,10 +760,31 @@ private fun EpisodeRow(
                         }
                     }
                 }
-                IconButton(onPlay) { Icon(Icons.Default.PlayArrow, "Play") }
+                IconButton(onPlay) {
+                    Icon(
+                        if (isCurrent && player.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        if (isCurrent && player.playing) "Pause" else "Play"
+                    )
+                }
                 Box {
                     IconButton({ menuOpen = true }) { Icon(Icons.Default.MoreVert, "More") }
                     DropdownMenu(menuOpen, { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Play next") },
+                            onClick = {
+                                menuOpen = false
+                                onPlayNext()
+                            },
+                            leadingIcon = { Icon(Icons.Default.QueuePlayNext, null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Add to Up Next") },
+                            onClick = {
+                                menuOpen = false
+                                onAddToQueue()
+                            },
+                            leadingIcon = { Icon(Icons.Default.PlaylistPlay, null) }
+                        )
                         DropdownMenuItem(
                             text = { Text("Share") },
                             onClick = {
@@ -737,6 +844,8 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
                     Spacer(Modifier.width(8.dp))
                     if (current.localUri.isNotBlank()) TextButton({ vm.deleteDownload(current.id) }) { Text("Remove file") }
                     IconButton({ addPlaylist = true }) { Icon(Icons.Default.PlaylistAdd, "Playlist") }
+                    IconButton({ vm.playNext(current) }) { Icon(Icons.Default.QueuePlayNext, "Play next") }
+                    IconButton({ vm.addToQueue(current) }) { Icon(Icons.Default.PlaylistPlay, "Add to Up Next") }
                     IconButton({
                         context.startActivity(
                             EpisodeShare.chooserIntent(podcast?.title.orEmpty(), current)
@@ -809,9 +918,14 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit, onOpenPodcast: (Long) -> Unit) {
+private fun PlayerScreen(
+    vm: AppViewModel,
+    onEq: () -> Unit,
+    onOpenPodcast: (Long) -> Unit,
+    onUpNext: () -> Unit
+) {
     val player by vm.player.collectAsState()
     val settings by vm.settings.collectAsState()
     val episode by vm.episode(player.episodeId).collectAsState(initial = null)
@@ -834,6 +948,7 @@ private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit, onOpenPodcast: (Lon
                     )
                 }
             ) { Icon(Icons.Default.Share, "Share episode") }
+            IconButton(onUpNext) { Icon(Icons.Default.QueueMusic, "Up Next") }
             IconButton(onEq) { Icon(Icons.Default.Equalizer, "Equalizer") }
         })
     }) { padding ->
@@ -899,9 +1014,13 @@ private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit, onOpenPodcast: (Lon
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        IconButton({ vm.skip(false) }, Modifier.size(controlSize)) {
-                            Icon(Icons.Default.SkipPrevious, "Back ${settings.skipBackSec}s", Modifier.size(iconSize))
-                        }
+                        SkipIconButton(
+                            seconds = settings.skipBackSec,
+                            forward = false,
+                            onClick = { vm.skip(false) },
+                            controlSize = controlSize,
+                            iconSize = 48.dp
+                        )
                         IconButton({ vm.togglePlay() }, Modifier.size(controlSize)) {
                             Icon(
                                 if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -909,11 +1028,15 @@ private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit, onOpenPodcast: (Lon
                                 Modifier.size(iconSize)
                             )
                         }
-                        IconButton({ vm.skip(true) }, Modifier.size(controlSize)) {
-                            Icon(Icons.Default.SkipNext, "Forward ${settings.skipForwardSec}s", Modifier.size(iconSize))
-                        }
+                        SkipIconButton(
+                            seconds = settings.skipForwardSec,
+                            forward = true,
+                            onClick = { vm.skip(true) },
+                            controlSize = controlSize,
+                            iconSize = 48.dp
+                        )
                     }
-                    Text("Skip ${settings.skipBackSec}s / ${settings.skipForwardSec}s")
+                    SleepTimerSection(player, vm)
                     Spacer(Modifier.height(8.dp))
                     SpeedControl(player.speed, { vm.setSpeed(it) })
                 }
@@ -1032,6 +1155,213 @@ private fun SpeedControl(speed: Float, onSpeed: (Float) -> Unit) {
                 Icon(Icons.Default.Add, "Faster")
             }
         }
+    }
+}
+
+@Composable
+private fun SkipIconButton(
+    seconds: Int,
+    forward: Boolean,
+    onClick: () -> Unit,
+    compact: Boolean = false,
+    controlSize: androidx.compose.ui.unit.Dp = if (compact) 48.dp else 72.dp,
+    iconSize: androidx.compose.ui.unit.Dp = if (compact) 22.dp else 36.dp
+) {
+    val label = SkipIntervals.compactLabel(seconds, forward)
+    IconButton(onClick, Modifier.size(controlSize)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                if (forward) Icons.Default.FastForward else Icons.Default.Replay,
+                SkipIntervals.contentDescription(seconds, forward),
+                Modifier.size(iconSize)
+            )
+            Text(label, style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SleepTimerSection(
+    player: com.openpod.app.playback.PlayerUiState,
+    vm: AppViewModel
+) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            Icon(Icons.Default.Bedtime, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Sleep timer", style = MaterialTheme.typography.titleMedium)
+        }
+        if (player.sleepActive) {
+            val detail = buildString {
+                append("Sleeps in ${SleepTimerLogic.formatRemaining(player.sleepRemainingMs)}")
+                if (player.sleepEndOfEpisode && player.sleepDeadlineMs > 0L) {
+                    append(" or at end of episode")
+                } else if (player.sleepEndOfEpisode) {
+                    append(" (end of episode)")
+                }
+            }
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            TextButton({ vm.cancelSleepTimer() }) { Text("Cancel sleep timer") }
+        } else {
+            Text(
+                "Fade out and pause at the end of the episode, after a set time, or whichever comes first.",
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                selected = player.sleepEndOfEpisode,
+                onClick = { vm.setSleepEndOfEpisode(!player.sleepEndOfEpisode) },
+                label = { Text("End of episode") }
+            )
+            SleepTimerLogic.MINUTE_PRESETS.forEach { minutes ->
+                FilterChip(
+                    selected = player.sleepMinutes == minutes,
+                    onClick = { vm.setSleepMinutes(minutes) },
+                    label = { Text("${minutes} min") }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun UpNextScreen(vm: AppViewModel, onOpenPlayer: () -> Unit) {
+    val player by vm.player.collectAsState()
+    val upcoming by vm.upcomingQueue.collectAsState()
+    var confirmClear by remember { mutableStateOf(false) }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Up Next") },
+                actions = {
+                    IconButton(
+                        onClick = { confirmClear = true },
+                        enabled = upcoming.isNotEmpty()
+                    ) { Icon(Icons.Default.ClearAll, "Clear queue") }
+                }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            Modifier.padding(padding).fillMaxSize(),
+            contentPadding = PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Text(
+                    "This queue is separate from playlists. Play next inserts at the front; Add to Up Next appends. When an episode finishes, the next item starts automatically.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            if (player.episodeId == 0L && upcoming.isEmpty()) {
+                item {
+                    Text("Nothing in the queue yet. Use Play next or Add to Up Next on an episode row.")
+                }
+            }
+            if (player.episodeId != 0L) {
+                item {
+                    Text("Playing now", style = MaterialTheme.typography.titleMedium)
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onOpenPlayer, onClickLabel = "Open now playing")
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AsyncImage(
+                            player.artwork,
+                            player.title,
+                            Modifier.size(64.dp).clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(player.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(player.podcastTitle, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                "${formatMs(player.positionMs)} / ${formatMs(player.durationMs)}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        IconButton({ vm.togglePlay() }) {
+                            Icon(
+                                if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                if (player.playing) "Pause" else "Play"
+                            )
+                        }
+                    }
+                }
+            }
+            if (upcoming.isNotEmpty()) {
+                item { Text("Up next", style = MaterialTheme.typography.titleMedium) }
+            } else if (player.episodeId != 0L) {
+                item {
+                    Text(
+                        "Nothing else queued. Use Play next or Add to Up Next from an episode.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+            items(upcoming, key = { it.episode.id }) { item ->
+                val episode = item.episode
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AsyncImage(
+                        item.podcastImage.ifBlank { episode.imageUrl },
+                        episode.title,
+                        Modifier.size(52.dp).clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f).clickable { vm.playOrToggle(episode, item.podcastTitle, item.podcastImage) }) {
+                        Text(episode.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(item.podcastTitle, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                        Text(
+                            EpisodeRowChrome.playbackLabel(episode.durationMs, episode.positionMs, episode.completed),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    IconButton(
+                        onClick = { vm.moveQueueItem(episode.id, -1) },
+                        enabled = upcoming.firstOrNull()?.episode?.id != episode.id
+                    ) { Icon(Icons.Default.KeyboardArrowUp, "Move up") }
+                    IconButton(
+                        onClick = { vm.moveQueueItem(episode.id, 1) },
+                        enabled = upcoming.lastOrNull()?.episode?.id != episode.id
+                    ) { Icon(Icons.Default.KeyboardArrowDown, "Move down") }
+                    IconButton({ vm.playOrToggle(episode, item.podcastTitle, item.podcastImage) }) {
+                        Icon(Icons.Default.PlayArrow, "Play now")
+                    }
+                    IconButton({ vm.removeFromQueue(episode.id) }) {
+                        Icon(Icons.Default.Delete, "Remove from queue")
+                    }
+                }
+            }
+        }
+    }
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("Clear queue?") },
+            text = { Text("Remove every upcoming episode from Up Next. The episode playing now stays.") },
+            confirmButton = {
+                TextButton({
+                    vm.clearQueue()
+                    confirmClear = false
+                }) { Text("Clear") }
+            },
+            dismissButton = { TextButton({ confirmClear = false }) { Text("Cancel") } }
+        )
     }
 }
 
@@ -1174,6 +1504,7 @@ private fun PlaylistsScreen(vm: AppViewModel, onOpen: (Long) -> Unit) {
 private fun PlaylistDetailScreen(vm: AppViewModel, playlistId: Long) {
     val lists by vm.playlists.collectAsState()
     val items by vm.playlistItems(playlistId).collectAsState(initial = emptyList())
+    val player by vm.player.collectAsState()
     val list = lists.find { it.id == playlistId }
     var episodes by remember { mutableStateOf<List<EpisodeEntity>>(emptyList()) }
     LaunchedEffect(items, list?.isSmart, list?.playFilter, list?.downloadFilter) {
@@ -1197,8 +1528,13 @@ private fun PlaylistDetailScreen(vm: AppViewModel, playlistId: Long) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(episode.title, Modifier.weight(1f), maxLines = 2)
                     IconButton({
-                        vm.play(episode, "", episode.imageUrl)
-                    }) { Icon(Icons.Default.PlayArrow, "Play") }
+                        vm.playOrToggle(episode, "", episode.imageUrl)
+                    }) {
+                        Icon(
+                            if (player.episodeId == episode.id && player.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            if (player.episodeId == episode.id && player.playing) "Pause" else "Play"
+                        )
+                    }
                     if (list?.isSmart != true) {
                         IconButton({ vm.removeFromPlaylist(playlistId, episode.id) }) { Icon(Icons.Default.Delete, "Remove") }
                     }
@@ -1208,7 +1544,7 @@ private fun PlaylistDetailScreen(vm: AppViewModel, playlistId: Long) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun SettingsScreen(vm: AppViewModel) {
     val settings by vm.settings.collectAsState()
@@ -1235,8 +1571,6 @@ private fun SettingsScreen(vm: AppViewModel) {
         if (uri != null) pendingImport = uri
     }
     var pattern by remember(settings.namingPattern) { mutableStateOf(settings.namingPattern) }
-    var fwd by remember(settings.skipForwardSec) { mutableStateOf(settings.skipForwardSec.toFloat()) }
-    var back by remember(settings.skipBackSec) { mutableStateOf(settings.skipBackSec.toFloat()) }
     var notificationsOn by remember {
         mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
     }
@@ -1286,11 +1620,33 @@ private fun SettingsScreen(vm: AppViewModel) {
                 TextButton({ vm.setNaming(pattern) }) { Text("Save pattern") }
             }
             item {
-                Text("Skip backward: ${back.toInt()} seconds")
-                Slider(back, { back = it }, valueRange = 5f..60f, steps = 10)
-                Text("Skip forward: ${fwd.toInt()} seconds")
-                Slider(fwd, { fwd = it }, valueRange = 5f..90f, steps = 16)
-                TextButton({ vm.setSkip(fwd.toInt(), back.toInt()) }) { Text("Save skip amounts") }
+                Text("Skip intervals", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Back and forward amounts on Now Playing, the mini player, lock screen, and headset skips. Changes apply immediately.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(Modifier.height(8.dp))
+                Text("Skip backward")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SkipIntervals.PRESETS.forEach { sec ->
+                        FilterChip(
+                            selected = SkipIntervals.nearest(settings.skipBackSec) == sec,
+                            onClick = { vm.setSkip(settings.skipForwardSec, sec) },
+                            label = { Text("${sec}s") }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text("Skip forward")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SkipIntervals.PRESETS.forEach { sec ->
+                        FilterChip(
+                            selected = SkipIntervals.nearest(settings.skipForwardSec) == sec,
+                            onClick = { vm.setSkip(sec, settings.skipBackSec) },
+                            label = { Text("${sec}s") }
+                        )
+                    }
+                }
             }
             item {
                 Text("Headset buttons", style = MaterialTheme.typography.titleMedium)

@@ -37,6 +37,22 @@ class OpenPodPlayer(
         }
     }
 
+    override fun getSeekBackIncrement(): Long {
+        return PlayerService.state.value.skipBackSec * 1000L
+    }
+
+    override fun getSeekForwardIncrement(): Long {
+        return PlayerService.state.value.skipForwardSec * 1000L
+    }
+
+    override fun seekBack() {
+        PlayerService.instance?.skip(false) ?: delegate.seekBack()
+    }
+
+    override fun seekForward() {
+        PlayerService.instance?.skip(true) ?: delegate.seekForward()
+    }
+
     override fun seekToNext() {
         seekForward()
     }
