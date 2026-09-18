@@ -9,6 +9,14 @@ Previous: [1.16](https://github.com/clint-maples/OpenPod/releases/download/1.16/
 
 **Stack:** Kotlin, Jetpack Compose, Room, Media3, WorkManager, iTunes search + RSS.
 
+## Subscriptions
+
+Settings → **Export subscriptions** writes an OPML file you can keep or open in other podcast apps. **Import subscriptions** adds missing shows (default) or can replace the library after a confirmation. OpenPod extras (auto-download, auto-delete, folder name) are stored in an `openpod:` extension and round-trip on import. After import, feeds are fetched so episodes appear.
+
+## Downloads
+
+On a podcast screen, **Find existing downloads** scans that show’s folder for files that already match OpenPod’s naming pattern, episode title, or a distinctive guid. High-confidence matches are marked downloaded and play locally; **Not downloaded** / bulk download skip them.
+
 ## Library
 
 - Long-press an episode, or tap **Select episodes**, to multi-select

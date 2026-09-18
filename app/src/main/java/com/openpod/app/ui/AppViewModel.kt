@@ -288,8 +288,74 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun downloadMany(ids: List<Long>) {
         viewModelScope.launch {
-            repo.downloadMany(ids)
-            _message.value = "Download finished for ${ids.size} episode(s)"
+            val count = repo.downloadMany(ids)
+            _message.value = when {
+                count == 0 -> "Already downloaded"
+                count < ids.size -> "Download finished for $count episode(s); skipped ${ids.size - count} already saved"
+                else -> "Download finished for $count episode(s)"
+            }
+        }
+    }
+
+    fun exportSubscriptions(uri: Uri) {
+        viewModelScope.launch {
+            _busy.value = true
+            runCatching {
+                val xml = repo.exportOpml()
+                val out = getApplication<Application>().contentResolver.openOutputStream(uri)
+                    ?: error("Could not write the file")
+                out.use { it.write(xml.toByteArray(Charsets.UTF_8)) }
+                repo.db.podcasts().all().size
+            }.onSuccess { count ->
+                _message.value = "Exported $count subscription(s)"
+            }.onFailure {
+                _message.value = it.message ?: "Export failed"
+            }
+            _busy.value = false
+        }
+    }
+
+    fun importSubscriptions(uri: Uri, replace: Boolean) {
+        viewModelScope.launch {
+            _busy.value = true
+            runCatching {
+                val xml = getApplication<Application>().contentResolver.openInputStream(uri)
+                    ?.bufferedReader(Charsets.UTF_8)
+                    ?.use { it.readText() }
+                    ?: error("Could not read the file")
+                repo.importSubscriptions(xml, replace)
+            }.onSuccess { result ->
+                _message.value = buildString {
+                    append("Added ${result.added}")
+                    if (result.existing > 0) append(", ${result.existing} already subscribed")
+                    if (result.removed > 0) append(", removed ${result.removed}")
+                    if (result.failed > 0) append(", ${result.failed} failed")
+                }
+            }.onFailure {
+                _message.value = it.message ?: "Import failed"
+            }
+            _busy.value = false
+        }
+    }
+
+    fun scanDownloads(podcastId: Long) {
+        viewModelScope.launch {
+            _busy.value = true
+            runCatching { repo.scanPodcastDownloads(podcastId) }
+                .onSuccess { result ->
+                    _message.value = when {
+                        result.folderUnset -> "Choose a download folder in Settings"
+                        result.folderMissing -> "No download folder found for this podcast"
+                        result.linked == 0 && result.alreadyLinked > 0 ->
+                            "Already linked ${result.alreadyLinked} downloaded episode(s)"
+                        result.linked == 0 -> "No matching downloads found"
+                        else -> "Linked ${result.linked} episode(s)"
+                    }
+                }
+                .onFailure {
+                    _message.value = it.message ?: "Scan failed"
+                }
+            _busy.value = false
         }
     }
 
