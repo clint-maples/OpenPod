@@ -51,19 +51,40 @@ object ChapterNav {
             .replace(Regex("(?i)<br\\s*/?>"), "\n")
             .replace(Regex("(?i)</p>"), "\n")
         // Dash after ) is optional: Lex uses "(00:00) – Title", All-In uses "(0:00) Title".
-        val lineRe = Regex(
+        val leadingClockRe = Regex(
             """^\s*\((\d{1,2}:\d{2}(?::\d{2})?)\)\s*(?:[-–—]\s*)?(.+?)\s*$"""
+        )
+        // Experts Only Radio: "Artist - Track 00:04:07" (clock at end of the line).
+        val trailingClockRe = Regex(
+            """^\s*(.+?)\s+(\d{1,2}:\d{2}(?::\d{2})?)\s*$"""
         )
         val out = ArrayList<Chapter>()
         for (raw in text.lineSequence()) {
             val line = decodeBasicEntities(raw.replace(Regex("<[^>]+>"), "")).trim()
-            val match = lineRe.matchEntire(line) ?: continue
-            val startMs = parseClockToMs(match.groupValues[1]) ?: continue
-            val title = match.groupValues[2].trim()
-            if (title.isNotEmpty()) out += Chapter(startMs, title)
+            if (line.isEmpty()) continue
+            val chapter = parseOutlineLine(line, leadingClockRe, trailingClockRe) ?: continue
+            out += chapter
         }
         val chapters = out.distinctBy { it.startMs }.sortedBy { it.startMs }
         return if (chapters.size >= 2) chapters else emptyList()
+    }
+
+    private fun parseOutlineLine(
+        line: String,
+        leadingClockRe: Regex,
+        trailingClockRe: Regex
+    ): Chapter? {
+        leadingClockRe.matchEntire(line)?.let { match ->
+            val startMs = parseClockToMs(match.groupValues[1]) ?: return null
+            val title = match.groupValues[2].trim()
+            return title.takeIf { it.isNotEmpty() }?.let { Chapter(startMs, it) }
+        }
+        trailingClockRe.matchEntire(line)?.let { match ->
+            val title = match.groupValues[1].trim()
+            val startMs = parseClockToMs(match.groupValues[2]) ?: return null
+            return title.takeIf { it.isNotEmpty() }?.let { Chapter(startMs, it) }
+        }
+        return null
     }
 
     private fun decodeBasicEntities(value: String): String {
