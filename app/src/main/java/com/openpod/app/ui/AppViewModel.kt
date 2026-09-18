@@ -14,6 +14,7 @@ import com.openpod.app.data.db.PodcastEntity
 import com.openpod.app.data.search.SearchHit
 import com.openpod.app.download.DownloadTracker
 import com.openpod.app.playback.PlayerService
+import com.openpod.app.playback.SkipIntervals
 import com.openpod.app.work.PodcastSyncWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -214,10 +215,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setSkip(forward: Int, back: Int) {
+        val fwd = SkipIntervals.nearest(forward)
+        val backSec = SkipIntervals.nearest(back)
+        PlayerService.setSkipSeconds(fwd, backSec)
         viewModelScope.launch {
-            repo.updateSettings { it.copy(skipForwardSec = forward, skipBackSec = back) }
-            PlayerService.instance?.setSkipSeconds(forward, back)
+            repo.updateSettings { it.copy(skipForwardSec = fwd, skipBackSec = backSec) }
         }
+    }
+
+    fun setSleepMinutes(minutes: Int) {
+        PlayerService.setSleepMinutes(minutes)
+    }
+
+    fun setSleepEndOfEpisode(enabled: Boolean) {
+        PlayerService.setSleepEndOfEpisode(enabled)
+    }
+
+    fun cancelSleepTimer() {
+        PlayerService.cancelSleepTimer()
     }
 
     fun setDefaults(autoDownload: Boolean, autoDelete: Boolean) {
