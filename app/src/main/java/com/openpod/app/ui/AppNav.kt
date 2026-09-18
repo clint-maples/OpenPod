@@ -125,6 +125,8 @@ import com.openpod.app.data.db.PlaylistEntity
 import com.openpod.app.data.db.PodcastEntity
 import com.openpod.app.data.db.SettingsEntity
 import com.openpod.app.download.DownloadProgress
+import com.openpod.app.download.EpisodeDownloadAction
+import com.openpod.app.download.episodeDownloadAction
 import com.openpod.app.playback.PlayerService
 import com.openpod.app.playback.formatVolumeBoost
 
@@ -507,6 +509,7 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                     onOpen = { onEpisode(episode.id) },
                     onPlay = { vm.play(episode, podcast) },
                     onDownload = { vm.download(episode.id) },
+                    onDeleteDownload = { vm.deleteDownload(episode.id) },
                     onToggle = {
                         selected = if (episode.id in selected) selected - episode.id else selected + episode.id
                     },
@@ -567,10 +570,12 @@ private fun EpisodeRow(
     onOpen: () -> Unit,
     onPlay: () -> Unit,
     onDownload: () -> Unit,
+    onDeleteDownload: () -> Unit,
     onToggle: () -> Unit,
     onLongPress: () -> Unit
 ) {
     val downloading = isDownloadActive(episode, progress)
+    val downloadAction = episodeDownloadAction(episode, downloading)
     Column(
         Modifier
             .fillMaxWidth()
@@ -600,11 +605,20 @@ private fun EpisodeRow(
                 )
             }
             if (!selecting) {
-                IconButton(onClick = onDownload, enabled = !downloading) {
-                    if (downloading) {
-                        CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Default.Download, "Download")
+                IconButton(
+                    onClick = if (downloadAction == EpisodeDownloadAction.DELETE) onDeleteDownload else onDownload,
+                    enabled = downloadAction != EpisodeDownloadAction.IN_PROGRESS
+                ) {
+                    when (downloadAction) {
+                        EpisodeDownloadAction.IN_PROGRESS -> {
+                            CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                        }
+                        EpisodeDownloadAction.DELETE -> {
+                            Icon(Icons.Default.Delete, "Delete download")
+                        }
+                        EpisodeDownloadAction.DOWNLOAD -> {
+                            Icon(Icons.Default.Download, "Download")
+                        }
                     }
                 }
                 IconButton(onPlay) { Icon(Icons.Default.PlayArrow, "Play") }
