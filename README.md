@@ -11,6 +11,8 @@ Previous: [1.19](https://github.com/clint-maples/OpenPod/releases/download/1.19/
 
 1.19 and earlier sideload APKs were signed with the Android **debug** certificate. **1.20 is release-signed** and needs a fresh install — uninstall the older APK first.
 
+Published 1.20 signing-cert SHA-256: `0e9a887ef0005854b068ae3cd60678c87e489f4bae4cd54eb51c7033a826c21e`
+
 ## Release signing
 
 `assembleRelease` signs with an off-repo keystore. Set these environment variables (never commit the `.jks` or passwords):
