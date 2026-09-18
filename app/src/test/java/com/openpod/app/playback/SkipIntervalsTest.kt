@@ -8,7 +8,8 @@ class SkipIntervalsTest {
     fun nearestSnapsToAllowedPresets() {
         assertEquals(10, SkipIntervals.nearest(5))
         assertEquals(10, SkipIntervals.nearest(10))
-        assertEquals(15, SkipIntervals.nearest(12))
+        assertEquals(10, SkipIntervals.nearest(12))
+        assertEquals(15, SkipIntervals.nearest(13))
         assertEquals(15, SkipIntervals.nearest(18))
         assertEquals(30, SkipIntervals.nearest(28))
         assertEquals(45, SkipIntervals.nearest(50))
