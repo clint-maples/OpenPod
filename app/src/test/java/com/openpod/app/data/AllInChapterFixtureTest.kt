@@ -29,8 +29,8 @@ class AllInChapterFixtureTest {
     }
 
     @Test
-    fun singleTimestampInProseIsNotAnOutline() {
-        val html = "<p>We start at (0:00) and talk for a while.</p>"
+    fun singleTimestampLineIsNotAnOutline() {
+        val html = "<p>(0:00) We start here.</p>"
         assertEquals(emptyList<Chapter>(), ChapterNav.parseOutlineChapters(html))
     }
 }
