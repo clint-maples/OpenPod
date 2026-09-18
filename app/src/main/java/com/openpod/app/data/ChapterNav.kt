@@ -50,8 +50,9 @@ object ChapterNav {
         val text = html
             .replace(Regex("(?i)<br\\s*/?>"), "\n")
             .replace(Regex("(?i)</p>"), "\n")
+        // Dash after ) is optional: Lex uses "(00:00) – Title", All-In uses "(0:00) Title".
         val lineRe = Regex(
-            """^\s*\((\d{1,2}:\d{2}(?::\d{2})?)\)\s*[-–—]\s*(.+?)\s*$"""
+            """^\s*\((\d{1,2}:\d{2}(?::\d{2})?)\)\s*(?:[-–—]\s*)?(.+?)\s*$"""
         )
         val out = ArrayList<Chapter>()
         for (raw in text.lineSequence()) {
@@ -61,7 +62,8 @@ object ChapterNav {
             val title = match.groupValues[2].trim()
             if (title.isNotEmpty()) out += Chapter(startMs, title)
         }
-        return out.distinctBy { it.startMs }.sortedBy { it.startMs }
+        val chapters = out.distinctBy { it.startMs }.sortedBy { it.startMs }
+        return if (chapters.size >= 2) chapters else emptyList()
     }
 
     private fun decodeBasicEntities(value: String): String {
