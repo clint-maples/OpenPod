@@ -188,7 +188,13 @@ fun OpenPodRoot(vm: AppViewModel) {
                 composable("episode/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) {
                     EpisodeScreen(vm, it.arguments!!.getLong("id")) { nav.navigate("player") }
                 }
-                composable("player") { PlayerScreen(vm) { nav.navigate("eq") } }
+                composable("player") {
+                    PlayerScreen(
+                        vm,
+                        onEq = { nav.navigate("eq") },
+                        onOpenPodcast = { podcastId -> nav.navigate("podcast/$podcastId") }
+                    )
+                }
                 composable("eq") { EqScreen(vm) }
                 composable("settings") { SettingsScreen(vm) }
             }
@@ -760,7 +766,7 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit) {
+private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit, onOpenPodcast: (Long) -> Unit) {
     val player by vm.player.collectAsState()
     val settings by vm.settings.collectAsState()
     val episode by vm.episode(player.episodeId).collectAsState(initial = null)
@@ -791,7 +797,20 @@ private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit) {
         ) {
             item {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    AsyncImage(player.artwork, player.title, Modifier.size(220.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
+                    val podcastId = player.podcastId.takeIf { it != 0L } ?: episode?.podcastId ?: 0L
+                    val artworkModifier = Modifier.size(220.dp).clip(RoundedCornerShape(16.dp))
+                    AsyncImage(
+                        player.artwork,
+                        player.podcastTitle.ifBlank { player.title },
+                        if (podcastId != 0L) {
+                            artworkModifier.clickable(
+                                onClickLabel = "Open ${player.podcastTitle.ifBlank { "podcast" }} episodes"
+                            ) { onOpenPodcast(podcastId) }
+                        } else {
+                            artworkModifier
+                        },
+                        contentScale = ContentScale.Crop
+                    )
                     Spacer(Modifier.height(16.dp))
                     Text(player.title, style = MaterialTheme.typography.titleLarge, maxLines = 2)
                     Text(player.podcastTitle, style = MaterialTheme.typography.bodyMedium)

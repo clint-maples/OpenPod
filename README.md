@@ -51,13 +51,16 @@ On a podcast screen, **Find existing downloads** scans that show’s folder for 
 
 ## Playback
 
-Now Playing speed is a text box from **0.5x to 5.0x**, with **− / +** stepping by **0.1x**. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer has a reset button and a volume boost slider (center = default; left quieter, right louder than system volume). The mini player on other tabs shows the podcast artwork with skip and play/pause centered in the bar. On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata.
+Now Playing speed is a text box from **0.5x to 5.0x**, with **− / +** stepping by **0.1x**. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer has a reset button and a volume boost slider (center = default; left quieter, right louder than system volume). The mini player on other tabs shows the podcast artwork with skip and play/pause centered in the bar. On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata. Tap the artwork on Now Playing to open that show?s episode list.
 
 ## Sync schedule
 
 Settings → **Check for new episodes**: hourly, daily, or weekly. Daily and weekly also take a time of day.
 
 Built for Clint Maples.
+
+## 1.22
+Chapters: Experts Only Radio #062 run-on HTML tracklists (glued clocks, including `00: 28:27`). Now Playing artwork opens that podcast?s episode list.
 
 ## 1.20
 Release APKs are signed from `CLINT_ANDROID_*` environment variables. The keystore and passwords stay off-repo; `assembleRelease` fails if those variables are missing.
