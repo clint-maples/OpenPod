@@ -203,25 +203,32 @@ class PodRepository(context: Context) {
     }
 
     private suspend fun upsertEpisodes(podcastId: Long, parsed: com.openpod.app.data.rss.ParsedPodcast) {
+        val existing = db.episodes().forPodcast(podcastId).associateBy { it.guid }
         parsed.episodes.forEach { item ->
-            db.episodes().insert(
-                EpisodeEntity(
-                    podcastId = podcastId,
-                    guid = item.guid,
-                    title = item.title,
-                    description = item.description,
-                    audioUrl = item.audioUrl,
-                    mimeType = item.mimeType,
-                    pubDate = item.pubDate,
-                    durationMs = item.durationMs,
-                    episodeNumber = item.episodeNumber,
-                    seasonNumber = item.seasonNumber,
-                    imageUrl = item.imageUrl,
-                    transcriptUrl = item.transcriptUrl,
-                    transcriptType = item.transcriptType,
-                    chaptersUrl = item.chaptersUrl
+            val current = existing[item.guid]
+            if (current == null) {
+                db.episodes().insert(
+                    EpisodeEntity(
+                        podcastId = podcastId,
+                        guid = item.guid,
+                        title = item.title,
+                        description = item.description,
+                        audioUrl = item.audioUrl,
+                        permalink = item.permalink,
+                        mimeType = item.mimeType,
+                        pubDate = item.pubDate,
+                        durationMs = item.durationMs,
+                        episodeNumber = item.episodeNumber,
+                        seasonNumber = item.seasonNumber,
+                        imageUrl = item.imageUrl,
+                        transcriptUrl = item.transcriptUrl,
+                        transcriptType = item.transcriptType,
+                        chaptersUrl = item.chaptersUrl
+                    )
                 )
-            )
+            } else if (item.permalink.isNotBlank() && current.permalink != item.permalink) {
+                db.episodes().update(current.copy(permalink = item.permalink))
+            }
         }
     }
 

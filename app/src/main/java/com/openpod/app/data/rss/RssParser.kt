@@ -21,6 +21,7 @@ data class ParsedEpisode(
     val title: String,
     val description: String,
     val audioUrl: String,
+    val permalink: String,
     val mimeType: String,
     val pubDate: Long,
     val durationMs: Long,
@@ -93,6 +94,24 @@ object RssParser {
                     inItem && name.equals("title", true) ->
                         if (item.title.isBlank()) item.title = parser.readInnerText()
                     inItem && name.equals("guid", true) -> item.guid = parser.readInnerText()
+                    inItem && name.equals("link", true) -> {
+                        val rel = attr(parser, "rel")
+                        when {
+                            rel.equals("enclosure", true) -> {
+                                val enclosure = href.ifBlank { urlAttr }
+                                if (item.audioUrl.isBlank() && enclosure.isNotBlank()) {
+                                    item.audioUrl = enclosure
+                                }
+                            }
+                            href.isNotBlank() && item.permalink.isBlank() -> item.permalink = href
+                            else -> {
+                                val text = parser.readInnerText()
+                                if (item.permalink.isBlank() && text.startsWith("http")) {
+                                    item.permalink = text
+                                }
+                            }
+                        }
+                    }
                     inItem && (name.equals("description", true) || name.equals("summary", true) || name.equals("encoded", true)) -> {
                         val text = parser.readInnerText()
                         if (text.length > item.description.length) item.description = text
@@ -196,6 +215,7 @@ object RssParser {
         var title: String = "",
         var description: String = "",
         var audioUrl: String = "",
+        var permalink: String = "",
         var mimeType: String = "audio/mpeg",
         var pubDate: Long = 0L,
         var durationMs: Long = 0L,
@@ -207,7 +227,7 @@ object RssParser {
         var chaptersUrl: String = ""
     ) {
         fun toParsed() = ParsedEpisode(
-            guid, title, description, audioUrl, mimeType, pubDate, durationMs,
+            guid, title, description, audioUrl, permalink, mimeType, pubDate, durationMs,
             episodeNumber, seasonNumber, imageUrl, transcriptUrl, transcriptType, chaptersUrl
         )
     }

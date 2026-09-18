@@ -38,6 +38,7 @@ data class EpisodeEntity(
     val title: String,
     val description: String = "",
     val audioUrl: String,
+    val permalink: String = "",
     val mimeType: String = "audio/mpeg",
     val pubDate: Long = 0L,
     val durationMs: Long = 0L,

@@ -60,7 +60,9 @@ import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.AlertDialog
@@ -69,6 +71,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -124,11 +128,13 @@ import com.openpod.app.data.db.EpisodeEntity
 import com.openpod.app.data.db.PlaylistEntity
 import com.openpod.app.data.db.PodcastEntity
 import com.openpod.app.data.db.SettingsEntity
+import com.openpod.app.data.search.DiscoverQuery
 import com.openpod.app.download.DownloadProgress
 import com.openpod.app.download.EpisodeDownloadAction
 import com.openpod.app.download.episodeDownloadAction
 import com.openpod.app.playback.PlayerService
 import com.openpod.app.playback.formatVolumeBoost
+import com.openpod.app.share.EpisodeShare
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -328,7 +334,6 @@ private fun PodcastRow(podcast: PodcastEntity, onClick: () -> Unit) {
 @Composable
 private fun DiscoverScreen(vm: AppViewModel) {
     var query by remember { mutableStateOf("") }
-    var url by remember { mutableStateOf("") }
     val results by vm.searchResults.collectAsState()
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -336,18 +341,20 @@ private fun DiscoverScreen(vm: AppViewModel) {
         keyboard?.hide()
         focusManager.clearFocus()
     }
-    fun runSearch() {
+    fun submit() {
         hideKeyboard()
-        if (query.isNotBlank()) vm.search(query)
+        val raw = query.trim()
+        if (raw.isEmpty()) return
+        if (DiscoverQuery.looksLikeFeedUrl(raw)) {
+            vm.subscribe(DiscoverQuery.normalizeFeedUrl(raw))
+        } else {
+            vm.search(raw)
+        }
     }
     fun clearQuery() {
         hideKeyboard()
         query = ""
         vm.clearSearch()
-    }
-    fun clearUrl() {
-        hideKeyboard()
-        url = ""
     }
     Scaffold(topBar = { TopAppBar(title = { Text("Discover") }) }) { padding ->
         LazyColumn(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -356,41 +363,18 @@ private fun DiscoverScreen(vm: AppViewModel) {
                     query,
                     { query = it },
                     Modifier.fillMaxWidth(),
-                    label = { Text("Search podcasts") },
+                    label = { Text("Search podcasts or paste RSS URL") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { runSearch() })
+                    keyboardActions = KeyboardActions(onSearch = { submit() }),
+                    trailingIcon = {
+                        if (query.isNotEmpty() || results.isNotEmpty()) {
+                            IconButton(onClick = { clearQuery() }) {
+                                Text("x", style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                    }
                 )
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button({ runSearch() }) { Text("Search") }
-                    Button(
-                        onClick = { clearQuery() },
-                        enabled = query.isNotBlank() || results.isNotEmpty()
-                    ) { Text("Clear") }
-                }
-            }
-            item {
-                OutlinedTextField(
-                    url,
-                    { url = it },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("Or paste RSS / podcast URL") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { hideKeyboard() })
-                )
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button({
-                        hideKeyboard()
-                        if (url.isNotBlank()) vm.subscribe(url.trim())
-                    }) { Text("Add by URL") }
-                    Button(
-                        onClick = { clearUrl() },
-                        enabled = url.isNotBlank()
-                    ) { Text("Clear") }
-                }
             }
             items(results, key = { it.feedUrl }) { hit ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -416,6 +400,10 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
     val podcast = podcasts.find { it.id == podcastId }
     val episodes by vm.episodes(podcastId, settings.showArchived).collectAsState(initial = emptyList())
     val progressMap by vm.downloadProgress.collectAsState()
+    val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    var episodeQuery by remember { mutableStateOf("") }
     var selecting by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(setOf<Long>()) }
     var moveDialog by remember { mutableStateOf(false) }
@@ -424,7 +412,8 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
         Text("Podcast not found")
         return
     }
-    val selectedEpisodes = episodes.filter { it.id in selected }
+    val visibleEpisodes = EpisodeTitleFilter.filter(episodes, episodeQuery)
+    val selectedEpisodes = visibleEpisodes.filter { it.id in selected }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -445,7 +434,11 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                 actions = {
                     if (selecting) {
                         IconButton({
-                            selected = if (selected.size == episodes.size) emptySet() else episodes.map { it.id }.toSet()
+                            selected = if (selected.size == visibleEpisodes.size) {
+                                emptySet()
+                            } else {
+                                visibleEpisodes.map { it.id }.toSet()
+                            }
                         }) { Icon(Icons.Default.SelectAll, "Select all") }
                     } else {
                         IconButton({ vm.refresh(podcastId) }) { Icon(Icons.Default.Refresh, "Refresh") }
@@ -503,6 +496,25 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                     }
                 }
                 Text(stripHtml(podcast.description), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, maxLines = 6)
+                OutlinedTextField(
+                    episodeQuery,
+                    { episodeQuery = it },
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    label = { Text("Search episodes") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = {
+                        keyboard?.hide()
+                        focusManager.clearFocus()
+                    }),
+                    trailingIcon = {
+                        if (episodeQuery.isNotEmpty()) {
+                            IconButton(onClick = { episodeQuery = "" }) {
+                                Text("x", style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                    }
+                )
                 if (!selecting) {
                     TextButton({
                         selecting = true
@@ -514,20 +526,29 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                         Modifier.padding(horizontal = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        TextButton({ selected = episodes.map { it.id }.toSet() }) { Text("Select all") }
+                        TextButton({ selected = visibleEpisodes.map { it.id }.toSet() }) { Text("Select all") }
                         TextButton({
-                            selected = episodes.filter { it.downloadStatus == EpisodeEntity.STATUS_DONE }
+                            selected = visibleEpisodes.filter { it.downloadStatus == EpisodeEntity.STATUS_DONE }
                                 .map { it.id }.toSet()
                         }) { Text("Downloaded") }
                         TextButton({
-                            selected = episodes.filter { it.downloadStatus != EpisodeEntity.STATUS_DONE }
+                            selected = visibleEpisodes.filter { it.downloadStatus != EpisodeEntity.STATUS_DONE }
                                 .map { it.id }.toSet()
                         }) { Text("Not downloaded") }
                         TextButton({ selected = emptySet() }) { Text("Clear") }
                     }
                 }
             }
-            items(episodes, key = { it.id }) { episode ->
+            if (visibleEpisodes.isEmpty() && episodeQuery.isNotBlank()) {
+                item {
+                    Text(
+                        "No episodes match “${episodeQuery.trim()}”",
+                        Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+            items(visibleEpisodes, key = { it.id }) { episode ->
                 EpisodeRow(
                     episode = episode,
                     selecting = selecting,
@@ -537,6 +558,9 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                     onPlay = { vm.play(episode, podcast) },
                     onDownload = { vm.download(episode.id) },
                     onDeleteDownload = { vm.deleteDownload(episode.id) },
+                    onShare = {
+                        context.startActivity(EpisodeShare.chooserIntent(podcast.title, episode))
+                    },
                     onToggle = {
                         selected = if (episode.id in selected) selected - episode.id else selected + episode.id
                     },
@@ -598,11 +622,13 @@ private fun EpisodeRow(
     onPlay: () -> Unit,
     onDownload: () -> Unit,
     onDeleteDownload: () -> Unit,
+    onShare: () -> Unit,
     onToggle: () -> Unit,
     onLongPress: () -> Unit
 ) {
     val downloading = isDownloadActive(episode, progress)
     val downloadAction = episodeDownloadAction(episode, downloading)
+    var menuOpen by remember { mutableStateOf(false) }
     Column(
         Modifier
             .fillMaxWidth()
@@ -649,6 +675,19 @@ private fun EpisodeRow(
                     }
                 }
                 IconButton(onPlay) { Icon(Icons.Default.PlayArrow, "Play") }
+                Box {
+                    IconButton({ menuOpen = true }) { Icon(Icons.Default.MoreVert, "More") }
+                    DropdownMenu(menuOpen, { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Share") },
+                            onClick = {
+                                menuOpen = false
+                                onShare()
+                            },
+                            leadingIcon = { Icon(Icons.Default.Share, null) }
+                        )
+                    }
+                }
             }
         }
         DownloadProgressBlock(episode, progress)
@@ -665,6 +704,7 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
     val transcript by vm.transcript.collectAsState()
     val progressMap by vm.downloadProgress.collectAsState()
     var addPlaylist by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     val current = episode
     LaunchedEffect(episodeId) {
         vm.repo.db.episodes().byId(episodeId)?.let { vm.loadExtras(it) }
@@ -697,6 +737,11 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
                     Spacer(Modifier.width(8.dp))
                     if (current.localUri.isNotBlank()) TextButton({ vm.deleteDownload(current.id) }) { Text("Remove file") }
                     IconButton({ addPlaylist = true }) { Icon(Icons.Default.PlaylistAdd, "Playlist") }
+                    IconButton({
+                        context.startActivity(
+                            EpisodeShare.chooserIntent(podcast?.title.orEmpty(), current)
+                        )
+                    }) { Icon(Icons.Default.Share, "Share episode") }
                     IconButton({ vm.archiveMany(listOf(current.id), !current.archived) }) {
                         Icon(
                             if (current.archived) Icons.Default.Unarchive else Icons.Default.Archive,
@@ -772,6 +817,7 @@ private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit, onOpenPodcast: (Lon
     val episode by vm.episode(player.episodeId).collectAsState(initial = null)
     val chapters by vm.chapters.collectAsState()
     val transcript by vm.transcript.collectAsState()
+    val context = LocalContext.current
     LaunchedEffect(player.episodeId) {
         if (player.episodeId != 0L) {
             vm.repo.db.episodes().byId(player.episodeId)?.let { vm.loadExtras(it) }
@@ -779,6 +825,15 @@ private fun PlayerScreen(vm: AppViewModel, onEq: () -> Unit, onOpenPodcast: (Lon
     }
     Scaffold(topBar = {
         TopAppBar(title = { Text("Now playing") }, actions = {
+            IconButton(
+                enabled = episode != null,
+                onClick = {
+                    val current = episode ?: return@IconButton
+                    context.startActivity(
+                        EpisodeShare.chooserIntent(player.podcastTitle, current)
+                    )
+                }
+            ) { Icon(Icons.Default.Share, "Share episode") }
             IconButton(onEq) { Icon(Icons.Default.Equalizer, "Equalizer") }
         })
     }) { padding ->
