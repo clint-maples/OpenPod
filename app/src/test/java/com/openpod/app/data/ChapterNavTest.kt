@@ -65,4 +65,13 @@ class ChapterNavTest {
         assertEquals(3_830_000L, ChapterNav.parseClockToMs("1:03:50"))
         assertNull(ChapterNav.parseClockToMs("95"))
     }
+
+    @Test
+    fun missingDurationDoesNotTreatHourLongSecondsAsMilliseconds() {
+        val starts = listOf(0.0, 67.0, 3806.0, 12798.0)
+        assertEquals(
+            listOf(0L, 67_000L, 3_806_000L, 12_798_000L),
+            ChapterNav.normalizeStartMs(starts, durationMs = 0L)
+        )
+    }
 }

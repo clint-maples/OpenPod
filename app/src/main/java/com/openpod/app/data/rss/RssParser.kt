@@ -116,7 +116,8 @@ object RssParser {
                         }
                     }
                     inItem && name.equals("chapters", true) -> {
-                        if (urlAttr.isNotBlank()) item.chaptersUrl = urlAttr
+                        val chapterUrl = urlAttr.ifBlank { href }
+                        if (chapterUrl.isNotBlank()) item.chaptersUrl = chapterUrl
                     }
                     inItem && name.equals("image", true) -> {
                         if (href.isNotBlank()) item.imageUrl = href

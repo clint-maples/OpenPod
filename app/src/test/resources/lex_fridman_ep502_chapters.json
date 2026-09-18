@@ -1,0 +1,20 @@
+{
+  "version": "1.2.0",
+  "chapters": [
+    { "startTime": 0, "title": "Introduction" },
+    { "startTime": 67, "title": "Sponsors, Comments, and Reflections" },
+    { "startTime": 490, "title": "Crisis in Psychiatry" },
+    { "startTime": 2268, "title": "Categories of Mental Illness" },
+    { "startTime": 2707, "title": "Asylums, Eugenics, and the Nazis" },
+    { "startTime": 3433, "title": "The Ice Pick Lobotomy" },
+    { "startTime": 3806, "title": "Malaria Cure for Syphilis" },
+    { "startTime": 4902, "title": "Insulin Coma Therapy" },
+    { "startTime": 5374, "title": "Electroconvulsive Therapy (ECT)" },
+    { "startTime": 6543, "title": "One Flew Over the Cuckoo's Nest" },
+    { "startTime": 7595, "title": "Freud and Psychoanalysis" },
+    { "startTime": 9390, "title": "WWII and Cognitive behavioral therapy (CBT)" },
+    { "startTime": 10624, "title": "Antipsychotics" },
+    { "startTime": 12024, "title": "Antidepressants" },
+    { "startTime": 12798, "title": "Future of Psychiatry" }
+  ]
+}

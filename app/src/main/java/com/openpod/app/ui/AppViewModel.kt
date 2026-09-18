@@ -155,12 +155,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             positionMs = PlayerService.instance?.currentPositionMs() ?: player.value.positionMs,
             forward = forward
         ) ?: return
-        if (PlayerService.instance != null) {
-            PlayerService.instance?.seek(target)
-            return
+        seek(target)
+        if (PlayerService.instance == null) {
+            viewModelScope.launch { resumeLastEpisode() }
         }
-        PlayerService.queueSeek(target)
-        viewModelScope.launch { resumeLastEpisode() }
     }
 
     fun seek(ms: Long) = PlayerService.seekOrQueue(ms)
