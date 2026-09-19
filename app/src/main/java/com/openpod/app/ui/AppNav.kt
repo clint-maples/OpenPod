@@ -287,23 +287,15 @@ private fun MiniPlayer(
                             .clip(RoundedCornerShape(8.dp)),
                         contentScale = ContentScale.Crop
                     )
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(player.title.ifBlank { "Now playing" }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (player.sleepActive) {
+                        Spacer(Modifier.width(10.dp))
                         Text(
-                            player.podcastTitle.ifBlank { "Open episode" },
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            "Sleep ${SleepTimerLogic.formatRemaining(player.sleepRemainingMs)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
                         )
-                        if (player.sleepActive) {
-                            Text(
-                                "Sleep ${SleepTimerLogic.formatRemaining(player.sleepRemainingMs)}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
                     }
+                    Spacer(Modifier.weight(1f))
                 }
                 SkipIconButton(
                     seconds = player.skipBackSec,
