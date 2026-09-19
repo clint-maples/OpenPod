@@ -13,6 +13,7 @@ import com.openpod.app.data.db.PlaylistItemEntity
 import com.openpod.app.data.db.PodcastEntity
 import com.openpod.app.data.db.QueueItemEntity
 import com.openpod.app.data.db.SettingsEntity
+import com.openpod.app.playback.EpisodeTrim
 import com.openpod.app.playback.PlaybackQueue
 import com.openpod.app.data.rss.RssParser
 import com.openpod.app.data.search.ItunesSearch
@@ -166,7 +167,9 @@ class PodRepository(context: Context) {
                 imageUrl = parsed?.imageUrl.orEmpty(),
                 autoDownload = feed.autoDownload ?: defaults.autoDownloadDefault,
                 autoDelete = feed.autoDelete ?: defaults.autoDeleteDefault,
-                folderName = folder
+                folderName = folder,
+                skipIntroSec = EpisodeTrim.sanitize(feed.skipIntroSec ?: 0),
+                skipOutroSec = EpisodeTrim.sanitize(feed.skipOutroSec ?: 0)
             )
         )
         if (parsed != null) {
@@ -237,12 +240,20 @@ class PodRepository(context: Context) {
         }
     }
 
-    suspend fun setPodcastFlags(id: Long, autoDownload: Boolean? = null, autoDelete: Boolean? = null) {
+    suspend fun setPodcastFlags(
+        id: Long,
+        autoDownload: Boolean? = null,
+        autoDelete: Boolean? = null,
+        skipIntroSec: Int? = null,
+        skipOutroSec: Int? = null
+    ) {
         val podcast = db.podcasts().byId(id) ?: return
         db.podcasts().update(
             podcast.copy(
                 autoDownload = autoDownload ?: podcast.autoDownload,
-                autoDelete = autoDelete ?: podcast.autoDelete
+                autoDelete = autoDelete ?: podcast.autoDelete,
+                skipIntroSec = skipIntroSec?.let { EpisodeTrim.sanitize(it) } ?: podcast.skipIntroSec,
+                skipOutroSec = skipOutroSec?.let { EpisodeTrim.sanitize(it) } ?: podcast.skipOutroSec
             )
         )
     }
@@ -276,11 +287,16 @@ class PodRepository(context: Context) {
 
     suspend fun markProgress(episodeId: Long, positionMs: Long, durationMs: Long) {
         val episode = db.episodes().byId(episodeId) ?: return
-        val completed = durationMs > 0 && positionMs >= durationMs - 5000
+        val podcast = db.podcasts().byId(episode.podcastId)
+        val completed = EpisodeTrim.isCompleted(
+            positionMs,
+            durationMs,
+            podcast?.skipOutroSec ?: 0,
+            podcast?.skipIntroSec ?: 0
+        )
         db.episodes().updateProgress(episodeId, positionMs, completed)
-        if (completed) {
-            val podcast = db.podcasts().byId(episode.podcastId)
-            if (podcast?.autoDelete == true) downloader.deleteLocal(episodeId)
+        if (completed && podcast?.autoDelete == true) {
+            downloader.deleteLocal(episodeId)
         }
     }
 

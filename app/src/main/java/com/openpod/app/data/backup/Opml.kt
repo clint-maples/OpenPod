@@ -17,7 +17,9 @@ data class OpmlFeed(
     val htmlUrl: String = "",
     val autoDownload: Boolean? = null,
     val autoDelete: Boolean? = null,
-    val folderName: String? = null
+    val folderName: String? = null,
+    val skipIntroSec: Int? = null,
+    val skipOutroSec: Int? = null
 )
 
 data class SubscriptionImportResult(
@@ -48,6 +50,12 @@ object Opml {
                 append(" openpod:autoDelete=\"").append(podcast.autoDelete).append('"')
                 if (podcast.folderName.isNotBlank()) {
                     append(" openpod:folderName=\"").append(escapeAttr(podcast.folderName)).append('"')
+                }
+                if (podcast.skipIntroSec > 0) {
+                    append(" openpod:skipIntroSec=\"").append(podcast.skipIntroSec).append('"')
+                }
+                if (podcast.skipOutroSec > 0) {
+                    append(" openpod:skipOutroSec=\"").append(podcast.skipOutroSec).append('"')
                 }
             }
             "    <outline$attrs />"
@@ -100,7 +108,9 @@ object Opml {
                 htmlUrl = firstAttr(el, "htmlUrl", "htmlURL", "htmlurl"),
                 autoDownload = parseBool(nsOrLocal(el, "autoDownload")),
                 autoDelete = parseBool(nsOrLocal(el, "autoDelete")),
-                folderName = nsOrLocal(el, "folderName")?.ifBlank { null }
+                folderName = nsOrLocal(el, "folderName")?.ifBlank { null },
+                skipIntroSec = parseInt(nsOrLocal(el, "skipIntroSec")),
+                skipOutroSec = parseInt(nsOrLocal(el, "skipOutroSec"))
             )
         }
         return feeds
@@ -195,5 +205,10 @@ object Opml {
             "false", "0", "no" -> false
             else -> null
         }
+    }
+
+    private fun parseInt(raw: String?): Int? {
+        val value = raw?.trim() ?: return null
+        return value.toIntOrNull()
     }
 }

@@ -140,6 +140,7 @@ import com.openpod.app.data.search.DiscoverQuery
 import com.openpod.app.download.DownloadProgress
 import com.openpod.app.download.EpisodeDownloadAction
 import com.openpod.app.download.episodeDownloadAction
+import com.openpod.app.playback.EpisodeTrim
 import com.openpod.app.playback.PlayerService
 import com.openpod.app.playback.SkipIntervals
 import com.openpod.app.playback.SleepTimerLogic
@@ -260,9 +261,10 @@ private fun MiniPlayer(
     Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
         Column {
             HorizontalDivider()
-            if (player.durationMs > 0L) {
+            val miniDuration = player.effectiveDurationMs.takeIf { it > 0L } ?: player.durationMs
+            if (miniDuration > 0L) {
                 LinearProgressIndicator(
-                    progress = { (player.positionMs.toFloat() / player.durationMs).coerceIn(0f, 1f) },
+                    progress = { (player.positionMs.toFloat() / miniDuration).coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -301,7 +303,8 @@ private fun MiniPlayer(
                     seconds = player.skipBackSec,
                     forward = false,
                     onClick = { vm.skip(false) },
-                    compact = true
+                    compact = true,
+                    showAmount = false
                 )
                 IconButton({ vm.togglePlay() }) {
                     Icon(if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play")
@@ -310,7 +313,8 @@ private fun MiniPlayer(
                     seconds = player.skipForwardSec,
                     forward = true,
                     onClick = { vm.skip(true) },
-                    compact = true
+                    compact = true,
+                    showAmount = false
                 )
                 IconButton(onUpNext) { Icon(Icons.Default.QueueMusic, "Up Next") }
             }
@@ -554,6 +558,24 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                     }
                 }
                 Text(stripHtml(podcast.description), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, maxLines = 6)
+                SecondsTextField(
+                    committedSec = podcast.skipIntroSec,
+                    onCommit = { vm.setFlags(podcastId, skipIntroSec = it) },
+                    label = "Skip first seconds",
+                    supporting = "Start every episode after this many seconds. 0 keeps the intro.",
+                    minSec = EpisodeTrim.MIN_SEC,
+                    maxSec = EpisodeTrim.MAX_SEC,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+                SecondsTextField(
+                    committedSec = podcast.skipOutroSec,
+                    onCommit = { vm.setFlags(podcastId, skipOutroSec = it) },
+                    label = "Skip last seconds",
+                    supporting = "Treat the episode as finished this many seconds early. 0 keeps the outro.",
+                    minSec = EpisodeTrim.MIN_SEC,
+                    maxSec = EpisodeTrim.MAX_SEC,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                )
                 OutlinedTextField(
                     episodeQuery,
                     { episodeQuery = it },
@@ -991,13 +1013,14 @@ private fun PlayerScreen(
                         }
                     }
                     Spacer(Modifier.height(16.dp))
+                    val displayDuration = player.effectiveDurationMs.takeIf { it > 0L } ?: player.durationMs
                     Slider(
-                        value = if (player.durationMs > 0) (player.positionMs.toFloat() / player.durationMs).coerceIn(0f, 1f) else 0f,
-                        onValueChange = { if (player.durationMs > 0) vm.seek((it * player.durationMs).toLong()) }
+                        value = if (displayDuration > 0) (player.positionMs.toFloat() / displayDuration).coerceIn(0f, 1f) else 0f,
+                        onValueChange = { if (displayDuration > 0) vm.seek((it * displayDuration).toLong()) }
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(formatMs(player.positionMs))
-                        Text(formatMs(player.durationMs))
+                        Text(formatMs(displayDuration))
                     }
                     val controlSize = 108.dp
                     val iconSize = 72.dp
@@ -1156,10 +1179,10 @@ private fun SkipIconButton(
     forward: Boolean,
     onClick: () -> Unit,
     compact: Boolean = false,
+    showAmount: Boolean = true,
     controlSize: androidx.compose.ui.unit.Dp = if (compact) 48.dp else 72.dp,
     iconSize: androidx.compose.ui.unit.Dp = if (compact) 22.dp else 36.dp
 ) {
-    val label = SkipIntervals.compactLabel(seconds, forward)
     IconButton(onClick, Modifier.size(controlSize)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
@@ -1167,9 +1190,60 @@ private fun SkipIconButton(
                 SkipIntervals.contentDescription(seconds, forward),
                 Modifier.size(iconSize)
             )
-            Text(label, style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelLarge)
+            if (showAmount) {
+                Text(
+                    SkipIntervals.compactLabel(seconds, forward),
+                    style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelLarge
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun SecondsTextField(
+    committedSec: Int,
+    onCommit: (Int) -> Unit,
+    label: String,
+    supporting: String,
+    minSec: Int,
+    maxSec: Int,
+    modifier: Modifier = Modifier.fillMaxWidth()
+) {
+    val focusManager = LocalFocusManager.current
+    var focused by remember { mutableStateOf(false) }
+    var text by remember(committedSec) { mutableStateOf(committedSec.toString()) }
+    LaunchedEffect(committedSec) {
+        if (!focused) text = committedSec.toString()
+    }
+    fun apply() {
+        val parsed = text.trim().toIntOrNull()
+        val next = (parsed ?: committedSec).coerceIn(minSec, maxSec)
+        text = next.toString()
+        if (next != committedSec) onCommit(next)
+    }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { raw ->
+            text = raw.filter { it.isDigit() }.take(4)
+        },
+        modifier = modifier.onFocusChanged { state ->
+            val nowFocused = state.isFocused
+            if (focused && !nowFocused) apply()
+            focused = nowFocused
+        },
+        label = { Text(label) },
+        supportingText = { Text(supporting) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Number,
+            imeAction = ImeAction.Done
+        ),
+        keyboardActions = KeyboardActions(onDone = {
+            apply()
+            focusManager.clearFocus()
+        })
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -1614,31 +1688,26 @@ private fun SettingsScreen(vm: AppViewModel) {
             item {
                 Text("Skip intervals", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Back and forward amounts on Now Playing, the mini player, lock screen, and headset skips. Changes apply immediately.",
+                    "Back and forward amounts on Now Playing, the mini player, lock screen, and headset skips. Enter seconds and leave the field to save.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(Modifier.height(8.dp))
-                Text("Skip backward")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SkipIntervals.PRESETS.forEach { sec ->
-                        FilterChip(
-                            selected = SkipIntervals.nearest(settings.skipBackSec) == sec,
-                            onClick = { vm.setSkip(settings.skipForwardSec, sec) },
-                            label = { Text("${sec}s") }
-                        )
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                Text("Skip forward")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SkipIntervals.PRESETS.forEach { sec ->
-                        FilterChip(
-                            selected = SkipIntervals.nearest(settings.skipForwardSec) == sec,
-                            onClick = { vm.setSkip(sec, settings.skipBackSec) },
-                            label = { Text("${sec}s") }
-                        )
-                    }
-                }
+                SecondsTextField(
+                    committedSec = settings.skipBackSec,
+                    onCommit = { vm.setSkip(settings.skipForwardSec, it) },
+                    label = "Skip backward (seconds)",
+                    supporting = "Positive whole seconds, 1–${SkipIntervals.MAX_SEC}.",
+                    minSec = SkipIntervals.MIN_SEC,
+                    maxSec = SkipIntervals.MAX_SEC
+                )
+                SecondsTextField(
+                    committedSec = settings.skipForwardSec,
+                    onCommit = { vm.setSkip(it, settings.skipBackSec) },
+                    label = "Skip forward (seconds)",
+                    supporting = "Positive whole seconds, 1–${SkipIntervals.MAX_SEC}.",
+                    minSec = SkipIntervals.MIN_SEC,
+                    maxSec = SkipIntervals.MAX_SEC
+                )
             }
             item {
                 Text("Headset buttons", style = MaterialTheme.typography.titleMedium)

@@ -1,23 +1,27 @@
 package com.openpod.app.playback
 
-import kotlin.math.abs
-
 object SkipIntervals {
-    val PRESETS = listOf(10, 15, 30, 45, 60)
     const val DEFAULT_BACK = 15
     const val DEFAULT_FORWARD = 30
+    const val MIN_SEC = 1
+    const val MAX_SEC = 600
 
-    fun nearest(seconds: Int): Int {
-        return PRESETS.minBy { abs(it - seconds) }
+    fun sanitize(seconds: Int): Int = seconds.coerceIn(MIN_SEC, MAX_SEC)
+
+    fun parse(text: String, fallback: Int): Int {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return sanitize(fallback)
+        val parsed = trimmed.toIntOrNull() ?: return sanitize(fallback)
+        return sanitize(parsed)
     }
 
     fun compactLabel(seconds: Int, forward: Boolean): String {
-        val amount = nearest(seconds)
+        val amount = sanitize(seconds)
         return if (forward) "+$amount" else "−$amount"
     }
 
     fun contentDescription(seconds: Int, forward: Boolean): String {
-        val amount = nearest(seconds)
+        val amount = sanitize(seconds)
         return if (forward) "Forward ${amount}s" else "Back ${amount}s"
     }
 }

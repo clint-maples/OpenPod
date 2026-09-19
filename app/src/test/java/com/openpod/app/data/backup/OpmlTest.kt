@@ -15,7 +15,9 @@ class OpmlTest {
             siteUrl = "https://allin.com",
             autoDownload = true,
             autoDelete = false,
-            folderName = "All-In"
+            folderName = "All-In",
+            skipIntroSec = 90,
+            skipOutroSec = 30
         ),
         PodcastEntity(
             id = 2,
@@ -37,6 +39,8 @@ class OpmlTest {
         assertTrue(xml.contains("openpod:autoDownload=\"true\""))
         assertTrue(xml.contains("openpod:autoDelete=\"true\""))
         assertTrue(xml.contains("openpod:folderName=\"All-In\""))
+        assertTrue(xml.contains("openpod:skipIntroSec=\"90\""))
+        assertTrue(xml.contains("openpod:skipOutroSec=\"30\""))
         assertTrue(xml.contains("Lex &lt;Fridman&gt;"))
 
         val parsed = Opml.parse(xml)
@@ -47,8 +51,12 @@ class OpmlTest {
         assertEquals(true, parsed[0].autoDownload)
         assertEquals(false, parsed[0].autoDelete)
         assertEquals("All-In", parsed[0].folderName)
+        assertEquals(90, parsed[0].skipIntroSec)
+        assertEquals(30, parsed[0].skipOutroSec)
         assertEquals("Lex <Fridman>", parsed[1].title)
         assertEquals(true, parsed[1].autoDelete)
+        assertNull(parsed[1].skipIntroSec)
+        assertNull(parsed[1].skipOutroSec)
     }
 
     @Test

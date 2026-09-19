@@ -91,8 +91,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setFlags(id: Long, autoDownload: Boolean? = null, autoDelete: Boolean? = null) {
-        viewModelScope.launch { repo.setPodcastFlags(id, autoDownload, autoDelete) }
+    fun setFlags(
+        id: Long,
+        autoDownload: Boolean? = null,
+        autoDelete: Boolean? = null,
+        skipIntroSec: Int? = null,
+        skipOutroSec: Int? = null
+    ) {
+        viewModelScope.launch {
+            repo.setPodcastFlags(id, autoDownload, autoDelete, skipIntroSec, skipOutroSec)
+            if (skipIntroSec != null || skipOutroSec != null) {
+                val podcast = repo.db.podcasts().byId(id) ?: return@launch
+                if (PlayerService.state.value.podcastId == id) {
+                    PlayerService.setEpisodeTrim(podcast.skipIntroSec, podcast.skipOutroSec)
+                }
+            }
+        }
     }
 
     fun unsubscribe(id: Long) {
@@ -270,8 +284,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setSkip(forward: Int, back: Int) {
-        val fwd = SkipIntervals.nearest(forward)
-        val backSec = SkipIntervals.nearest(back)
+        val fwd = SkipIntervals.sanitize(forward)
+        val backSec = SkipIntervals.sanitize(back)
         PlayerService.setSkipSeconds(fwd, backSec)
         viewModelScope.launch {
             repo.updateSettings { it.copy(skipForwardSec = fwd, skipBackSec = backSec) }
