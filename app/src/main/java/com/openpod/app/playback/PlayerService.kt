@@ -60,6 +60,8 @@ data class PlayerUiState(
     val speed: Float = 1f,
     val skipForwardSec: Int = SkipIntervals.DEFAULT_FORWARD,
     val skipBackSec: Int = SkipIntervals.DEFAULT_BACK,
+    val skipIntroSec: Int = 0,
+    val skipOutroSec: Int = 0,
     val volumeBoost: Float = 0f,
     val sleepDeadlineMs: Long = 0L,
     val sleepEndOfEpisode: Boolean = false,
@@ -67,6 +69,8 @@ data class PlayerUiState(
     val sleepMinutes: Int = 0
 ) {
     val sleepActive: Boolean get() = sleepDeadlineMs > 0L || sleepEndOfEpisode
+    val effectiveDurationMs: Long
+        get() = EpisodeTrim.effectiveEndMs(durationMs, skipOutroSec, skipIntroSec)
 }
 
 @UnstableApi
@@ -82,6 +86,7 @@ class PlayerService : MediaSessionService() {
     private var progressJob: Job? = null
     private var currentEpisode: EpisodeEntity? = null
     private var lastAudioSessionId = 0
+    private var finishingEpisodeId = 0L
 
 
     override fun onCreate() {
@@ -134,19 +139,7 @@ class PlayerService : MediaSessionService() {
                 publish()
                 refreshMediaNotification()
                 if (playbackState == Player.STATE_ENDED) {
-                    val ep = currentEpisode ?: return
-                    val duration = player.duration.coerceAtLeast(0)
-                    ioScope.launch {
-                        repo.markProgress(ep.id, duration, duration)
-                        if (_state.value.sleepEndOfEpisode) {
-                            scope.launch { finishSleepTimer() }
-                            return@launch
-                        }
-                        val next = repo.popNextQueued() ?: return@launch
-                        scope.launch {
-                            playEpisode(next.episode, next.podcastTitle, next.podcastImage)
-                        }
-                    }
+                    finishCurrentEpisode()
                 }
             }
 
@@ -171,8 +164,8 @@ class PlayerService : MediaSessionService() {
         startProgress()
         ioScope.launch {
             val settings = repo.settingsOnce()
-            val fwd = SkipIntervals.nearest(settings.skipForwardSec)
-            val back = SkipIntervals.nearest(settings.skipBackSec)
+            val fwd = SkipIntervals.sanitize(settings.skipForwardSec)
+            val back = SkipIntervals.sanitize(settings.skipBackSec)
             if (fwd != settings.skipForwardSec || back != settings.skipBackSec) {
                 repo.updateSettings { it.copy(skipForwardSec = fwd, skipBackSec = back) }
             }
@@ -222,6 +215,24 @@ class PlayerService : MediaSessionService() {
     }
 
     fun playEpisode(episode: EpisodeEntity, podcastTitle: String, artwork: String) {
+        ioScope.launch {
+            val podcast = repo.db.podcasts().byId(episode.podcastId)
+            val intro = EpisodeTrim.sanitize(podcast?.skipIntroSec ?: 0)
+            val outro = EpisodeTrim.sanitize(podcast?.skipOutroSec ?: 0)
+            scope.launch {
+                startEpisode(episode, podcastTitle, artwork, intro, outro)
+            }
+        }
+    }
+
+    private fun startEpisode(
+        episode: EpisodeEntity,
+        podcastTitle: String,
+        artwork: String,
+        skipIntroSec: Int,
+        skipOutroSec: Int
+    ) {
+        finishingEpisodeId = 0L
         currentEpisode = episode
         val art = artwork.ifBlank { episode.imageUrl }
         val meta = MediaMetadata.Builder()
@@ -237,11 +248,17 @@ class PlayerService : MediaSessionService() {
             .build()
         val queued = pendingSeekMs
         pendingSeekMs = -1L
-        val start = when {
+        val requested = when {
             queued >= 0L -> queued
             !episode.completed && episode.positionMs > 0L -> episode.positionMs
             else -> 0L
         }
+        val start = EpisodeTrim.startPositionMs(
+            requestedMs = requested,
+            skipIntroSec = skipIntroSec,
+            skipOutroSec = skipOutroSec,
+            durationMs = episode.durationMs
+        )
         player.setMediaItem(
             MediaItem.Builder()
                 .setUri(episode.localUri.ifBlank { episode.audioUrl })
@@ -261,7 +278,9 @@ class PlayerService : MediaSessionService() {
                 podcastTitle = podcastTitle,
                 artwork = art,
                 positionMs = start,
-                durationMs = episode.durationMs
+                durationMs = episode.durationMs,
+                skipIntroSec = skipIntroSec,
+                skipOutroSec = skipOutroSec
             )
         }
         publish()
@@ -286,12 +305,21 @@ class PlayerService : MediaSessionService() {
     fun skip(forward: Boolean) {
         if (!::player.isInitialized) return
         val amount = if (forward) {
-            SkipIntervals.nearest(_state.value.skipForwardSec)
+            SkipIntervals.sanitize(_state.value.skipForwardSec)
         } else {
-            SkipIntervals.nearest(_state.value.skipBackSec)
+            SkipIntervals.sanitize(_state.value.skipBackSec)
         }
         val delta = amount * 1000L * if (forward) 1 else -1
-        val next = (player.currentPosition + delta).coerceAtLeast(0)
+        val duration = playbackDurationMs()
+        val end = EpisodeTrim.effectiveEndMs(duration, _state.value.skipOutroSec, _state.value.skipIntroSec)
+        var next = (player.currentPosition + delta).coerceAtLeast(0)
+        if (forward && end > 0L && next >= end) {
+            if (player.isPlaying) {
+                finishCurrentEpisode()
+                return
+            }
+            next = end
+        }
         exo.seekTo(next)
         publish()
         persistProgress()
@@ -303,9 +331,16 @@ class PlayerService : MediaSessionService() {
             return
         }
         val duration = player.duration.takeIf { it > 0 } ?: _state.value.durationMs
-        val clamped = if (duration > 0L) positionMs.coerceIn(0L, duration) else positionMs.coerceAtLeast(0)
-        player.seekTo(clamped)
-        _state.update { it.copy(positionMs = clamped) }
+        val end = EpisodeTrim.effectiveEndMs(duration, _state.value.skipOutroSec, _state.value.skipIntroSec)
+        val intro = EpisodeTrim.introMs(_state.value.skipIntroSec)
+        val target = when {
+            positionMs <= 0L -> if (end > 0L) intro.coerceAtMost(end) else intro
+            end > 0L -> positionMs.coerceIn(0L, end)
+            duration > 0L -> positionMs.coerceIn(0L, duration)
+            else -> positionMs.coerceAtLeast(0)
+        }
+        player.seekTo(target)
+        _state.update { it.copy(positionMs = target) }
         persistProgress()
     }
 
@@ -349,6 +384,7 @@ class PlayerService : MediaSessionService() {
             runCatching { player.clearMediaItems() }
         }
         currentEpisode = null
+        finishingEpisodeId = 0L
         restoreSleepVolume()
         _state.update {
             PlayerUiState(
@@ -376,9 +412,62 @@ class PlayerService : MediaSessionService() {
         progressJob = scope.launch {
             while (isActive) {
                 publish()
+                maybeFinishForOutro()
                 tickSleepTimer()
                 persistProgress()
                 delay(1_000)
+            }
+        }
+    }
+
+    private fun playbackDurationMs(): Long {
+        if (!::player.isInitialized) return _state.value.durationMs
+        return player.duration.takeIf { it > 0 } ?: _state.value.durationMs
+    }
+
+    private fun displayDurationMs(): Long {
+        val duration = playbackDurationMs()
+        val effective = EpisodeTrim.effectiveEndMs(
+            duration,
+            _state.value.skipOutroSec,
+            _state.value.skipIntroSec
+        )
+        return if (effective > 0L) effective else duration
+    }
+
+    private fun maybeFinishForOutro() {
+        if (!::player.isInitialized || !player.isPlaying) return
+        if (
+            EpisodeTrim.shouldStopForOutro(
+                player.currentPosition.coerceAtLeast(0),
+                playbackDurationMs(),
+                _state.value.skipOutroSec,
+                _state.value.skipIntroSec
+            )
+        ) {
+            finishCurrentEpisode()
+        }
+    }
+
+    private fun finishCurrentEpisode() {
+        val ep = currentEpisode ?: return
+        if (finishingEpisodeId == ep.id) return
+        finishingEpisodeId = ep.id
+        val duration = playbackDurationMs()
+        val end = EpisodeTrim.effectiveEndMs(duration, _state.value.skipOutroSec, _state.value.skipIntroSec)
+        val markAt = if (end > 0L) end else duration
+        if (::player.isInitialized && player.isPlaying) {
+            runCatching { player.pause() }
+        }
+        ioScope.launch {
+            repo.markProgress(ep.id, markAt.coerceAtLeast(1L), duration.coerceAtLeast(markAt))
+            if (_state.value.sleepEndOfEpisode) {
+                scope.launch { finishSleepTimer() }
+                return@launch
+            }
+            val next = repo.popNextQueued() ?: return@launch
+            scope.launch {
+                playEpisode(next.episode, next.podcastTitle, next.podcastImage)
             }
         }
     }
@@ -391,7 +480,7 @@ class PlayerService : MediaSessionService() {
             deadlineMs = current.sleepDeadlineMs,
             endOfEpisode = current.sleepEndOfEpisode,
             positionMs = player.currentPosition.coerceAtLeast(0),
-            durationMs = player.duration.takeIf { it > 0 } ?: current.durationMs
+            durationMs = displayDurationMs()
         )
         _state.update { it.copy(sleepRemainingMs = remaining ?: 0L) }
         if (remaining == null) {
@@ -413,11 +502,7 @@ class PlayerService : MediaSessionService() {
             deadlineMs = _state.value.sleepDeadlineMs,
             endOfEpisode = _state.value.sleepEndOfEpisode,
             positionMs = if (::player.isInitialized) player.currentPosition.coerceAtLeast(0) else _state.value.positionMs,
-            durationMs = if (::player.isInitialized) {
-                player.duration.takeIf { it > 0 } ?: _state.value.durationMs
-            } else {
-                _state.value.durationMs
-            }
+            durationMs = displayDurationMs()
         )
         if (remaining == null) {
             restoreSleepVolume()
@@ -469,7 +554,7 @@ class PlayerService : MediaSessionService() {
             deadlineMs = _state.value.sleepDeadlineMs,
             endOfEpisode = _state.value.sleepEndOfEpisode,
             positionMs = position,
-            durationMs = duration.coerceAtLeast(0)
+            durationMs = displayDurationMs()
         )
         _state.update {
             it.copy(
@@ -575,9 +660,18 @@ class PlayerService : MediaSessionService() {
         }
 
         fun setSkipSeconds(forward: Int, back: Int) {
-            val fwd = SkipIntervals.nearest(forward)
-            val backSec = SkipIntervals.nearest(back)
+            val fwd = SkipIntervals.sanitize(forward)
+            val backSec = SkipIntervals.sanitize(back)
             _state.update { it.copy(skipForwardSec = fwd, skipBackSec = backSec) }
+        }
+
+        fun setEpisodeTrim(introSec: Int, outroSec: Int) {
+            _state.update {
+                it.copy(
+                    skipIntroSec = EpisodeTrim.sanitize(introSec),
+                    skipOutroSec = EpisodeTrim.sanitize(outroSec)
+                )
+            }
         }
 
         fun setSleepMinutes(minutes: Int) {

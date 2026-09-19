@@ -5,22 +5,29 @@ import org.junit.Test
 
 class SkipIntervalsTest {
     @Test
-    fun nearestSnapsToAllowedPresets() {
-        assertEquals(10, SkipIntervals.nearest(5))
-        assertEquals(10, SkipIntervals.nearest(10))
-        assertEquals(10, SkipIntervals.nearest(12))
-        assertEquals(15, SkipIntervals.nearest(13))
-        assertEquals(15, SkipIntervals.nearest(18))
-        assertEquals(30, SkipIntervals.nearest(28))
-        assertEquals(45, SkipIntervals.nearest(50))
-        assertEquals(60, SkipIntervals.nearest(90))
+    fun sanitizeClampsToPositiveRange() {
+        assertEquals(1, SkipIntervals.sanitize(0))
+        assertEquals(1, SkipIntervals.sanitize(-12))
+        assertEquals(10, SkipIntervals.sanitize(10))
+        assertEquals(90, SkipIntervals.sanitize(90))
+        assertEquals(600, SkipIntervals.sanitize(600))
+        assertEquals(600, SkipIntervals.sanitize(9_999))
     }
 
     @Test
-    fun labelsIncludeDirection() {
-        assertEquals("−15", SkipIntervals.compactLabel(15, forward = false))
-        assertEquals("+30", SkipIntervals.compactLabel(30, forward = true))
-        assertEquals("Back 15s", SkipIntervals.contentDescription(16, forward = false))
-        assertEquals("Forward 30s", SkipIntervals.contentDescription(28, forward = true))
+    fun parseReadsIntegersAndFallsBack() {
+        assertEquals(15, SkipIntervals.parse("", 15))
+        assertEquals(15, SkipIntervals.parse("abc", 15))
+        assertEquals(1, SkipIntervals.parse("0", 15))
+        assertEquals(45, SkipIntervals.parse(" 45 ", 15))
+        assertEquals(600, SkipIntervals.parse("800", 15))
+    }
+
+    @Test
+    fun labelsUseExactSanitizedSeconds() {
+        assertEquals("−12", SkipIntervals.compactLabel(12, forward = false))
+        assertEquals("+90", SkipIntervals.compactLabel(90, forward = true))
+        assertEquals("Back 12s", SkipIntervals.contentDescription(12, forward = false))
+        assertEquals("Forward 90s", SkipIntervals.contentDescription(90, forward = true))
     }
 }
