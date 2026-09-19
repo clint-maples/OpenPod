@@ -71,6 +71,8 @@ One field on Discover: type a show name and press **Search** on the keyboard, or
 ## 1.28
 Each subscribed show has its own **podcast settings** screen (gear on the podcast screen) for auto-download, auto-delete, skip first seconds, and skip last seconds. Those per-show controls are no longer inline on the episode list. Mini player skip / play / pause sit in the horizontal center. Global Settings still has skip interval (back/forward seconds) and defaults for newly added shows.
 
+Release-signed with the shared OpenPod keystore. APK SHA-256: `d8921111d667355f3f7a4f06787310339b372a5bdb38cc5dab2cefb76239d99c`
+
 ## 1.27
 Skip back/forward in Settings are free-text seconds (1–600) instead of 10/15/30/45/60 chips. Mini player skip buttons are icon-only. Per-show settings can skip the first and/or last N seconds of every episode so playback starts after the intro and finishes/auto-advances before the outro.
 
