@@ -40,6 +40,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -199,7 +200,18 @@ fun OpenPodRoot(vm: AppViewModel) {
                         vm,
                         it.arguments!!.getLong("id"),
                         onEpisode = { epId -> nav.navigate("episode/$epId") },
+                        onSettings = { podcastId -> nav.navigate("podcast/$podcastId/settings") },
                         onRemoved = { nav.popBackStack() }
+                    )
+                }
+                composable(
+                    "podcast/{id}/settings",
+                    arguments = listOf(navArgument("id") { type = NavType.LongType })
+                ) {
+                    PodcastSettingsScreen(
+                        vm,
+                        it.arguments!!.getLong("id"),
+                        onBack = { nav.popBackStack() }
                     )
                 }
                 composable("episode/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) {
@@ -268,16 +280,15 @@ private fun MiniPlayer(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-            Row(
+            Box(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 64.dp)
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
                 Row(
                     Modifier
-                        .weight(1f)
+                        .align(Alignment.CenterStart)
                         .clickable(onClick = onOpen, onClickLabel = "Open now playing"),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -297,26 +308,36 @@ private fun MiniPlayer(
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
-                    Spacer(Modifier.weight(1f))
                 }
-                SkipIconButton(
-                    seconds = player.skipBackSec,
-                    forward = false,
-                    onClick = { vm.skip(false) },
-                    compact = true,
-                    showAmount = false
-                )
-                IconButton({ vm.togglePlay() }) {
-                    Icon(if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play")
+                Row(
+                    Modifier.align(Alignment.Center),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    SkipIconButton(
+                        seconds = player.skipBackSec,
+                        forward = false,
+                        onClick = { vm.skip(false) },
+                        compact = true,
+                        showAmount = false
+                    )
+                    IconButton({ vm.togglePlay() }) {
+                        Icon(if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play")
+                    }
+                    SkipIconButton(
+                        seconds = player.skipForwardSec,
+                        forward = true,
+                        onClick = { vm.skip(true) },
+                        compact = true,
+                        showAmount = false
+                    )
                 }
-                SkipIconButton(
-                    seconds = player.skipForwardSec,
-                    forward = true,
-                    onClick = { vm.skip(true) },
-                    compact = true,
-                    showAmount = false
-                )
-                IconButton(onUpNext) { Icon(Icons.Default.QueueMusic, "Up Next") }
+                IconButton(
+                    onClick = onUpNext,
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                ) {
+                    Icon(Icons.Default.QueueMusic, "Up Next")
+                }
             }
         }
     }
@@ -453,7 +474,13 @@ private fun DiscoverScreen(vm: AppViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
-private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -> Unit, onRemoved: () -> Unit) {
+private fun PodcastScreen(
+    vm: AppViewModel,
+    podcastId: Long,
+    onEpisode: (Long) -> Unit,
+    onSettings: (Long) -> Unit,
+    onRemoved: () -> Unit
+) {
     val podcasts by vm.podcasts.collectAsState()
     val settings by vm.settings.collectAsState()
     val playlists by vm.playlists.collectAsState()
@@ -505,6 +532,7 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                     } else {
                         IconButton({ vm.refresh(podcastId) }) { Icon(Icons.Default.Refresh, "Refresh") }
                         IconButton({ confirmRemove = true }) { Icon(Icons.Default.Delete, "Remove from library") }
+                        IconButton({ onSettings(podcastId) }) { Icon(Icons.Default.Settings, "Podcast settings") }
                     }
                 }
             )
@@ -544,38 +572,12 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
                     Column {
                         Text(podcast.author)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Auto-download", Modifier.weight(1f))
-                            Switch(podcast.autoDownload, { vm.setFlags(podcastId, autoDownload = it) })
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Auto-delete", Modifier.weight(1f))
-                            Switch(podcast.autoDelete, { vm.setFlags(podcastId, autoDelete = it) })
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("Show archived", Modifier.weight(1f))
                             Switch(settings.showArchived, { vm.setShowArchived(it) })
                         }
                     }
                 }
                 Text(stripHtml(podcast.description), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, maxLines = 6)
-                SecondsTextField(
-                    committedSec = podcast.skipIntroSec,
-                    onCommit = { vm.setFlags(podcastId, skipIntroSec = it) },
-                    label = "Skip first seconds",
-                    supporting = "Start every episode after this many seconds. 0 keeps the intro.",
-                    minSec = EpisodeTrim.MIN_SEC,
-                    maxSec = EpisodeTrim.MAX_SEC,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-                SecondsTextField(
-                    committedSec = podcast.skipOutroSec,
-                    onCommit = { vm.setFlags(podcastId, skipOutroSec = it) },
-                    label = "Skip last seconds",
-                    supporting = "Treat the episode as finished this many seconds early. 0 keeps the outro.",
-                    minSec = EpisodeTrim.MIN_SEC,
-                    maxSec = EpisodeTrim.MAX_SEC,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-                )
                 OutlinedTextField(
                     episodeQuery,
                     { episodeQuery = it },
@@ -692,6 +694,92 @@ private fun PodcastScreen(vm: AppViewModel, podcastId: Long, onEpisode: (Long) -
             },
             dismissButton = { TextButton({ confirmRemove = false }) { Text("Cancel") } }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PodcastSettingsScreen(vm: AppViewModel, podcastId: Long, onBack: () -> Unit) {
+    val podcasts by vm.podcasts.collectAsState()
+    val podcast = podcasts.find { it.id == podcastId }
+    if (podcast == null) {
+        Text("Podcast not found")
+        return
+    }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Podcast settings", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                navigationIcon = {
+                    IconButton(onBack) { Icon(Icons.Default.ArrowBack, "Back") }
+                }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            Modifier.padding(padding).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AsyncImage(
+                        podcast.imageUrl,
+                        podcast.title,
+                        Modifier.size(72.dp).clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(Modifier.width(16.dp))
+                    Column {
+                        Text(podcast.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(podcast.author, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+            item {
+                Text("Downloads", style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Auto-download", Modifier.weight(1f))
+                    Switch(podcast.autoDownload, { vm.setFlags(podcastId, autoDownload = it) })
+                }
+                Text(
+                    "Download new episodes for this show when they appear.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Auto-delete", Modifier.weight(1f))
+                    Switch(podcast.autoDelete, { vm.setFlags(podcastId, autoDelete = it) })
+                }
+                Text(
+                    "Delete the downloaded file when an episode finishes.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            item {
+                Text("Playback", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Skip the intro and/or outro on every episode of this show. Leave 0 to keep the original start and end.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(Modifier.height(8.dp))
+                SecondsTextField(
+                    committedSec = podcast.skipIntroSec,
+                    onCommit = { vm.setFlags(podcastId, skipIntroSec = it) },
+                    label = "Skip first seconds",
+                    supporting = "Start every episode after this many seconds. 0 keeps the intro.",
+                    minSec = EpisodeTrim.MIN_SEC,
+                    maxSec = EpisodeTrim.MAX_SEC
+                )
+                SecondsTextField(
+                    committedSec = podcast.skipOutroSec,
+                    onCommit = { vm.setFlags(podcastId, skipOutroSec = it) },
+                    label = "Skip last seconds",
+                    supporting = "Treat the episode as finished this many seconds early. 0 keeps the outro.",
+                    minSec = EpisodeTrim.MIN_SEC,
+                    maxSec = EpisodeTrim.MAX_SEC
+                )
+            }
+        }
     }
 }
 
@@ -1714,6 +1802,12 @@ private fun SettingsScreen(vm: AppViewModel) {
                 Text("Single press play/pause · double skip forward · triple skip back. Next/previous on the headset also skip by those amounts.")
             }
             item {
+                Text("New show defaults", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Used when you add a podcast. Change a subscribed show from its podcast settings (gear on that show).",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Auto-download new episodes by default", Modifier.weight(1f))
                     Switch(settings.autoDownloadDefault, { vm.setDefaults(it, settings.autoDeleteDefault) })

@@ -23,6 +23,7 @@ class MiniPlayerVisibilityTest {
         assertTrue(MiniPlayerVisibility.shouldShow("playlists", 9L))
         assertTrue(MiniPlayerVisibility.shouldShow("playlist/{id}", 9L))
         assertTrue(MiniPlayerVisibility.shouldShow("podcast/{id}", 9L))
+        assertTrue(MiniPlayerVisibility.shouldShow("podcast/{id}/settings", 9L))
         assertTrue(MiniPlayerVisibility.shouldShow("episode/{id}", 9L))
         assertTrue(MiniPlayerVisibility.shouldShow("settings", 9L))
         assertTrue(MiniPlayerVisibility.shouldShow("eq", 9L))
