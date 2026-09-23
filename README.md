@@ -75,7 +75,9 @@ Built for Clint Maples.
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
 
 ## 1.31
-Now Playing no longer shows a "Now playing" title above the artwork. The bottom action bar is Speed, graphic equalizer, sleep timer, and share. Up Next stays on the mini player. The equalizer button opens the graphic equalizer screen. Artwork, episode details, the scrubber, transport, and publisher notes scroll together; the bottom action bar stays pinned.
+Now Playing leaves the title off above the artwork. The bottom action bar is Speed, graphic equalizer, sleep timer, and share. Up Next stays on the mini player. The equalizer button opens the graphic equalizer screen. Artwork, episode details, the scrubber, transport, and publisher notes scroll together; the bottom action bar stays pinned.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `bcf93046217723d721380326e5a9e6a66d384e99ddf16fe2b510e4d4b6437b37`
 
 ## 1.30
 The graphic equalizer screen puts the volume boost slider at the top. The long explanation under volume boost is removed; the control keeps its title, the current level, and the quieter / default / louder labels.
