@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.30  
-**Download:** [OpenPod 1.30 APK](https://github.com/clint-maples/OpenPod/releases/download/1.30/OpenPod-1.30.apk)
+**Current version:** 1.31  
+**Download:** [OpenPod 1.31 APK](https://github.com/clint-maples/OpenPod/releases/download/1.31/OpenPod-1.31.apk)
 
 **Previous**
 
+- [1.30](https://github.com/clint-maples/OpenPod/releases/download/1.30/OpenPod-1.30.apk)
 - [1.29](https://github.com/clint-maples/OpenPod/releases/download/1.29/OpenPod-1.29.apk)
 - [1.28](https://github.com/clint-maples/OpenPod/releases/download/1.28/OpenPod-1.28.apk)
-- [1.27](https://github.com/clint-maples/OpenPod/releases/download/1.27/OpenPod-1.27.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -61,7 +61,7 @@ On a podcast screen, **Find existing downloads** scans that showâ€™s folder for 
 
 ## Playback
 
-Now Playing stacks artwork in the top third, then the episode and show, the scrubber, and skip/play transport. The bottom action bar is Speed (current rate, for example **1.0x**), graphic equalizer, Up Next (the existing playlist icon), sleep timer, and share. Speed opens a menu that is still a text box from **0.5x to 5.0x**, with **- / +** stepping by **0.1x**. Skip back/forward on Now Playing and the mini player use the Settings amounts (free-text seconds; changes apply when you leave the field). The mini player skip buttons are icon-only — they do not show the second counts. Per-show settings can skip the first and/or last N seconds of every episode (intro/outro trim). The sleep menu can fade out at the end of the episode, after **5–60** minutes, or whichever comes first — cancel it while it is running. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer puts the volume boost slider at the top (center = default; left quieter, right louder than system volume), then the enable switch, reset, and frequency bands. The mini player stays on other tabs with artwork, skip, play/pause, tap-to-expand, and an **Up Next** shortcut. Up Next is a real queue (not a playlist): **Play next** inserts at the front, **Add to Up Next** appends, and you can reorder or clear. Playing an episode starts it now and removes it from the queue if it was listed; when an episode ends, the next queued item starts. On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata. Tap the artwork on Now Playing to open that show's episode list. Share an episode from Now Playing, the episode screen, or the episode-row overflow -- the system share sheet sends the show name, episode title, and public stream URL (plus permalink when we have one).
+Now Playing stacks artwork in the top third, then the episode and show, the scrubber, and skip/play transport. The whole player scrolls so publisher notes, chapters, and the transcript sit below the transport. The pinned bottom action bar is Speed (current rate, for example **1.0x**), graphic equalizer, sleep timer, and share. The equalizer button opens the graphic equalizer screen. Up Next stays on the mini player. Speed opens a menu that is still a text box from **0.5x to 5.0x**, with **- / +** stepping by **0.1x**. Skip back/forward on Now Playing and the mini player use the Settings amounts (free-text seconds; changes apply when you leave the field). The mini player skip buttons are icon-only — they do not show the second counts. Per-show settings can skip the first and/or last N seconds of every episode (intro/outro trim). The sleep menu can fade out at the end of the episode, after **5–60** minutes, or whichever comes first — cancel it while it is running. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer puts the volume boost slider at the top (center = default; left quieter, right louder than system volume), then the enable switch, reset, and frequency bands. The mini player stays on other tabs with artwork, skip, play/pause, tap-to-expand, and an **Up Next** shortcut. Up Next is a real queue (not a playlist): **Play next** inserts at the front, **Add to Up Next** appends, and you can reorder or clear. Playing an episode starts it now and removes it from the queue if it was listed; when an episode ends, the next queued item starts. On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata. Tap the artwork on Now Playing to open that show's episode list. Share an episode from Now Playing, the episode screen, or the episode-row overflow -- the system share sheet sends the show name, episode title, and public stream URL (plus permalink when we have one).
 
 ## Sync schedule
 
@@ -73,6 +73,9 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+
+## 1.31
+Now Playing no longer shows a "Now playing" title above the artwork. The bottom action bar is Speed, graphic equalizer, sleep timer, and share. Up Next stays on the mini player. The equalizer button opens the graphic equalizer screen. Artwork, episode details, the scrubber, transport, and publisher notes scroll together; the bottom action bar stays pinned.
 
 ## 1.30
 The graphic equalizer screen puts the volume boost slider at the top. The long explanation under volume boost is removed; the control keeps its title, the current level, and the quieter / default / louder labels.

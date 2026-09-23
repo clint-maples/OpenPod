@@ -1,11 +1,18 @@
 package com.openpod.app.playback
 
 import android.media.audiofx.Equalizer
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
 
 class EqController {
     private var equalizer: Equalizer? = null
+    private val _generation = MutableStateFlow(0)
+
+    /** Increments whenever bands are attached or released so the EQ screen can reload. */
+    val generation: StateFlow<Int> = _generation.asStateFlow()
 
     data class Band(val index: Short, val freqHz: Int, val levelMilliBel: Short)
 
@@ -38,6 +45,7 @@ class EqController {
             }
             equalizer = null
         }
+        _generation.value += 1
     }
 
     fun setEnabled(enabled: Boolean) {
@@ -86,5 +94,6 @@ class EqController {
         } catch (_: Exception) {
         }
         equalizer = null
+        _generation.value += 1
     }
 }
