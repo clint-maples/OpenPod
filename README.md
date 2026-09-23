@@ -71,6 +71,8 @@ One field on Discover: type a show name and press **Search** on the keyboard, or
 ## 1.30
 The graphic equalizer screen puts the volume boost slider at the top. The long explanation under volume boost is removed; the control keeps its title, the current level, and the quieter / default / louder labels.
 
+Release-signed with the shared OpenPod keystore. APK SHA-256: `40dc1a038fddc9fb2896d5bb480f2de18bbf93d302e6cf88fa0fc8ddbe876206`
+
 ## 1.29
 Now Playing is a vertical stack: large rounded artwork in the top third, then the episode and show, the scrubber, and skip/play transport. Action icons are no longer in the upper right. The bottom row is Speed (current rate, such as 1.0x), graphic equalizer, Up Next (the existing playlist icon), sleep timer, and share. Speed and sleep open menus instead of sitting on the player. Skip amounts still come from Settings. Publisher notes, chapters, and the transcript stay below the transport.
 
