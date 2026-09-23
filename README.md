@@ -71,6 +71,8 @@ One field on Discover: type a show name and press **Search** on the keyboard, or
 ## 1.29
 Now Playing is a vertical stack: large rounded artwork in the top third, then the episode and show, the scrubber, and skip/play transport. Action icons are no longer in the upper right. The bottom row is Speed (current rate, such as 1.0x), graphic equalizer, Up Next (the existing playlist icon), sleep timer, and share. Speed and sleep open menus instead of sitting on the player. Skip amounts still come from Settings. Publisher notes, chapters, and the transcript stay below the transport.
 
+Release-signed with the shared OpenPod keystore. APK SHA-256: `a9c64d23cb0a71743cb616f40d4637239004c4b3fbe392978fe3e56912f1244d`
+
 ## 1.28
 Each subscribed show has its own **podcast settings** screen (gear on the podcast screen) for auto-download, auto-delete, skip first seconds, and skip last seconds. Those per-show controls are no longer inline on the episode list. Mini player skip / play / pause sit in the horizontal center. Global Settings still has skip interval (back/forward seconds) and defaults for newly added shows.
 
