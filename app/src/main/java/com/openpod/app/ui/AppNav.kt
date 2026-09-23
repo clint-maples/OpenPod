@@ -1691,6 +1691,27 @@ private fun EqScreen(vm: AppViewModel) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
+                Text("Volume boost", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    formatVolumeBoost(boost),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Slider(
+                    value = boost,
+                    onValueChange = {
+                        boost = it
+                        vm.previewVolumeBoost(it)
+                    },
+                    onValueChangeFinished = { vm.setVolumeBoost(boost) },
+                    valueRange = -1f..1f
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Quieter", style = MaterialTheme.typography.bodySmall)
+                    Text("Default", style = MaterialTheme.typography.bodySmall)
+                    Text("Louder", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Enabled", Modifier.weight(1f))
                     Switch(settings.eqEnabled, { vm.setEq(it) })
@@ -1717,32 +1738,6 @@ private fun EqScreen(vm: AppViewModel) {
                         onValueChangeFinished = { vm.setEqBand(band.index, value.toInt().toShort()) },
                         valueRange = range.first.toFloat()..range.second.toFloat()
                     )
-                }
-            }
-            item {
-                Spacer(Modifier.height(8.dp))
-                Text("Volume boost", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    formatVolumeBoost(boost),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    "Center is the unadjusted level. Left is quieter than the system volume; right is louder, even if the system volume is already at max.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Slider(
-                    value = boost,
-                    onValueChange = {
-                        boost = it
-                        vm.previewVolumeBoost(it)
-                    },
-                    onValueChangeFinished = { vm.setVolumeBoost(boost) },
-                    valueRange = -1f..1f
-                )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Quieter", style = MaterialTheme.typography.bodySmall)
-                    Text("Default", style = MaterialTheme.typography.bodySmall)
-                    Text("Louder", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
