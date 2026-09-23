@@ -1,16 +1,18 @@
 package com.openpod.app.ui
 
 /**
- * Approved Now Playing structure: artwork in the top third, then title, scrubber,
- * and transport, with this bottom action order. Speed and sleep open menus.
+ * Now Playing: artwork about a third of the screen, then episode, scrubber, and
+ * transport in one vertical scroll so publisher notes sit below. The bottom action
+ * bar stays pinned: speed, equalizer, sleep, share. Speed and sleep open menus.
+ * The equalizer action opens [EQUALIZER_ROUTE].
  */
 object NowPlayingChrome {
     const val ARTWORK_HEIGHT_FRACTION = 1f / 3f
+    const val EQUALIZER_ROUTE = "eq"
 
     enum class BottomAction {
         Speed,
         Equalizer,
-        Playlist,
         Sleep,
         Share
     }
@@ -18,10 +20,12 @@ object NowPlayingChrome {
     val bottomActions: List<BottomAction> = listOf(
         BottomAction.Speed,
         BottomAction.Equalizer,
-        BottomAction.Playlist,
         BottomAction.Sleep,
         BottomAction.Share
     )
 
     fun speedButtonLabel(speed: Float): String = "${formatSpeed(speed)}x"
+
+    fun equalizerRoute(action: BottomAction): String? =
+        if (action == BottomAction.Equalizer) EQUALIZER_ROUTE else null
 }

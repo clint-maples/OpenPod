@@ -1,6 +1,8 @@
 package com.openpod.app.ui
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class NowPlayingChromeTest {
@@ -10,12 +12,29 @@ class NowPlayingChromeTest {
             listOf(
                 NowPlayingChrome.BottomAction.Speed,
                 NowPlayingChrome.BottomAction.Equalizer,
-                NowPlayingChrome.BottomAction.Playlist,
                 NowPlayingChrome.BottomAction.Sleep,
                 NowPlayingChrome.BottomAction.Share
             ),
             NowPlayingChrome.bottomActions
         )
+    }
+
+    @Test
+    fun playlistIsNotOnTheBottomBar() {
+        assertEquals(4, NowPlayingChrome.bottomActions.size)
+        assertFalse(NowPlayingChrome.bottomActions.any { it.name == "Playlist" })
+    }
+
+    @Test
+    fun equalizerActionOpensEqualizerRoute() {
+        assertEquals("eq", NowPlayingChrome.EQUALIZER_ROUTE)
+        assertEquals(
+            NowPlayingChrome.EQUALIZER_ROUTE,
+            NowPlayingChrome.equalizerRoute(NowPlayingChrome.BottomAction.Equalizer)
+        )
+        assertNull(NowPlayingChrome.equalizerRoute(NowPlayingChrome.BottomAction.Speed))
+        assertNull(NowPlayingChrome.equalizerRoute(NowPlayingChrome.BottomAction.Sleep))
+        assertNull(NowPlayingChrome.equalizerRoute(NowPlayingChrome.BottomAction.Share))
     }
 
     @Test

@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -111,6 +112,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
@@ -134,6 +136,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import coil.compose.AsyncImage
+import kotlinx.coroutines.flow.flowOf
 import com.openpod.app.data.db.EpisodeEntity
 import com.openpod.app.data.db.PlaylistEntity
 import com.openpod.app.data.db.PodcastEntity
@@ -176,7 +179,11 @@ fun OpenPodRoot(vm: AppViewModel) {
                 NavItem("Playlists", Icons.Default.QueueMusic, back.startsWith("playlist")) {
                     nav.navigate("playlists") { launchSingleTop = true }
                 }
-                NavItem("Now playing", Icons.Default.PlayArrow, back == "player" || back == "eq" || back == "upnext") {
+                NavItem(
+                    "Now playing",
+                    Icons.Default.PlayArrow,
+                    back == "player" || back == NowPlayingChrome.EQUALIZER_ROUTE || back == "upnext"
+                ) {
                     nav.navigate("player") { launchSingleTop = true }
                 }
                 NavItem("Settings", Icons.Default.Settings, back == "settings") {
@@ -221,15 +228,20 @@ fun OpenPodRoot(vm: AppViewModel) {
                 composable("player") {
                     PlayerScreen(
                         vm,
-                        onEq = { nav.navigate("eq") },
-                        onOpenPodcast = { podcastId -> nav.navigate("podcast/$podcastId") },
-                        onUpNext = { nav.navigate("upnext") }
+                        onEq = {
+                            val route = NowPlayingChrome.equalizerRoute(NowPlayingChrome.BottomAction.Equalizer)
+                                ?: NowPlayingChrome.EQUALIZER_ROUTE
+                            nav.navigate(route) { launchSingleTop = true }
+                        },
+                        onOpenPodcast = { podcastId -> nav.navigate("podcast/$podcastId") }
                     )
                 }
                 composable("upnext") {
                     UpNextScreen(vm) { nav.navigate("player") }
                 }
-                composable("eq") { EqScreen(vm) }
+                composable(NowPlayingChrome.EQUALIZER_ROUTE) {
+                    EqScreen(vm, onBack = { nav.popBackStack() })
+                }
                 composable("settings") { SettingsScreen(vm) }
             }
             if (MiniPlayerVisibility.shouldShow(back, player.episodeId)) {
@@ -1021,13 +1033,11 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlayerScreen(
     vm: AppViewModel,
     onEq: () -> Unit,
-    onOpenPodcast: (Long) -> Unit,
-    onUpNext: () -> Unit
+    onOpenPodcast: (Long) -> Unit
 ) {
     val player by vm.player.collectAsState()
     val settings by vm.settings.collectAsState()
@@ -1041,7 +1051,7 @@ private fun PlayerScreen(
         }
     }
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Now playing") }) },
+        contentWindowInsets = WindowInsets(0.dp),
         bottomBar = {
             if (player.episodeId != 0L) {
                 NowPlayingActionBar(
@@ -1049,7 +1059,6 @@ private fun PlayerScreen(
                     episode = episode,
                     onSpeed = { vm.setSpeed(it) },
                     onEq = onEq,
-                    onPlaylist = onUpNext,
                     onShare = {
                         val current = episode ?: return@NowPlayingActionBar
                         context.startActivity(
@@ -1070,17 +1079,19 @@ private fun PlayerScreen(
         }
         BoxWithConstraints(Modifier.padding(padding).fillMaxSize()) {
             val horizontalPad = 20.dp
-            val controlsReserve = if (chapters.isNotEmpty()) 330.dp else 280.dp
             val artSide = minOf(
-                maxWidth - horizontalPad * 2,
-                maxHeight * NowPlayingChrome.ARTWORK_HEIGHT_FRACTION,
-                (maxHeight - controlsReserve).coerceAtLeast(96.dp)
+                (maxWidth - horizontalPad * 2).coerceAtLeast(96.dp),
+                (maxHeight * NowPlayingChrome.ARTWORK_HEIGHT_FRACTION).coerceAtLeast(96.dp)
             )
-            Column(Modifier.fillMaxSize()) {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = horizontalPad, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                item {
                 Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = horizontalPad),
+                    Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Spacer(Modifier.height(8.dp))
@@ -1167,58 +1178,47 @@ private fun PlayerScreen(
                         )
                     }
                 }
+                }
                 val current = episode
-                if (
-                    current != null && (
-                        current.description.isNotBlank() || chapters.isNotEmpty() || transcript.isNotEmpty()
+                if (current != null && current.description.isNotBlank()) {
+                    item {
+                        Column(Modifier.fillMaxWidth()) {
+                            Text("From the publisher", style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.height(8.dp))
+                            PublisherText(current.description)
+                        }
+                    }
+                }
+                if (chapters.isNotEmpty()) {
+                    item {
+                        Text(
+                            "Chapters",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.fillMaxWidth()
                         )
-                ) {
-                    LazyColumn(
-                        Modifier.weight(1f).fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        if (current.description.isNotBlank()) {
-                            item {
-                                Column(Modifier.fillMaxWidth()) {
-                                    Text("From the publisher", style = MaterialTheme.typography.titleMedium)
-                                    Spacer(Modifier.height(8.dp))
-                                    PublisherText(current.description)
-                                }
-                            }
-                        }
-                        if (chapters.isNotEmpty()) {
-                            item {
-                                Text(
-                                    "Chapters",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                            items(chapters) { chapter ->
-                                Text(
-                                    "${formatMs(chapter.startMs)}  ${chapter.title}",
-                                    Modifier.fillMaxWidth().clickable { vm.seek(chapter.startMs) }.padding(vertical = 6.dp)
-                                )
-                            }
-                        }
-                        if (transcript.isNotEmpty()) {
-                            item {
-                                Text(
-                                    "Transcript",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                            items(transcript.take(400)) { line ->
-                                val prefix = line.startMs?.let { formatMs(it) + "  " }.orEmpty()
-                                Text(
-                                    prefix + line.text,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
-                                )
-                            }
-                        }
+                    }
+                    items(chapters) { chapter ->
+                        Text(
+                            "${formatMs(chapter.startMs)}  ${chapter.title}",
+                            Modifier.fillMaxWidth().clickable { vm.seek(chapter.startMs) }.padding(vertical = 6.dp)
+                        )
+                    }
+                }
+                if (transcript.isNotEmpty()) {
+                    item {
+                        Text(
+                            "Transcript",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    items(transcript.take(400)) { line ->
+                        val prefix = line.startMs?.let { formatMs(it) + "  " }.orEmpty()
+                        Text(
+                            prefix + line.text,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                        )
                     }
                 }
             }
@@ -1232,7 +1232,6 @@ private fun NowPlayingActionBar(
     episode: EpisodeEntity?,
     onSpeed: (Float) -> Unit,
     onEq: () -> Unit,
-    onPlaylist: () -> Unit,
     onShare: () -> Unit,
     vm: AppViewModel
 ) {
@@ -1251,7 +1250,7 @@ private fun NowPlayingActionBar(
             ) {
                 NowPlayingChrome.bottomActions.forEach { action ->
                     Box(
-                        Modifier.weight(1f),
+                        Modifier.weight(1f).clipToBounds(),
                         contentAlignment = Alignment.Center
                     ) {
                         when (action) {
@@ -1275,13 +1274,19 @@ private fun NowPlayingActionBar(
                                 }
                             }
                             NowPlayingChrome.BottomAction.Equalizer -> {
-                                IconButton(onEq) {
-                                    Icon(Icons.Default.Equalizer, "Graphic equalizer")
-                                }
-                            }
-                            NowPlayingChrome.BottomAction.Playlist -> {
-                                IconButton(onPlaylist) {
-                                    Icon(Icons.Default.QueueMusic, "Up Next")
+                                TextButton(
+                                    onClick = onEq,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(
+                                            Icons.Default.Equalizer,
+                                            "Graphic equalizer",
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                        Text("EQ", style = MaterialTheme.typography.labelMedium)
+                                    }
                                 }
                             }
                             NowPlayingChrome.BottomAction.Sleep -> {
@@ -1674,17 +1679,31 @@ private fun UpNextScreen(vm: AppViewModel, onOpenPlayer: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EqScreen(vm: AppViewModel) {
+private fun EqScreen(vm: AppViewModel, onBack: () -> Unit) {
     val settings by vm.settings.collectAsState()
     var eqEpoch by remember { mutableStateOf(0) }
-    val bands = remember(eqEpoch, settings.eqBandsJson) {
-        PlayerService.instance?.equalizer()?.bands().orEmpty()
+    val generation by (
+        PlayerService.instance?.equalizer()?.generation ?: flowOf(0)
+    ).collectAsState(initial = 0)
+    val bands = remember(generation, eqEpoch, settings.eqBandsJson) {
+        runCatching { PlayerService.instance?.equalizer()?.bands().orEmpty() }.getOrDefault(emptyList())
     }
-    val range = remember(eqEpoch) {
-        PlayerService.instance?.equalizer()?.range() ?: (0.toShort() to 0.toShort())
+    val range = remember(generation, eqEpoch) {
+        val raw = runCatching { PlayerService.instance?.equalizer()?.range() }.getOrNull()
+            ?: (0.toShort() to 0.toShort())
+        if (raw.second > raw.first) raw else (-1500).toShort() to 1500.toShort()
     }
-    var boost by remember(settings.volumeBoost, eqEpoch) { mutableStateOf(settings.volumeBoost) }
-    Scaffold(topBar = { TopAppBar(title = { Text("Graphic equalizer") }) }) { padding ->
+    var boost by remember(settings.volumeBoost, eqEpoch) { mutableStateOf(settings.volumeBoost.coerceIn(-1f, 1f)) }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Graphic equalizer") },
+                navigationIcon = {
+                    IconButton(onBack) { Icon(Icons.Default.ArrowBack, "Back") }
+                }
+            )
+        }
+    ) { padding ->
         LazyColumn(
             Modifier.padding(padding).fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
