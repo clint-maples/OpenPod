@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -1020,7 +1021,7 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlayerScreen(
     vm: AppViewModel,
@@ -1039,21 +1040,27 @@ private fun PlayerScreen(
             vm.repo.db.episodes().byId(player.episodeId)?.let { vm.loadExtras(it) }
         }
     }
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("Now playing") }, actions = {
-            IconButton(
-                enabled = episode != null,
-                onClick = {
-                    val current = episode ?: return@IconButton
-                    context.startActivity(
-                        EpisodeShare.chooserIntent(player.podcastTitle, current)
-                    )
-                }
-            ) { Icon(Icons.Default.Share, "Share episode") }
-            IconButton(onUpNext) { Icon(Icons.Default.QueueMusic, "Up Next") }
-            IconButton(onEq) { Icon(Icons.Default.Equalizer, "Equalizer") }
-        })
-    }) { padding ->
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Now playing") }) },
+        bottomBar = {
+            if (player.episodeId != 0L) {
+                NowPlayingActionBar(
+                    player = player,
+                    episode = episode,
+                    onSpeed = { vm.setSpeed(it) },
+                    onEq = onEq,
+                    onPlaylist = onUpNext,
+                    onShare = {
+                        val current = episode ?: return@NowPlayingActionBar
+                        context.startActivity(
+                            EpisodeShare.chooserIntent(player.podcastTitle, current)
+                        )
+                    },
+                    vm = vm
+                )
+            }
+        }
+    ) { padding ->
         if (player.episodeId == 0L) {
             Text(
                 "Nothing playing yet. Pick an episode from your library, and OpenPod will remember it here.",
@@ -1061,16 +1068,24 @@ private fun PlayerScreen(
             )
             return@Scaffold
         }
-        LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize(),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            item {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+        BoxWithConstraints(Modifier.padding(padding).fillMaxSize()) {
+            val horizontalPad = 20.dp
+            val controlsReserve = if (chapters.isNotEmpty()) 330.dp else 280.dp
+            val artSide = minOf(
+                maxWidth - horizontalPad * 2,
+                maxHeight * NowPlayingChrome.ARTWORK_HEIGHT_FRACTION,
+                (maxHeight - controlsReserve).coerceAtLeast(96.dp)
+            )
+            Column(Modifier.fillMaxSize()) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = horizontalPad),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(Modifier.height(8.dp))
                     val podcastId = player.podcastId.takeIf { it != 0L } ?: episode?.podcastId ?: 0L
-                    val artworkModifier = Modifier.size(220.dp).clip(RoundedCornerShape(16.dp))
+                    val artworkModifier = Modifier.size(artSide).clip(RoundedCornerShape(20.dp))
                     AsyncImage(
                         player.artwork,
                         player.podcastTitle.ifBlank { player.title },
@@ -1083,11 +1098,24 @@ private fun PlayerScreen(
                         },
                         contentScale = ContentScale.Crop
                     )
-                    Spacer(Modifier.height(16.dp))
-                    Text(player.title, style = MaterialTheme.typography.titleLarge, maxLines = 2)
-                    Text(player.podcastTitle, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        player.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        player.podcastTitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     if (chapters.isNotEmpty()) {
-                        Spacer(Modifier.height(4.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
@@ -1100,7 +1128,6 @@ private fun PlayerScreen(
                             }
                         }
                     }
-                    Spacer(Modifier.height(16.dp))
                     val displayDuration = player.effectiveDurationMs.takeIf { it > 0L } ?: player.durationMs
                     Slider(
                         value = if (displayDuration > 0) (player.positionMs.toFloat() / displayDuration).coerceIn(0f, 1f) else 0f,
@@ -1110,8 +1137,8 @@ private fun PlayerScreen(
                         Text(formatMs(player.positionMs))
                         Text(formatMs(displayDuration))
                     }
-                    val controlSize = 108.dp
-                    val iconSize = 72.dp
+                    val controlSize = 96.dp
+                    val iconSize = 64.dp
                     Row(
                         Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -1139,36 +1166,157 @@ private fun PlayerScreen(
                             iconSize = 48.dp
                         )
                     }
-                    SleepTimerSection(player, vm)
-                    Spacer(Modifier.height(8.dp))
-                    SpeedControl(player.speed, { vm.setSpeed(it) })
                 }
-            }
-            val current = episode
-            if (current != null) {
-                if (current.description.isNotBlank()) {
-                    item {
-                        Column(Modifier.fillMaxWidth()) {
-                            Text("From the publisher", style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.height(8.dp))
-                            PublisherText(current.description)
+                val current = episode
+                if (
+                    current != null && (
+                        current.description.isNotBlank() || chapters.isNotEmpty() || transcript.isNotEmpty()
+                        )
+                ) {
+                    LazyColumn(
+                        Modifier.weight(1f).fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        if (current.description.isNotBlank()) {
+                            item {
+                                Column(Modifier.fillMaxWidth()) {
+                                    Text("From the publisher", style = MaterialTheme.typography.titleMedium)
+                                    Spacer(Modifier.height(8.dp))
+                                    PublisherText(current.description)
+                                }
+                            }
+                        }
+                        if (chapters.isNotEmpty()) {
+                            item {
+                                Text(
+                                    "Chapters",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            items(chapters) { chapter ->
+                                Text(
+                                    "${formatMs(chapter.startMs)}  ${chapter.title}",
+                                    Modifier.fillMaxWidth().clickable { vm.seek(chapter.startMs) }.padding(vertical = 6.dp)
+                                )
+                            }
+                        }
+                        if (transcript.isNotEmpty()) {
+                            item {
+                                Text(
+                                    "Transcript",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            items(transcript.take(400)) { line ->
+                                val prefix = line.startMs?.let { formatMs(it) + "  " }.orEmpty()
+                                Text(
+                                    prefix + line.text,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                                )
+                            }
                         }
                     }
                 }
-                if (chapters.isNotEmpty()) {
-                    item { Text("Chapters", style = MaterialTheme.typography.titleMedium, modifier = Modifier.fillMaxWidth()) }
-                    items(chapters) { chapter ->
-                        Text(
-                            "${formatMs(chapter.startMs)}  ${chapter.title}",
-                            Modifier.fillMaxWidth().clickable { vm.seek(chapter.startMs) }.padding(vertical = 6.dp)
-                        )
-                    }
-                }
-                if (transcript.isNotEmpty()) {
-                    item { Text("Transcript", style = MaterialTheme.typography.titleMedium, modifier = Modifier.fillMaxWidth()) }
-                    items(transcript.take(400)) { line ->
-                        val prefix = line.startMs?.let { formatMs(it) + "  " }.orEmpty()
-                        Text(prefix + line.text, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun NowPlayingActionBar(
+    player: com.openpod.app.playback.PlayerUiState,
+    episode: EpisodeEntity?,
+    onSpeed: (Float) -> Unit,
+    onEq: () -> Unit,
+    onPlaylist: () -> Unit,
+    onShare: () -> Unit,
+    vm: AppViewModel
+) {
+    var speedMenuOpen by remember { mutableStateOf(false) }
+    var sleepMenuOpen by remember { mutableStateOf(false) }
+    Surface(tonalElevation = 3.dp) {
+        Column {
+            HorizontalDivider()
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 64.dp)
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                NowPlayingChrome.bottomActions.forEach { action ->
+                    Box(
+                        Modifier.weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        when (action) {
+                            NowPlayingChrome.BottomAction.Speed -> {
+                                val label = NowPlayingChrome.speedButtonLabel(player.speed)
+                                TextButton(
+                                    onClick = { speedMenuOpen = true },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                                ) {
+                                    Text(label, style = MaterialTheme.typography.titleMedium)
+                                }
+                                DropdownMenu(
+                                    expanded = speedMenuOpen,
+                                    onDismissRequest = { speedMenuOpen = false }
+                                ) {
+                                    SpeedControl(
+                                        speed = player.speed,
+                                        onSpeed = onSpeed,
+                                        modifier = Modifier.width(280.dp).padding(horizontal = 12.dp, vertical = 8.dp)
+                                    )
+                                }
+                            }
+                            NowPlayingChrome.BottomAction.Equalizer -> {
+                                IconButton(onEq) {
+                                    Icon(Icons.Default.Equalizer, "Graphic equalizer")
+                                }
+                            }
+                            NowPlayingChrome.BottomAction.Playlist -> {
+                                IconButton(onPlaylist) {
+                                    Icon(Icons.Default.QueueMusic, "Up Next")
+                                }
+                            }
+                            NowPlayingChrome.BottomAction.Sleep -> {
+                                IconButton(onClick = { sleepMenuOpen = true }) {
+                                    Icon(
+                                        Icons.Default.Bedtime,
+                                        if (player.sleepActive) {
+                                            "Sleep timer, ${SleepTimerLogic.formatRemaining(player.sleepRemainingMs)} remaining"
+                                        } else {
+                                            "Sleep timer"
+                                        },
+                                        tint = if (player.sleepActive) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        }
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = sleepMenuOpen,
+                                    onDismissRequest = { sleepMenuOpen = false }
+                                ) {
+                                    SleepTimerSection(
+                                        player = player,
+                                        vm = vm,
+                                        modifier = Modifier.width(300.dp).padding(horizontal = 12.dp, vertical = 8.dp)
+                                    )
+                                }
+                            }
+                            NowPlayingChrome.BottomAction.Share -> {
+                                IconButton(onClick = onShare, enabled = episode != null) {
+                                    Icon(Icons.Default.Share, "Share episode")
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1201,7 +1349,11 @@ private fun PublisherText(html: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SpeedControl(speed: Float, onSpeed: (Float) -> Unit) {
+private fun SpeedControl(
+    speed: Float,
+    onSpeed: (Float) -> Unit,
+    modifier: Modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+) {
     val focusManager = LocalFocusManager.current
     var focused by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf(formatSpeed(speed)) }
@@ -1226,7 +1378,7 @@ private fun SpeedControl(speed: Float, onSpeed: (Float) -> Unit) {
     }
     val current = text.toFloatOrNull() ?: speed
     Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("Playback speed", style = MaterialTheme.typography.labelLarge)
@@ -1338,9 +1490,10 @@ private fun SecondsTextField(
 @Composable
 private fun SleepTimerSection(
     player: com.openpod.app.playback.PlayerUiState,
-    vm: AppViewModel
+    vm: AppViewModel,
+    modifier: Modifier = Modifier.fillMaxWidth()
 ) {
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
             Icon(Icons.Default.Bedtime, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
