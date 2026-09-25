@@ -14,6 +14,12 @@ class EpisodeRowChromeTest {
     }
 
     @Test
+    fun playedListingsUseMutedText() {
+        assertTrue(EpisodeRowChrome.usesMutedText(completed = true))
+        assertFalse(EpisodeRowChrome.usesMutedText(completed = false))
+    }
+
+    @Test
     fun durationForUnplayedAndPlayed() {
         assertEquals("45:00", EpisodeRowChrome.playbackLabel(45 * 60_000L, 0, completed = false))
         assertEquals("Unplayed", EpisodeRowChrome.playbackLabel(0, 0, completed = false))

@@ -15,6 +15,7 @@ class OpmlTest {
             siteUrl = "https://allin.com",
             autoDownload = true,
             autoDelete = false,
+            autoArchive = true,
             folderName = "All-In",
             skipIntroSec = 90,
             skipOutroSec = 30
@@ -38,6 +39,8 @@ class OpmlTest {
         assertTrue(xml.contains("xmlUrl=\"https://feeds.example.com/all-in.xml\""))
         assertTrue(xml.contains("openpod:autoDownload=\"true\""))
         assertTrue(xml.contains("openpod:autoDelete=\"true\""))
+        assertTrue(xml.contains("openpod:autoArchive=\"true\""))
+        assertTrue(xml.contains("openpod:autoArchive=\"false\""))
         assertTrue(xml.contains("openpod:folderName=\"All-In\""))
         assertTrue(xml.contains("openpod:skipIntroSec=\"90\""))
         assertTrue(xml.contains("openpod:skipOutroSec=\"30\""))
@@ -50,11 +53,13 @@ class OpmlTest {
         assertEquals("https://allin.com", parsed[0].htmlUrl)
         assertEquals(true, parsed[0].autoDownload)
         assertEquals(false, parsed[0].autoDelete)
+        assertEquals(true, parsed[0].autoArchive)
         assertEquals("All-In", parsed[0].folderName)
         assertEquals(90, parsed[0].skipIntroSec)
         assertEquals(30, parsed[0].skipOutroSec)
         assertEquals("Lex <Fridman>", parsed[1].title)
         assertEquals(true, parsed[1].autoDelete)
+        assertEquals(false, parsed[1].autoArchive)
         assertNull(parsed[1].skipIntroSec)
         assertNull(parsed[1].skipOutroSec)
     }
@@ -80,6 +85,7 @@ class OpmlTest {
         assertEquals("The Daily", parsed[1].title)
         assertEquals("HTTP://feeds.example.com/daily/", parsed[1].xmlUrl)
         assertNull(parsed[0].autoDownload)
+        assertNull(parsed[0].autoArchive)
     }
 
     @Test

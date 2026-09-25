@@ -96,10 +96,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         autoDownload: Boolean? = null,
         autoDelete: Boolean? = null,
         skipIntroSec: Int? = null,
-        skipOutroSec: Int? = null
+        skipOutroSec: Int? = null,
+        autoArchive: Boolean? = null
     ) {
         viewModelScope.launch {
-            repo.setPodcastFlags(id, autoDownload, autoDelete, skipIntroSec, skipOutroSec)
+            repo.setPodcastFlags(id, autoDownload, autoDelete, skipIntroSec, skipOutroSec, autoArchive)
             if (skipIntroSec != null || skipOutroSec != null) {
                 val podcast = repo.db.podcasts().byId(id) ?: return@launch
                 if (PlayerService.state.value.podcastId == id) {
@@ -371,6 +372,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.setArchived(ids, archived)
             _message.value = if (archived) "Archived ${ids.size}" else "Unarchived ${ids.size}"
+        }
+    }
+
+    fun archivePodcast(id: Long) {
+        viewModelScope.launch {
+            val count = repo.archivePodcast(id)
+            _message.value = "Archived $count"
         }
     }
 
