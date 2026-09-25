@@ -168,6 +168,7 @@ class PodRepository(context: Context) {
                 autoDownload = feed.autoDownload ?: defaults.autoDownloadDefault,
                 autoDelete = feed.autoDelete ?: defaults.autoDeleteDefault,
                 folderName = folder,
+                autoArchive = feed.autoArchive == true,
                 skipIntroSec = EpisodeTrim.sanitize(feed.skipIntroSec ?: 0),
                 skipOutroSec = EpisodeTrim.sanitize(feed.skipOutroSec ?: 0)
             )
@@ -245,17 +246,23 @@ class PodRepository(context: Context) {
         autoDownload: Boolean? = null,
         autoDelete: Boolean? = null,
         skipIntroSec: Int? = null,
-        skipOutroSec: Int? = null
+        skipOutroSec: Int? = null,
+        autoArchive: Boolean? = null
     ) {
         val podcast = db.podcasts().byId(id) ?: return
+        val enablingArchive = autoArchive == true && !podcast.autoArchive
         db.podcasts().update(
             podcast.copy(
                 autoDownload = autoDownload ?: podcast.autoDownload,
                 autoDelete = autoDelete ?: podcast.autoDelete,
                 skipIntroSec = skipIntroSec?.let { EpisodeTrim.sanitize(it) } ?: podcast.skipIntroSec,
-                skipOutroSec = skipOutroSec?.let { EpisodeTrim.sanitize(it) } ?: podcast.skipOutroSec
+                skipOutroSec = skipOutroSec?.let { EpisodeTrim.sanitize(it) } ?: podcast.skipOutroSec,
+                autoArchive = autoArchive ?: podcast.autoArchive
             )
         )
+        if (enablingArchive) {
+            setArchived(AutoArchive.backlogIds(db.episodes().forPodcast(id)), archived = true)
+        }
     }
 
     suspend fun unsubscribe(id: Long) {
@@ -297,6 +304,15 @@ class PodRepository(context: Context) {
         db.episodes().updateProgress(episodeId, positionMs, completed)
         if (completed && podcast?.autoDelete == true) {
             downloader.deleteLocal(episodeId)
+        }
+        if (
+            AutoArchive.shouldArchiveOnProgress(
+                autoArchive = podcast?.autoArchive == true,
+                completed = completed,
+                wasCompleted = episode.completed
+            )
+        ) {
+            setArchived(listOf(episodeId), archived = true)
         }
     }
 

@@ -114,6 +114,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -769,6 +770,17 @@ private fun PodcastSettingsScreen(vm: AppViewModel, podcastId: Long, onBack: () 
                 )
             }
             item {
+                Text("Library", style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Auto-archive played episodes", Modifier.weight(1f))
+                    Switch(podcast.autoArchive, { vm.setFlags(podcastId, autoArchive = it) })
+                }
+                Text(
+                    "Archive an episode when you finish listening so it leaves the available list. Episodes already played are archived when you turn this on.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            item {
                 Text("Playback", style = MaterialTheme.typography.titleMedium)
                 Text(
                     "Skip the intro and/or outro on every episode of this show. Leave 0 to keep the original start and end.",
@@ -821,6 +833,11 @@ private fun EpisodeRow(
     val durationMs = if (isCurrent && player.durationMs > 0L) player.durationMs else episode.durationMs
     val positionMs = if (isCurrent) player.positionMs else episode.positionMs
     val completed = if (isCurrent) false else episode.completed
+    val listingColor = if (EpisodeRowChrome.usesMutedText(completed)) {
+        MaterialTheme.colorScheme.secondary
+    } else {
+        Color.Unspecified
+    }
     var menuOpen by remember { mutableStateOf(false) }
     Column(
         Modifier
@@ -835,7 +852,13 @@ private fun EpisodeRow(
             }
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(episode.title, Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        episode.title,
+                        Modifier.weight(1f),
+                        color = listingColor,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     if (EpisodeRowChrome.isDownloaded(episode)) {
                         Spacer(Modifier.width(6.dp))
                         Icon(
@@ -855,6 +878,7 @@ private fun EpisodeRow(
                         queued = queued,
                         archived = episode.archived
                     ),
+                    color = listingColor,
                     style = MaterialTheme.typography.bodySmall
                 )
             }

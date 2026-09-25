@@ -19,6 +19,9 @@ object EpisodeRowChrome {
         }
     }
 
+    /** Played rows in the podcast episode list use muted text. Pass false while that episode is playing. */
+    fun usesMutedText(completed: Boolean): Boolean = completed
+
     fun remainingMs(durationMs: Long, positionMs: Long): Long? {
         if (durationMs <= 0L) return null
         return (durationMs - positionMs.coerceAtLeast(0L)).coerceAtLeast(0L)

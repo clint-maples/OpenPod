@@ -17,6 +17,7 @@ data class OpmlFeed(
     val htmlUrl: String = "",
     val autoDownload: Boolean? = null,
     val autoDelete: Boolean? = null,
+    val autoArchive: Boolean? = null,
     val folderName: String? = null,
     val skipIntroSec: Int? = null,
     val skipOutroSec: Int? = null
@@ -48,6 +49,7 @@ object Opml {
                 }
                 append(" openpod:autoDownload=\"").append(podcast.autoDownload).append('"')
                 append(" openpod:autoDelete=\"").append(podcast.autoDelete).append('"')
+                append(" openpod:autoArchive=\"").append(podcast.autoArchive).append('"')
                 if (podcast.folderName.isNotBlank()) {
                     append(" openpod:folderName=\"").append(escapeAttr(podcast.folderName)).append('"')
                 }
@@ -108,6 +110,7 @@ object Opml {
                 htmlUrl = firstAttr(el, "htmlUrl", "htmlURL", "htmlurl"),
                 autoDownload = parseBool(nsOrLocal(el, "autoDownload")),
                 autoDelete = parseBool(nsOrLocal(el, "autoDelete")),
+                autoArchive = parseBool(nsOrLocal(el, "autoArchive")),
                 folderName = nsOrLocal(el, "folderName")?.ifBlank { null },
                 skipIntroSec = parseInt(nsOrLocal(el, "skipIntroSec")),
                 skipOutroSec = parseInt(nsOrLocal(el, "skipOutroSec"))

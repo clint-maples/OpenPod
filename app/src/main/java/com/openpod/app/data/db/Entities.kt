@@ -19,7 +19,8 @@ data class PodcastEntity(
     val autoDelete: Boolean = false,
     val folderName: String = "",
     val skipIntroSec: Int = 0,
-    val skipOutroSec: Int = 0
+    val skipOutroSec: Int = 0,
+    val autoArchive: Boolean = false
 )
 
 @Entity(
