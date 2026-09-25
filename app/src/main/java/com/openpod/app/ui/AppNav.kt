@@ -391,36 +391,80 @@ private fun LibraryScreen(vm: AppViewModel, onOpen: (Long) -> Unit, onRefresh: (
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 gridItems(podcasts, key = { it.id }) { podcast ->
-                    AsyncImage(
-                        model = podcast.imageUrl,
-                        contentDescription = podcast.title,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1f)
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable { onOpen(podcast.id) },
-                        contentScale = ContentScale.Crop
-                    )
+                    Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
+                        AsyncImage(
+                            model = podcast.imageUrl,
+                            contentDescription = podcast.title,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable { onOpen(podcast.id) },
+                            contentScale = ContentScale.Crop
+                        )
+                        PodcastOverflowMenu(
+                            Modifier.align(Alignment.TopEnd),
+                            compact = true,
+                            onArchive = { vm.archivePodcast(podcast.id) }
+                        )
+                    }
                 }
             }
         } else {
             LazyColumn(Modifier.padding(padding)) {
                 items(podcasts, key = { it.id }) { podcast ->
-                    PodcastRow(podcast) { onOpen(podcast.id) }
+                    PodcastRow(
+                        podcast,
+                        onClick = { onOpen(podcast.id) },
+                        onArchive = { vm.archivePodcast(podcast.id) }
+                    )
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PodcastRow(podcast: PodcastEntity, onClick: () -> Unit) {
+private fun PodcastRow(podcast: PodcastEntity, onClick: () -> Unit, onArchive: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
         AsyncImage(podcast.imageUrl, podcast.title, Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(podcast.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(podcast.author, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+        }
+        PodcastOverflowMenu(onArchive = onArchive)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PodcastOverflowMenu(
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+    onArchive: () -> Unit
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Box(modifier) {
+        IconButton(
+            onClick = { menuOpen = true },
+            modifier = if (compact) Modifier.size(32.dp) else Modifier
+        ) {
+            Icon(
+                Icons.Default.MoreVert,
+                "More",
+                modifier = if (compact) Modifier.size(18.dp) else Modifier
+            )
+        }
+        DropdownMenu(menuOpen, { menuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text("Archive podcast") },
+                onClick = {
+                    menuOpen = false
+                    onArchive()
+                },
+                leadingIcon = { Icon(Icons.Default.Archive, null) }
+            )
         }
     }
 }

@@ -375,6 +375,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun archivePodcast(id: Long) {
+        viewModelScope.launch {
+            val count = repo.archivePodcast(id)
+            _message.value = "Archived $count"
+        }
+    }
+
     fun downloadMany(ids: List<Long>) {
         viewModelScope.launch {
             val count = repo.downloadMany(ids)

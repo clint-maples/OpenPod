@@ -21,4 +21,11 @@ object AutoArchive {
     /** Episodes already played when auto-archive is turned on. */
     fun backlogIds(episodes: List<EpisodeEntity>): List<Long> =
         episodes.filter { it.completed && !it.archived }.map { it.id }
+
+    /**
+     * Episodes archived by Archive podcast. Same archived flag as episode archive
+     * and auto-archive; episodes that are already archived are left alone.
+     */
+    fun idsForPodcast(episodes: List<EpisodeEntity>): List<Long> =
+        episodes.filter { !it.archived }.map { it.id }
 }

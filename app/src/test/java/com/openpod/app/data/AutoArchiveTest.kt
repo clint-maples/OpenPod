@@ -50,6 +50,18 @@ class AutoArchiveTest {
         assertEquals(listOf(1L), AutoArchive.backlogIds(episodes))
     }
 
+    @Test
+    fun archivePodcastTakesEveryAvailableEpisode() {
+        val episodes = listOf(
+            episode(id = 1, completed = true, archived = false),
+            episode(id = 2, completed = true, archived = true),
+            episode(id = 3, completed = false, archived = false),
+            episode(id = 4, completed = false, archived = true)
+        )
+        assertEquals(listOf(1L, 3L), AutoArchive.idsForPodcast(episodes))
+        assertEquals(emptyList<Long>(), AutoArchive.idsForPodcast(emptyList()))
+    }
+
     private fun episode(id: Long, completed: Boolean, archived: Boolean) = EpisodeEntity(
         id = id,
         podcastId = 1,

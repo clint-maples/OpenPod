@@ -411,6 +411,13 @@ class PodRepository(context: Context) {
         db.episodes().setArchived(ids, archived)
     }
 
+    /** Archive every available episode of a show. The subscription stays in the library. */
+    suspend fun archivePodcast(podcastId: Long): Int {
+        val ids = AutoArchive.idsForPodcast(db.episodes().forPodcast(podcastId))
+        setArchived(ids, archived = true)
+        return ids.size
+    }
+
     suspend fun downloadMany(ids: List<Long>): Int {
         val pending = ids.filter { id ->
             val episode = db.episodes().byId(id) ?: return@filter false
