@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.31  
-**Download:** [OpenPod 1.31 APK](https://github.com/clint-maples/OpenPod/releases/download/1.31/OpenPod-1.31.apk)
+**Current version:** 1.32  
+**Download:** [OpenPod 1.32 APK](https://github.com/clint-maples/OpenPod/releases/download/1.32/OpenPod-1.32.apk)
 
 **Previous**
 
+- [1.31](https://github.com/clint-maples/OpenPod/releases/download/1.31/OpenPod-1.31.apk)
 - [1.30](https://github.com/clint-maples/OpenPod/releases/download/1.30/OpenPod-1.30.apk)
 - [1.29](https://github.com/clint-maples/OpenPod/releases/download/1.29/OpenPod-1.29.apk)
-- [1.28](https://github.com/clint-maples/OpenPod/releases/download/1.28/OpenPod-1.28.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -73,6 +73,13 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+
+## 1.32
+- Played episodes are dimmed in the episode list.
+- Per-podcast auto-archive of played episodes (Library toggle, default off, OPML `openpod:autoArchive`).
+- Archive all episodes of a podcast from the library three-dot menu. The subscription stays.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `21fed11f689b11553a64a6bcc225d9cf62d87e3292d617547ab2df8ac0436f70`
 
 ## 1.31
 Now Playing leaves the title off above the artwork. The bottom action bar is Speed, graphic equalizer, sleep timer, and share. Up Next stays on the mini player. The equalizer button opens the graphic equalizer screen. Artwork, episode details, the scrubber, transport, and publisher notes scroll together; the bottom action bar stays pinned.
