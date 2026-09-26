@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.32  
-**Download:** [OpenPod 1.32 APK](https://github.com/clint-maples/OpenPod/releases/download/1.32/OpenPod-1.32.apk)
+**Current version:** 1.33  
+**Download:** [OpenPod 1.33 APK](https://github.com/clint-maples/OpenPod/releases/download/1.33/OpenPod-1.33.apk)
 
 **Previous**
 
+- [1.32](https://github.com/clint-maples/OpenPod/releases/download/1.32/OpenPod-1.32.apk)
 - [1.31](https://github.com/clint-maples/OpenPod/releases/download/1.31/OpenPod-1.31.apk)
 - [1.30](https://github.com/clint-maples/OpenPod/releases/download/1.30/OpenPod-1.30.apk)
-- [1.29](https://github.com/clint-maples/OpenPod/releases/download/1.29/OpenPod-1.29.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -49,6 +49,7 @@ On a podcast screen, **Find existing downloads** scans that showâ€™s folder for 
 - Remove a show from the podcast screen (trash icon), not the main library list
 - Archive hides episodes; turn on **Show archived** on the podcast screen to see them again
 - Library layout toggle: list, or a scrolling **5-wide thumbnail grid**
+- Each subscribed show has a **Podcast menu** (three dots) in the list and on the grid thumbnail. **Archive** archives every available episode and leaves the subscription in the library
 - On a podcast screen, tap the gear for that show’s settings: auto-download, auto-delete, and skip-first / skip-last seconds so every episode trims intro and/or outro
 - On a podcast screen, search/filter episodes by title (useful for long feeds)
 - Episode rows show remaining time when in progress, a downloaded mark, **In queue** when queued, and one-tap play/pause without opening Now Playing
@@ -73,6 +74,11 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+
+## 1.33
+The library **Archive** action is on the podcast three-dot menu in both list and grid. On the grid, that control is a dark circular button on the cover so it stays visible on light artwork. **Archive** marks every available episode archived; the subscription stays.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `0a3a8fde5775de5eb9e7ec32412fd236a84cf49c428e759ed0ba0dc70f9e618b`
 
 ## 1.32
 - Played episodes are dimmed in the episode list.
