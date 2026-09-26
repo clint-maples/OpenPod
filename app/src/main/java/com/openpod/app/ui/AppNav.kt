@@ -391,13 +391,22 @@ private fun LibraryScreen(vm: AppViewModel, onOpen: (Long) -> Unit, onRefresh: (
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 gridItems(podcasts, key = { it.id }) { podcast ->
-                    LibraryPodcastGridCell(
-                        title = podcast.title,
-                        imageUrl = podcast.imageUrl,
-                        onOpen = { onOpen(podcast.id) },
-                        onArchive = { vm.archivePodcast(podcast.id) },
-                        modifier = Modifier.fillMaxWidth().aspectRatio(1f)
-                    )
+                    Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
+                        AsyncImage(
+                            model = podcast.imageUrl,
+                            contentDescription = podcast.title,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable { onOpen(podcast.id) },
+                            contentScale = ContentScale.Crop
+                        )
+                        PodcastOverflowMenu(
+                            Modifier.align(Alignment.TopEnd),
+                            compact = true,
+                            onArchive = { vm.archivePodcast(podcast.id) }
+                        )
+                    }
                 }
             }
         } else {
@@ -414,15 +423,50 @@ private fun LibraryScreen(vm: AppViewModel, onOpen: (Long) -> Unit, onRefresh: (
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PodcastRow(podcast: PodcastEntity, onClick: () -> Unit, onArchive: () -> Unit) {
-    LibraryPodcastListRow(
-        title = podcast.title,
-        author = podcast.author,
-        imageUrl = podcast.imageUrl,
-        onOpen = onClick,
-        onArchive = onArchive
-    )
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        AsyncImage(podcast.imageUrl, podcast.title, Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(podcast.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(podcast.author, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+        }
+        PodcastOverflowMenu(onArchive = onArchive)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PodcastOverflowMenu(
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+    onArchive: () -> Unit
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Box(modifier) {
+        IconButton(
+            onClick = { menuOpen = true },
+            modifier = if (compact) Modifier.size(32.dp) else Modifier
+        ) {
+            Icon(
+                Icons.Default.MoreVert,
+                "More",
+                modifier = if (compact) Modifier.size(18.dp) else Modifier
+            )
+        }
+        DropdownMenu(menuOpen, { menuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text("Archive podcast") },
+                onClick = {
+                    menuOpen = false
+                    onArchive()
+                },
+                leadingIcon = { Icon(Icons.Default.Archive, null) }
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -661,6 +705,9 @@ private fun PodcastScreen(
                     onShare = {
                         context.startActivity(EpisodeShare.chooserIntent(podcast.title, episode))
                     },
+                    onArchive = {
+                        vm.archiveMany(listOf(episode.id), archived = !episode.archived)
+                    },
                     onToggle = {
                         selected = if (episode.id in selected) selected - episode.id else selected + episode.id
                     },
@@ -824,6 +871,7 @@ private fun EpisodeRow(
     onDownload: () -> Unit,
     onDeleteDownload: () -> Unit,
     onShare: () -> Unit,
+    onArchive: () -> Unit,
     onToggle: () -> Unit,
     onLongPress: () -> Unit
 ) {
@@ -838,7 +886,6 @@ private fun EpisodeRow(
     } else {
         Color.Unspecified
     }
-    var menuOpen by remember { mutableStateOf(false) }
     Column(
         Modifier
             .fillMaxWidth()
@@ -905,35 +952,13 @@ private fun EpisodeRow(
                         if (isCurrent && player.playing) "Pause" else "Play"
                     )
                 }
-                Box {
-                    IconButton({ menuOpen = true }) { Icon(Icons.Default.MoreVert, "More") }
-                    DropdownMenu(menuOpen, { menuOpen = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Play next") },
-                            onClick = {
-                                menuOpen = false
-                                onPlayNext()
-                            },
-                            leadingIcon = { Icon(Icons.Default.QueuePlayNext, null) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Add to Up Next") },
-                            onClick = {
-                                menuOpen = false
-                                onAddToQueue()
-                            },
-                            leadingIcon = { Icon(Icons.Default.PlaylistPlay, null) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Share") },
-                            onClick = {
-                                menuOpen = false
-                                onShare()
-                            },
-                            leadingIcon = { Icon(Icons.Default.Share, null) }
-                        )
-                    }
-                }
+                EpisodeOverflowMenu(
+                    archived = episode.archived,
+                    onPlayNext = onPlayNext,
+                    onAddToQueue = onAddToQueue,
+                    onShare = onShare,
+                    onArchive = onArchive
+                )
             }
         }
         DownloadProgressBlock(episode, progress)
