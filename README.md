@@ -78,7 +78,7 @@ One field on Discover: type a show name and press **Search** on the keyboard, or
 ## 1.34
 On a podcast’s episode list, the episode-row three-dot menu (**Play next**, **Add to Up Next**, **Share**) now includes **Archive episode**. That archives the one episode and leaves the subscription. The library home grid and list are back to the 1.32 overflow: a plain three-dot control, with **Archive podcast** still archiving every available episode. The 1.33 dark circular grid button and split list click target are gone.
 
-Release-signed with the shared OpenPod keystore. APK SHA-256: `pending`
+Release-signed with the shared OpenPod keystore. APK SHA-256: `c537bd40d8ee946b6a03bb686402b7c1610a9de8892e5d1a2ee1a405a28bb354`
 
 ## 1.33
 The library **Archive** action is on the podcast three-dot menu in both list and grid. On the grid, that control is a dark circular button on the cover so it stays visible on light artwork. **Archive** marks every available episode archived; the subscription stays. 1.34 puts single-episode archive on the episode row and restores the 1.32 library-home overflow.
