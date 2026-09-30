@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.34  
-**Download:** [OpenPod 1.34 APK](https://github.com/clint-maples/OpenPod/releases/download/1.34/OpenPod-1.34.apk)
+**Current version:** 1.35  
+**Download:** [OpenPod 1.35 APK](https://github.com/clint-maples/OpenPod/releases/download/1.35/OpenPod-1.35.apk)
 
 **Previous**
 
+- [1.34](https://github.com/clint-maples/OpenPod/releases/download/1.34/OpenPod-1.34.apk)
 - [1.33](https://github.com/clint-maples/OpenPod/releases/download/1.33/OpenPod-1.33.apk)
 - [1.32](https://github.com/clint-maples/OpenPod/releases/download/1.32/OpenPod-1.32.apk)
-- [1.31](https://github.com/clint-maples/OpenPod/releases/download/1.31/OpenPod-1.31.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -49,6 +49,7 @@ On a podcast screen, **Find existing downloads** scans that showâ€™s folder for 
 - Remove a show from the podcast screen (trash icon), not the main library list
 - Archive hides episodes; turn on **Show archived** on the podcast screen to see them again
 - Library layout toggle: list, or a scrolling **5-wide thumbnail grid**
+- On the thumbnail grid, long-press a cover and drag it to reorder shows. The order is saved and the list uses it too
 - On a podcast screen, tap the gear for that show’s settings: auto-download, auto-delete, and skip-first / skip-last seconds so every episode trims intro and/or outro
 - On a podcast screen, search/filter episodes by title (useful for long feeds)
 - Episode rows show remaining time when in progress, a downloaded mark, **In queue** when queued, and one-tap play/pause without opening Now Playing
@@ -74,6 +75,11 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+
+## 1.35
+On the library thumbnail grid, long-press a podcast cover and drag it to another slot to reorder the shows. The new order is saved and the list layout follows it.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `c2ff5002a991e718eb20d7edadeda647a7b5f7c16e4405c1b50786e9b2a117b7`
 
 ## 1.34
 On a podcast’s episode list, the episode-row three-dot menu (**Play next**, **Add to Up Next**, **Share**) now includes **Archive episode**. That archives the one episode and leaves the subscription. The library home grid and list are back to the 1.32 overflow: a plain three-dot control, with **Archive podcast** still archiving every available episode. The 1.33 dark circular grid button and split list click target are gone.
