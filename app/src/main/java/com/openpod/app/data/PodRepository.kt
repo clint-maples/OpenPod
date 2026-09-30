@@ -2,6 +2,7 @@ package com.openpod.app.data
 
 import android.content.Context
 import android.net.Uri
+import androidx.room.withTransaction
 import com.openpod.app.data.backup.Opml
 import com.openpod.app.data.backup.OpmlFeed
 import com.openpod.app.data.backup.SubscriptionImportResult
@@ -10,6 +11,7 @@ import com.openpod.app.data.db.EpisodeEntity
 import com.openpod.app.data.db.EpisodeWithPodcast
 import com.openpod.app.data.db.PlaylistEntity
 import com.openpod.app.data.db.PlaylistItemEntity
+import com.openpod.app.data.db.PodcastDao
 import com.openpod.app.data.db.PodcastEntity
 import com.openpod.app.data.db.QueueItemEntity
 import com.openpod.app.data.db.SettingsEntity
@@ -29,6 +31,13 @@ import org.json.JSONObject
 
 data class Chapter(val startMs: Long, val title: String)
 data class TranscriptLine(val startMs: Long?, val text: String)
+
+internal suspend fun reorderPodcastRows(dao: PodcastDao, orderedIds: List<Long>) {
+    val existing = dao.all()
+    val merged = LibraryOrder.merge(existing.map { it.id }, orderedIds)
+    if (merged == existing.map { it.id }) return
+    merged.forEachIndexed { index, id -> dao.setLibraryOrder(id, index) }
+}
 
 class PodRepository(context: Context) {
     private val app = context.applicationContext
@@ -269,6 +278,10 @@ class PodRepository(context: Context) {
         val podcast = db.podcasts().byId(id) ?: return
         db.episodes().forPodcast(id).forEach { downloader.deleteLocal(it.id) }
         db.podcasts().delete(podcast)
+    }
+
+    suspend fun reorderLibrary(orderedIds: List<Long>) = withContext(Dispatchers.IO) {
+        db.withTransaction { reorderPodcastRows(db.podcasts(), orderedIds) }
     }
 
     suspend fun download(episodeId: Long) = downloader.download(episodeId)

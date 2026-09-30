@@ -358,6 +358,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.updateSettings { it.copy(libraryLayout = layout) } }
     }
 
+    fun reorderLibrary(orderedIds: List<Long>) {
+        viewModelScope.launch { repo.reorderLibrary(orderedIds) }
+    }
+
     fun setSyncSchedule(frequency: String, hour: Int, minute: Int) {
         viewModelScope.launch {
             repo.updateSettings {

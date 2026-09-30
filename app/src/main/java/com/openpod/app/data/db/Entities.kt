@@ -1,5 +1,6 @@
 package com.openpod.app.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -20,8 +21,15 @@ data class PodcastEntity(
     val folderName: String = "",
     val skipIntroSec: Int = 0,
     val skipOutroSec: Int = 0,
-    val autoArchive: Boolean = false
-)
+    val autoArchive: Boolean = false,
+    // -1 keeps the historical title sort. A drag assigns 0..n-1 and later shows sort after that.
+    @ColumnInfo(defaultValue = "-1")
+    val libraryOrder: Int = UNORDERED
+) {
+    companion object {
+        const val UNORDERED = -1
+    }
+}
 
 @Entity(
     tableName = "episodes",

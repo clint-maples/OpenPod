@@ -10,10 +10,26 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface PodcastDao {
-    @Query("SELECT * FROM podcasts ORDER BY title COLLATE NOCASE")
+    @Query(
+        """
+        SELECT * FROM podcasts
+        ORDER BY CASE WHEN libraryOrder < 0 THEN 1 ELSE 0 END,
+                 libraryOrder ASC,
+                 title COLLATE NOCASE,
+                 id ASC
+        """
+    )
     fun observeAll(): Flow<List<PodcastEntity>>
 
-    @Query("SELECT * FROM podcasts ORDER BY title COLLATE NOCASE")
+    @Query(
+        """
+        SELECT * FROM podcasts
+        ORDER BY CASE WHEN libraryOrder < 0 THEN 1 ELSE 0 END,
+                 libraryOrder ASC,
+                 title COLLATE NOCASE,
+                 id ASC
+        """
+    )
     suspend fun all(): List<PodcastEntity>
 
     @Query("SELECT * FROM podcasts WHERE id = :id")
@@ -27,6 +43,9 @@ interface PodcastDao {
 
     @Update
     suspend fun update(podcast: PodcastEntity)
+
+    @Query("UPDATE podcasts SET libraryOrder = :order WHERE id = :id")
+    suspend fun setLibraryOrder(id: Long, order: Int)
 
     @Delete
     suspend fun delete(podcast: PodcastEntity)

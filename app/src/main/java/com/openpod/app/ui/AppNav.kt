@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,9 +31,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -383,32 +379,13 @@ private fun LibraryScreen(vm: AppViewModel, onOpen: (Long) -> Unit, onRefresh: (
         if (podcasts.isEmpty()) {
             Text("Add a show from Discover, or paste an RSS URL.", Modifier.padding(padding).padding(24.dp))
         } else if (grid) {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(5),
-                modifier = Modifier.padding(padding).fillMaxSize(),
-                contentPadding = PaddingValues(6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                gridItems(podcasts, key = { it.id }) { podcast ->
-                    Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
-                        AsyncImage(
-                            model = podcast.imageUrl,
-                            contentDescription = podcast.title,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(6.dp))
-                                .clickable { onOpen(podcast.id) },
-                            contentScale = ContentScale.Crop
-                        )
-                        PodcastOverflowMenu(
-                            Modifier.align(Alignment.TopEnd),
-                            compact = true,
-                            onArchive = { vm.archivePodcast(podcast.id) }
-                        )
-                    }
-                }
-            }
+            LibraryPodcastGrid(
+                podcasts = podcasts,
+                onOpen = onOpen,
+                onArchive = { vm.archivePodcast(it) },
+                onReorder = { vm.reorderLibrary(it) },
+                modifier = Modifier.padding(padding).fillMaxSize()
+            )
         } else {
             LazyColumn(Modifier.padding(padding)) {
                 items(podcasts, key = { it.id }) { podcast ->
@@ -439,7 +416,7 @@ private fun PodcastRow(podcast: PodcastEntity, onClick: () -> Unit, onArchive: (
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PodcastOverflowMenu(
+internal fun PodcastOverflowMenu(
     modifier: Modifier = Modifier,
     compact: Boolean = false,
     onArchive: () -> Unit
