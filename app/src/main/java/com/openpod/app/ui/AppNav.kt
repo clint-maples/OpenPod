@@ -67,7 +67,6 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.ViewList
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -77,7 +76,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -382,7 +380,6 @@ private fun LibraryScreen(vm: AppViewModel, onOpen: (Long) -> Unit, onRefresh: (
             LibraryPodcastGrid(
                 podcasts = podcasts,
                 onOpen = onOpen,
-                onArchive = { vm.archivePodcast(it) },
                 onReorder = { vm.reorderLibrary(it) },
                 modifier = Modifier.padding(padding).fillMaxSize()
             )
@@ -391,8 +388,7 @@ private fun LibraryScreen(vm: AppViewModel, onOpen: (Long) -> Unit, onRefresh: (
                 items(podcasts, key = { it.id }) { podcast ->
                     PodcastRow(
                         podcast,
-                        onClick = { onOpen(podcast.id) },
-                        onArchive = { vm.archivePodcast(podcast.id) }
+                        onClick = { onOpen(podcast.id) }
                     )
                 }
             }
@@ -400,48 +396,14 @@ private fun LibraryScreen(vm: AppViewModel, onOpen: (Long) -> Unit, onRefresh: (
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PodcastRow(podcast: PodcastEntity, onClick: () -> Unit, onArchive: () -> Unit) {
+private fun PodcastRow(podcast: PodcastEntity, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
         AsyncImage(podcast.imageUrl, podcast.title, Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(podcast.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(podcast.author, style = MaterialTheme.typography.bodySmall, maxLines = 1)
-        }
-        PodcastOverflowMenu(onArchive = onArchive)
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun PodcastOverflowMenu(
-    modifier: Modifier = Modifier,
-    compact: Boolean = false,
-    onArchive: () -> Unit
-) {
-    var menuOpen by remember { mutableStateOf(false) }
-    Box(modifier) {
-        IconButton(
-            onClick = { menuOpen = true },
-            modifier = if (compact) Modifier.size(32.dp) else Modifier
-        ) {
-            Icon(
-                Icons.Default.MoreVert,
-                "More",
-                modifier = if (compact) Modifier.size(18.dp) else Modifier
-            )
-        }
-        DropdownMenu(menuOpen, { menuOpen = false }) {
-            DropdownMenuItem(
-                text = { Text("Archive podcast") },
-                onClick = {
-                    menuOpen = false
-                    onArchive()
-                },
-                leadingIcon = { Icon(Icons.Default.Archive, null) }
-            )
         }
     }
 }

@@ -19,7 +19,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -49,7 +48,6 @@ internal fun libraryPodcastCellTag(id: Long) = "library-podcast-$id"
 internal fun LibraryPodcastGrid(
     podcasts: List<PodcastEntity>,
     onOpen: (Long) -> Unit,
-    onArchive: (Long) -> Unit,
     onReorder: (List<Long>) -> Unit,
     modifier: Modifier = Modifier,
     columns: Int = 5
@@ -239,11 +237,6 @@ internal fun LibraryPodcastGrid(
                     contentDescription = podcast.title,
                     modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp)),
                     contentScale = ContentScale.Crop
-                )
-                PodcastOverflowMenu(
-                    Modifier.align(Alignment.TopEnd),
-                    compact = true,
-                    onArchive = { onArchive(podcast.id) }
                 )
             }
         }
