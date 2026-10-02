@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -32,7 +33,6 @@ class LibraryGridReorderTest {
                 LibraryPodcastGrid(
                     podcasts = shows,
                     onOpen = { opened = it },
-                    onArchive = {},
                     onReorder = {},
                     modifier = Modifier.fillMaxSize(),
                     columns = 3
@@ -42,6 +42,7 @@ class LibraryGridReorderTest {
         rule.onNodeWithTag(libraryPodcastCellTag(1)).performClick()
         assertEquals(1L, opened)
         rule.onNodeWithContentDescription("Alpha").assertIsDisplayed()
+        assertEquals(0, rule.onAllNodesWithContentDescription("More").fetchSemanticsNodes().size)
     }
 
     @Test
@@ -52,7 +53,6 @@ class LibraryGridReorderTest {
                 LibraryPodcastGrid(
                     podcasts = shows,
                     onOpen = {},
-                    onArchive = {},
                     onReorder = { order = it },
                     modifier = Modifier.fillMaxSize(),
                     columns = 3

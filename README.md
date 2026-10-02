@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.35  
-**Download:** [OpenPod 1.35 APK](https://github.com/clint-maples/OpenPod/releases/download/1.35/OpenPod-1.35.apk)
+**Current version:** 1.36  
+**Download:** [OpenPod 1.36 APK](https://github.com/clint-maples/OpenPod/releases/download/1.36/OpenPod-1.36.apk)
 
 **Previous**
 
+- [1.35](https://github.com/clint-maples/OpenPod/releases/download/1.35/OpenPod-1.35.apk)
 - [1.34](https://github.com/clint-maples/OpenPod/releases/download/1.34/OpenPod-1.34.apk)
 - [1.33](https://github.com/clint-maples/OpenPod/releases/download/1.33/OpenPod-1.33.apk)
-- [1.32](https://github.com/clint-maples/OpenPod/releases/download/1.32/OpenPod-1.32.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -75,6 +75,11 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+
+## 1.36
+The main library no longer shows a three-dot menu on each podcast, in the thumbnail grid or the list. Episode-row menus inside a podcast are unchanged: **Play next**, **Add to Up Next**, **Share**, and **Archive episode** (or **Unarchive episode** when archived episodes are shown).
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `e96d7b82a985a3657ffd614dbf20ba59a337e0c9e1f067f82626c49f27990ec4`
 
 ## 1.35
 On the library thumbnail grid, long-press a podcast cover and drag it to another slot to reorder the shows. The new order is saved and the list layout follows it.
