@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.36  
-**Download:** [OpenPod 1.36 APK](https://github.com/clint-maples/OpenPod/releases/download/1.36/OpenPod-1.36.apk)
+**Current version:** 1.37  
+**Download:** [OpenPod 1.37 APK](https://github.com/clint-maples/OpenPod/releases/download/1.37/OpenPod-1.37.apk)
 
 **Previous**
 
+- [1.36](https://github.com/clint-maples/OpenPod/releases/download/1.36/OpenPod-1.36.apk)
 - [1.35](https://github.com/clint-maples/OpenPod/releases/download/1.35/OpenPod-1.35.apk)
 - [1.34](https://github.com/clint-maples/OpenPod/releases/download/1.34/OpenPod-1.34.apk)
-- [1.33](https://github.com/clint-maples/OpenPod/releases/download/1.33/OpenPod-1.33.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -75,6 +75,11 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+
+## 1.37
+Play works again after OpenPod has been idle, backgrounded, or killed. The first Play tap re-prepares the saved episode at its saved position instead of calling play on an idle player that ignores it. A downloaded file is used when it is still on disk; otherwise the episode's enclosure URL is refreshed. If playback still cannot start, OpenPod shows a short error toast.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `3ec53d872ff4a14d7ac9be2918d1143127f6116f8781e2c23102ea4c3c66cc7c`
 
 ## 1.36
 The main library no longer shows a three-dot menu on each podcast, in the thumbnail grid or the list. Episode-row menus inside a podcast are unchanged: **Play next**, **Add to Up Next**, **Share**, and **Archive episode** (or **Unarchive episode** when archived episodes are shown).

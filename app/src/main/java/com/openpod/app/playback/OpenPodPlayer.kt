@@ -45,6 +45,20 @@ class OpenPodPlayer(
         return PlayerService.state.value.skipForwardSec * 1000L
     }
 
+    override fun play() {
+        val svc = PlayerService.instance
+        val episodeId = PlayerService.state.value.episodeId
+        if (
+            svc != null &&
+            !svc.isApplyingPlayback() &&
+            svc.preparedCommand(episodeId) == PlaybackResume.Command.RELOAD
+        ) {
+            svc.togglePlay()
+            return
+        }
+        super.play()
+    }
+
     override fun seekBack() {
         PlayerService.instance?.skip(false) ?: delegate.seekBack()
     }

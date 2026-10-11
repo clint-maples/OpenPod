@@ -6,12 +6,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Looper
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -36,6 +39,7 @@ import com.openpod.app.MainActivity
 import com.openpod.app.R
 import com.openpod.app.data.PodRepository
 import com.openpod.app.data.db.EpisodeEntity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -87,6 +91,11 @@ class PlayerService : MediaSessionService() {
     private var currentEpisode: EpisodeEntity? = null
     private var lastAudioSessionId = 0
     private var finishingEpisodeId = 0L
+    private var awaitingStart = false
+    private var resolveInFlight = false
+    private var remoteFallbackUsed = false
+    private var playbackFailurePosted = false
+    private var applyingPlayback = false
 
 
     override fun onCreate() {
@@ -131,6 +140,7 @@ class PlayerService : MediaSessionService() {
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 publish()
+                if (isPlaying) awaitingStart = false
                 if (!isPlaying) persistProgress()
                 refreshMediaNotification()
             }
@@ -139,8 +149,26 @@ class PlayerService : MediaSessionService() {
                 publish()
                 refreshMediaNotification()
                 if (playbackState == Player.STATE_ENDED) {
+                    awaitingStart = false
                     finishCurrentEpisode()
                 }
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                publish()
+                if (resolveInFlight) return
+                val ep = currentEpisode
+                if (awaitingStart && ep != null && ep.localUri.isNotBlank() && !remoteFallbackUsed) {
+                    remoteFallbackUsed = true
+                    playEpisode(
+                        ep.copy(localUri = ""),
+                        _state.value.podcastTitle,
+                        _state.value.artwork,
+                        fromFallback = true
+                    )
+                    return
+                }
+                if (awaitingStart) failPlayback()
             }
 
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
@@ -174,10 +202,21 @@ class PlayerService : MediaSessionService() {
                 setSkipSeconds(fwd, back)
             }
         }
-        pending?.let { (episode, title, art) ->
-            pending = null
-            playEpisode(episode, title, art)
-        }
+        consumePending()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        instance = this
+        val result = super.onStartCommand(intent, flags, startId)
+        consumePending()
+        return result
+    }
+
+    private fun consumePending() {
+        if (!::player.isInitialized) return
+        val request = pending ?: return
+        pending = null
+        playEpisode(request.first, request.second, request.third)
     }
 
     
@@ -203,24 +242,115 @@ class PlayerService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        instance = null
         progressJob?.cancel()
         persistProgressBlocking()
         eq.release()
         session?.release()
         session = null
-        player.release()
-        // exo released via ForwardingPlayer.release()
-        instance = null
+        if (::player.isInitialized) player.release()
         super.onDestroy()
     }
 
-    fun playEpisode(episode: EpisodeEntity, podcastTitle: String, artwork: String) {
+    fun isApplyingPlayback(): Boolean = applyingPlayback
+
+    fun preparedCommand(requestedEpisodeId: Long): PlaybackResume.Command {
+        if (!isAlive()) {
+            return PlaybackResume.Command.RELOAD
+        }
+        val state = when (player.playbackState) {
+            Player.STATE_BUFFERING -> PlaybackResume.STATE_BUFFERING
+            Player.STATE_READY -> PlaybackResume.STATE_READY
+            Player.STATE_ENDED -> PlaybackResume.STATE_ENDED
+            else -> PlaybackResume.STATE_IDLE
+        }
+        return PlaybackResume.command(
+            serviceConnected = true,
+            playerInitialized = true,
+            mediaItemCount = player.mediaItemCount,
+            playbackState = state,
+            hasPlayerError = player.playerError != null,
+            isPlaying = player.isPlaying,
+            loadedEpisodeId = currentEpisode?.id ?: 0L,
+            requestedEpisodeId = requestedEpisodeId
+        )
+    }
+
+    fun playEpisode(
+        episode: EpisodeEntity,
+        podcastTitle: String,
+        artwork: String,
+        fromFallback: Boolean = false
+    ) {
+        if (!isAlive()) {
+            PlayerService.play(applicationContext, episode, podcastTitle, artwork)
+            return
+        }
+        if (!fromFallback) {
+            remoteFallbackUsed = false
+            playbackFailurePosted = false
+        }
+        awaitingStart = true
+        resolveInFlight = true
+        // Prepare on this call stack so an idle player cannot ignore the tap,
+        // and so the session timeline is not empty when the service finishes starting.
+        val immediate = PlaybackSource.choose(
+            episode.localUri.takeIf { it.isNotBlank() },
+            episode.audioUrl
+        )
+        if (immediate.isNotBlank()) {
+            val knownShow = _state.value.podcastId == episode.podcastId && _state.value.podcastId != 0L
+            startEpisode(
+                episode,
+                podcastTitle,
+                artwork,
+                if (knownShow) _state.value.skipIntroSec else 0,
+                if (knownShow) _state.value.skipOutroSec else 0,
+                immediate
+            )
+        }
         ioScope.launch {
-            val podcast = repo.db.podcasts().byId(episode.podcastId)
-            val intro = EpisodeTrim.sanitize(podcast?.skipIntroSec ?: 0)
-            val outro = EpisodeTrim.sanitize(podcast?.skipOutroSec ?: 0)
+            val resolved = try {
+                resolveForPlayback(episode)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
             scope.launch {
-                startEpisode(episode, podcastTitle, artwork, intro, outro)
+                resolveInFlight = false
+                if (!isAlive()) {
+                    PlayerService.play(applicationContext, episode, podcastTitle, artwork)
+                    return@launch
+                }
+                if (resolved == null || resolved.uri.isBlank()) {
+                    val started = player.mediaItemCount > 0 && player.playerError == null &&
+                        player.playbackState != Player.STATE_IDLE
+                    if (!started) failPlayback()
+                    return@launch
+                }
+                if (isPreparedFor(episode.id, resolved.uri)) {
+                    if (_state.value.skipIntroSec != resolved.intro || _state.value.skipOutroSec != resolved.outro) {
+                        setEpisodeTrim(resolved.intro, resolved.outro)
+                        val start = EpisodeTrim.startPositionMs(
+                            player.currentPosition.coerceAtLeast(0),
+                            resolved.intro,
+                            resolved.outro,
+                            playbackDurationMs()
+                        )
+                        if (start > player.currentPosition + 500L) player.seekTo(start)
+                    }
+                    if (!player.isPlaying) player.play()
+                    return@launch
+                }
+                startEpisode(
+                    resolved.episode,
+                    podcastTitle,
+                    artwork,
+                    resolved.intro,
+                    resolved.outro,
+                    resolved.uri
+                )
             }
         }
     }
@@ -230,8 +360,21 @@ class PlayerService : MediaSessionService() {
         podcastTitle: String,
         artwork: String,
         skipIntroSec: Int,
-        skipOutroSec: Int
+        skipOutroSec: Int,
+        playbackUri: String
     ) {
+        val uri = playbackUri.trim()
+        if (uri.isBlank()) {
+            failPlayback()
+            return
+        }
+        awaitingStart = true
+        val sameEpisode = currentEpisode?.id == episode.id
+        val live = if (sameEpisode && player.mediaItemCount > 0 && player.playerError == null) {
+            player.currentPosition.coerceAtLeast(0)
+        } else {
+            0L
+        }
         finishingEpisodeId = 0L
         currentEpisode = episode
         val art = artwork.ifBlank { episode.imageUrl }
@@ -250,7 +393,9 @@ class PlayerService : MediaSessionService() {
         pendingSeekMs = -1L
         val requested = when {
             queued >= 0L -> queued
-            !episode.completed && episode.positionMs > 0L -> episode.positionMs
+            episode.completed -> 0L
+            sameEpisode && live > 0L -> maxOf(live, episode.positionMs)
+            episode.positionMs > 0L -> episode.positionMs
             else -> 0L
         }
         val start = EpisodeTrim.startPositionMs(
@@ -259,16 +404,26 @@ class PlayerService : MediaSessionService() {
             skipOutroSec = skipOutroSec,
             durationMs = episode.durationMs
         )
-        player.setMediaItem(
-            MediaItem.Builder()
-                .setUri(episode.localUri.ifBlank { episode.audioUrl })
-                .setMediaMetadata(meta)
-                .build(),
-            start
-        )
-        player.prepare()
-        player.setPlaybackSpeed(_state.value.speed.coerceIn(0.5f, 5.0f))
-        player.play()
+        applyingPlayback = true
+        try {
+            // Drive ExoPlayer directly. OpenPodPlayer.play() reloads an idle
+            // session, and calling it from here would recurse.
+            exo.setMediaItem(
+                MediaItem.Builder()
+                    .setUri(uri)
+                    .setMediaMetadata(meta)
+                    .build(),
+                start
+            )
+            exo.prepare()
+            exo.setPlaybackSpeed(_state.value.speed.coerceIn(0.5f, 5.0f))
+            exo.play()
+        } catch (_: Exception) {
+            failPlayback()
+            return
+        } finally {
+            applyingPlayback = false
+        }
         refreshMediaNotification()
         _state.update {
             it.copy(
@@ -292,10 +447,88 @@ class PlayerService : MediaSessionService() {
     }
 
     fun togglePlay() {
-        if (!::player.isInitialized) return
-        if (player.mediaItemCount == 0) return
-        if (player.isPlaying) player.pause() else player.play()
+        when (preparedCommand(_state.value.episodeId)) {
+            PlaybackResume.Command.PAUSE -> if (isAlive()) player.pause()
+            PlaybackResume.Command.RESUME -> if (isAlive()) player.play()
+            PlaybackResume.Command.RELOAD -> reloadCurrentEpisode()
+        }
     }
+
+    private fun reloadCurrentEpisode() {
+        val inMemory = currentEpisode
+        if (inMemory != null) {
+            playEpisode(inMemory, _state.value.podcastTitle, _state.value.artwork)
+            return
+        }
+        val id = _state.value.episodeId
+        if (id == 0L) {
+            failPlayback()
+            return
+        }
+        ioScope.launch {
+            val loaded = repo.db.episodes().byId(id)
+            val podcast = loaded?.let { repo.db.podcasts().byId(it.podcastId) }
+            scope.launch {
+                if (loaded == null) {
+                    failPlayback()
+                    return@launch
+                }
+                playEpisode(
+                    loaded,
+                    _state.value.podcastTitle.ifBlank { podcast?.title.orEmpty() },
+                    _state.value.artwork.ifBlank { podcast?.imageUrl ?: loaded.imageUrl }
+                )
+            }
+        }
+    }
+
+    private fun isAlive(): Boolean = instance === this && ::player.isInitialized
+
+    private fun isPreparedFor(episodeId: Long, uri: String): Boolean {
+        if (!isAlive()) return false
+        if (currentEpisode?.id != episodeId) return false
+        if (player.mediaItemCount <= 0 || player.playerError != null) return false
+        if (player.playbackState == Player.STATE_IDLE || player.playbackState == Player.STATE_ENDED) return false
+        return currentPlaybackUri() == uri
+    }
+
+    private fun currentPlaybackUri(): String {
+        if (!::player.isInitialized) return ""
+        return player.currentMediaItem?.localConfiguration?.uri?.toString().orEmpty()
+    }
+
+    private suspend fun resolveForPlayback(episode: EpisodeEntity): ResolvedPlay {
+        val podcast = repo.db.podcasts().byId(episode.podcastId)
+        val intro = EpisodeTrim.sanitize(podcast?.skipIntroSec ?: 0)
+        val outro = EpisodeTrim.sanitize(podcast?.skipOutroSec ?: 0)
+        val fresh = repo.db.episodes().byId(episode.id) ?: episode
+        val storedLocal = if (episode.localUri.isBlank()) "" else fresh.localUri
+        val local = PlaybackSource.existingLocalUri(this, storedLocal)
+        val remote = if (local == null) repo.resolveAudioUrl(fresh) else fresh.audioUrl
+        return ResolvedPlay(
+            episode = fresh.copy(localUri = local.orEmpty(), audioUrl = remote.ifBlank { fresh.audioUrl }),
+            uri = PlaybackSource.choose(local, remote),
+            intro = intro,
+            outro = outro
+        )
+    }
+
+    private fun failPlayback() {
+        awaitingStart = false
+        if (playbackFailurePosted) return
+        playbackFailurePosted = true
+        val show = {
+            Toast.makeText(applicationContext, PLAYBACK_FAILED_MESSAGE, Toast.LENGTH_SHORT).show()
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) show() else scope.launch { show() }
+    }
+
+    private data class ResolvedPlay(
+        val episode: EpisodeEntity,
+        val uri: String,
+        val intro: Int,
+        val outro: Int
+    )
 
     fun currentPositionMs(): Long {
         if (!::player.isInitialized || player.mediaItemCount == 0) return _state.value.positionMs
@@ -642,6 +875,7 @@ class PlayerService : MediaSessionService() {
         const val CHANNEL_ID = "playback_media_v2"
         const val ACTION_REWIND = "openpod.REWIND"
         const val ACTION_FORWARD = "openpod.FORWARD"
+        const val PLAYBACK_FAILED_MESSAGE = "Couldn't start playback"
         private val _state = MutableStateFlow(PlayerUiState())
         val state = _state.asStateFlow()
         var instance: PlayerService? = null
@@ -718,13 +952,23 @@ class PlayerService : MediaSessionService() {
 
         fun play(context: android.content.Context, episode: EpisodeEntity, podcastTitle: String, artwork: String) {
             val existing = instance
-            if (existing != null) {
+            if (existing != null && existing.isAlive()) {
                 existing.playEpisode(episode, podcastTitle, artwork)
                 return
             }
             pending = Triple(episode, podcastTitle, artwork)
-            val intent = Intent(context, PlayerService::class.java)
-            ContextCompat.startForegroundService(context, intent)
+            try {
+                val intent = Intent(context, PlayerService::class.java)
+                ContextCompat.startForegroundService(context, intent)
+            } catch (_: Exception) {
+                pending = null
+                val app = context.applicationContext
+                val show = Runnable {
+                    Toast.makeText(app, PLAYBACK_FAILED_MESSAGE, Toast.LENGTH_SHORT).show()
+                }
+                if (Looper.myLooper() == Looper.getMainLooper()) show.run()
+                else android.os.Handler(Looper.getMainLooper()).post(show)
+            }
         }
 
         fun restoreSession(episode: EpisodeEntity, podcastTitle: String, artwork: String) {

@@ -2,6 +2,7 @@ package com.openpod.app.ui
 
 import android.app.Application
 import android.net.Uri
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.openpod.app.data.Chapter
@@ -13,6 +14,7 @@ import com.openpod.app.data.db.PlaylistEntity
 import com.openpod.app.data.db.PodcastEntity
 import com.openpod.app.data.search.SearchHit
 import com.openpod.app.download.DownloadTracker
+import com.openpod.app.playback.PlaybackResume
 import com.openpod.app.playback.PlayerService
 import com.openpod.app.playback.SkipIntervals
 import com.openpod.app.work.PodcastSyncWorker
@@ -161,18 +163,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun playOrToggle(episode: EpisodeEntity, podcast: PodcastEntity) {
-        if (player.value.episodeId == episode.id) {
-            togglePlay()
-            return
-        }
+        if (togglePrepared(episode.id)) return
         play(episode, podcast)
     }
 
     fun playOrToggle(episode: EpisodeEntity, podcastTitle: String = "", artwork: String = "") {
-        if (player.value.episodeId == episode.id) {
-            togglePlay()
-            return
-        }
+        if (togglePrepared(episode.id)) return
         play(episode, podcastTitle, artwork)
     }
 
@@ -215,11 +211,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun togglePlay() {
         val svc = PlayerService.instance
-        if (svc != null && PlayerService.state.value.episodeId != 0L) {
+        val episodeId = PlayerService.state.value.episodeId
+        if (svc != null && episodeId != 0L) {
+            // Includes the idle/error/empty case: togglePlay re-prepares instead of
+            // calling player.play() on a player that will ignore it.
             svc.togglePlay()
             return
         }
         viewModelScope.launch { resumeLastEpisode() }
+    }
+
+    private fun togglePrepared(episodeId: Long): Boolean {
+        if (player.value.episodeId != episodeId) return false
+        val svc = PlayerService.instance ?: return false
+        if (svc.preparedCommand(episodeId) == PlaybackResume.Command.RELOAD) return false
+        svc.togglePlay()
+        return true
     }
 
     fun skip(forward: Boolean) = PlayerService.instance?.skip(forward)
@@ -255,8 +262,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun resumeLastEpisode() {
         val id = PlayerService.state.value.episodeId.takeIf { it != 0L }
             ?: repo.settingsOnce().lastEpisodeId
-        if (id == 0L) return
-        val episode = repo.db.episodes().byId(id) ?: return
+        if (id == 0L) {
+            showPlaybackFailure()
+            return
+        }
+        val episode = repo.db.episodes().byId(id)
+        if (episode == null) {
+            showPlaybackFailure()
+            return
+        }
         val podcast = repo.db.podcasts().byId(episode.podcastId)
         PlayerService.play(
             getApplication(),
@@ -264,6 +278,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             podcast?.title.orEmpty(),
             podcast?.imageUrl ?: episode.imageUrl
         )
+    }
+
+    private fun showPlaybackFailure() {
+        Toast.makeText(
+            getApplication(),
+            PlayerService.PLAYBACK_FAILED_MESSAGE,
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     fun loadExtras(episode: EpisodeEntity) {

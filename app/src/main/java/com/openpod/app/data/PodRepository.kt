@@ -23,10 +23,13 @@ import com.openpod.app.download.DownloadFolderScanner
 import com.openpod.app.download.DownloadScanResult
 import com.openpod.app.download.DownloadTracker
 import com.openpod.app.download.EpisodeDownloader
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
 
 data class Chapter(val startMs: Long, val title: String)
@@ -244,8 +247,12 @@ class PodRepository(context: Context) {
                         chaptersUrl = item.chaptersUrl
                     )
                 )
-            } else if (item.permalink.isNotBlank() && current.permalink != item.permalink) {
-                db.episodes().update(current.copy(permalink = item.permalink))
+            } else {
+                val audioUrl = EpisodeFeedMerge.mergedAudioUrl(current.audioUrl, item.audioUrl)
+                val permalink = item.permalink.ifBlank { current.permalink }
+                if (audioUrl != current.audioUrl || permalink != current.permalink) {
+                    db.episodes().update(current.copy(audioUrl = audioUrl, permalink = permalink))
+                }
             }
         }
     }
@@ -331,6 +338,37 @@ class PodRepository(context: Context) {
 
     suspend fun setLastEpisode(episodeId: Long) {
         updateSettings { it.copy(lastEpisodeId = episodeId) }
+    }
+
+    /**
+     * Re-read this episode's enclosure from the show feed. Signed podcast URLs
+     * expire while the app is idle; a failed refresh keeps the stored URL so
+     * playback can still try it (or a downloaded file).
+     */
+    suspend fun resolveAudioUrl(episode: EpisodeEntity): String = withContext(Dispatchers.IO) {
+        val stored = episode.audioUrl.trim()
+        val podcast = db.podcasts().byId(episode.podcastId) ?: return@withContext stored
+        try {
+            withTimeout(8_000) {
+                val parsed = RssParser.parse(Http.get(podcast.feedUrl))
+                val fresh = parsed.episodes
+                    .firstOrNull { it.guid == episode.guid }
+                    ?.audioUrl
+                    .orEmpty()
+                val merged = EpisodeFeedMerge.mergedAudioUrl(stored, fresh)
+                if (merged.isNotBlank() && merged != stored) {
+                    val current = db.episodes().byId(episode.id) ?: episode
+                    db.episodes().update(current.copy(audioUrl = merged))
+                }
+                merged.ifBlank { stored }
+            }
+        } catch (e: TimeoutCancellationException) {
+            stored
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            stored
+        }
     }
 
     suspend fun autoDeleteCompleted() {
