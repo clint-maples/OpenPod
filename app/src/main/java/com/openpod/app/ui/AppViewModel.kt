@@ -524,6 +524,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.removeFromPlaylist(playlistId, episodeId) }
     }
 
+    fun toggleFavorite(episodeId: Long) {
+        if (episodeId == 0L) return
+        viewModelScope.launch { repo.toggleFavorite(episodeId) }
+    }
+
     fun consumeMessage() {
         _message.value = null
     }

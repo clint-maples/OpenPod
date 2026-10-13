@@ -92,6 +92,9 @@ interface EpisodeDao {
     @Query("UPDATE episodes SET positionMs = :position, completed = :completed WHERE id = :id")
     suspend fun updateProgress(id: Long, position: Long, completed: Boolean)
 
+    @Query("UPDATE episodes SET favorite = CASE WHEN favorite = 0 THEN 1 ELSE 0 END WHERE id = :id")
+    suspend fun toggleFavorite(id: Long)
+
     @Query("SELECT * FROM episodes WHERE completed = 1 AND downloadStatus = 'done' AND localUri != ''")
     suspend fun completedDownloads(): List<EpisodeEntity>
 }

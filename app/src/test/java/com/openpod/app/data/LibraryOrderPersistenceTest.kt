@@ -217,11 +217,23 @@ class LibraryOrderPersistenceTest {
             ) VALUES ('alpha', 'https://a.example/rss', '', '', '', '', 0, 0, '', 0, 0, 0)
             """.trimIndent()
         )
+        sqlite.execSQL(
+            """
+            INSERT INTO episodes (
+                podcastId, guid, title, description, audioUrl, permalink, mimeType,
+                pubDate, durationMs, imageUrl, transcriptUrl, transcriptType, chaptersUrl,
+                localUri, fileName, downloadStatus, positionMs, completed, archived
+            ) VALUES (
+                1, 'ep-1', 'Pilot', '', 'https://cdn.example/pilot.mp3', '', 'audio/mpeg',
+                0, 0, '', '', '', '', '', '', 'none', 0, 0, 0
+            )
+            """.trimIndent()
+        )
         sqlite.version = 9
         sqlite.close()
 
         db = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-            .addMigrations(AppDatabase.MIGRATION_9_10)
+            .addMigrations(AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11)
             .allowMainThreadQueries()
             .build()
         assertEquals(listOf("alpha", "Zebra"), db.podcasts().all().map { it.title })
@@ -229,6 +241,7 @@ class LibraryOrderPersistenceTest {
             listOf(PodcastEntity.UNORDERED, PodcastEntity.UNORDERED),
             db.podcasts().all().map { it.libraryOrder }
         )
+        assertEquals(false, db.episodes().forPodcast(1).single().favorite)
     }
 
     private suspend fun insert(title: String, feedUrl: String): Long {
