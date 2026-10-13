@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.38  
-**Download:** [OpenPod 1.38 APK](https://github.com/clint-maples/OpenPod/releases/download/1.38/OpenPod-1.38.apk)
+**Current version:** 1.39  
+**Download:** [OpenPod 1.39 APK](https://github.com/clint-maples/OpenPod/releases/download/1.39/OpenPod-1.39.apk)
 
 **Previous**
 
+- [1.38](https://github.com/clint-maples/OpenPod/releases/download/1.38/OpenPod-1.38.apk)
 - [1.37](https://github.com/clint-maples/OpenPod/releases/download/1.37/OpenPod-1.37.apk)
 - [1.36](https://github.com/clint-maples/OpenPod/releases/download/1.36/OpenPod-1.36.apk)
-- [1.35](https://github.com/clint-maples/OpenPod/releases/download/1.35/OpenPod-1.35.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -52,7 +52,7 @@ On a podcast screen, **Find existing downloads** scans that showâ€™s folder for 
 - On the thumbnail grid, long-press a cover and drag it to reorder shows. The order is saved and the list uses it too
 - On a podcast screen, tap the gear for that show’s settings: auto-download, auto-delete, and skip-first / skip-last seconds so every episode trims intro and/or outro
 - On a podcast screen, search/filter episodes by title (useful for long feeds)
-- Episode rows show remaining time when in progress, a downloaded mark, **In queue** when queued, and one-tap play/pause without opening Now Playing
+- Episode rows show remaining time when in progress, a downloaded mark, a gold star under that mark when the episode is a favorite, **In queue** when queued, and one-tap play/pause without opening Now Playing
 - Each episode row’s three-dot menu has **Play next**, **Add to Up Next**, **Share**, and **Archive episode**. **Archive episode** hides that one episode; the subscription stays. With **Show archived** on, the same menu offers **Unarchive episode**
 
 ## Playlists
@@ -75,6 +75,11 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+
+## 1.39
+On a podcast’s episode list, a filled gold star sits directly under the downloaded check when that episode is a favorite. Nothing is shown in that spot otherwise. It uses the same per-episode favorite flag as the Now Playing heart, and it updates as soon as that heart is toggled. The heart stays the rightmost control on the Now Playing bottom bar.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `dde4b49dd04962e9c44cc991c2300d551d66713f15b8ea246709062770392a6e`
 
 ## 1.38
 Now Playing’s bottom bar keeps Speed, EQ, Sleep, and Share, with slightly smaller icons and labels and the same tap size. A heart at the far right marks the current episode as a favorite. That flag is stored on the episode and stays after a restart.

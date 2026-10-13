@@ -70,6 +70,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
@@ -839,7 +840,7 @@ private fun EpisodeRow(
                 Spacer(Modifier.width(8.dp))
             }
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.Top) {
                     Text(
                         episode.title,
                         Modifier.weight(1f),
@@ -847,15 +848,7 @@ private fun EpisodeRow(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                    if (EpisodeRowChrome.isDownloaded(episode)) {
-                        Spacer(Modifier.width(6.dp))
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            "Downloaded",
-                            Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                    EpisodeStatusMarks(episode)
                 }
                 Text(
                     EpisodeRowChrome.metaParts(
@@ -903,6 +896,35 @@ private fun EpisodeRow(
             }
         }
         DownloadProgressBlock(episode, progress)
+    }
+}
+
+@Composable
+private fun EpisodeStatusMarks(episode: EpisodeEntity) {
+    val downloaded = EpisodeRowChrome.isDownloaded(episode)
+    val favorite = EpisodeRowChrome.showsFavoriteStar(episode)
+    if (!downloaded && !favorite) return
+    Spacer(Modifier.width(6.dp))
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (downloaded) {
+            Icon(
+                Icons.Default.CheckCircle,
+                "Downloaded",
+                Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        } else {
+            Spacer(Modifier.size(16.dp))
+        }
+        if (favorite) {
+            Spacer(Modifier.height(2.dp))
+            Icon(
+                Icons.Default.Star,
+                "Favorite",
+                Modifier.size(16.dp),
+                tint = Color(EpisodeRowChrome.FAVORITE_STAR_ARGB)
+            )
+        }
     }
 }
 
