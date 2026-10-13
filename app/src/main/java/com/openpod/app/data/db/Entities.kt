@@ -65,7 +65,9 @@ data class EpisodeEntity(
     val downloadStatus: String = STATUS_NONE,
     val positionMs: Long = 0L,
     val completed: Boolean = false,
-    val archived: Boolean = false
+    val archived: Boolean = false,
+    @ColumnInfo(defaultValue = "0")
+    val favorite: Boolean = false
 ) {
     companion object {
         const val STATUS_NONE = "none"

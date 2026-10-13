@@ -457,6 +457,10 @@ class PodRepository(context: Context) {
         )
     }
 
+    suspend fun toggleFavorite(episodeId: Long) {
+        db.episodes().toggleFavorite(episodeId)
+    }
+
     suspend fun setArchived(ids: List<Long>, archived: Boolean) {
         if (ids.isEmpty()) return
         db.episodes().setArchived(ids, archived)

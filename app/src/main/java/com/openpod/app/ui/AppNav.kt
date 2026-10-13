@@ -54,6 +54,8 @@ import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -1233,22 +1235,33 @@ private fun NowPlayingActionBar(
                     .fillMaxWidth()
                     .heightIn(min = 64.dp)
                     .padding(horizontal = 4.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 NowPlayingChrome.bottomActions.forEach { action ->
+                    val slot = if (action == NowPlayingChrome.BottomAction.Favorite) {
+                        Modifier
+                    } else {
+                        Modifier.weight(1f)
+                    }
                     Box(
-                        Modifier.weight(1f).clipToBounds(),
+                        slot.clipToBounds(),
                         contentAlignment = Alignment.Center
                     ) {
                         when (action) {
                             NowPlayingChrome.BottomAction.Speed -> {
                                 val label = NowPlayingChrome.speedButtonLabel(player.speed)
+                                val speedStyle = MaterialTheme.typography.titleMedium
                                 TextButton(
                                     onClick = { speedMenuOpen = true },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                                    modifier = Modifier.heightIn(min = NowPlayingChrome.MIN_TAP_TARGET_DP.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
                                 ) {
-                                    Text(label, style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        label,
+                                        style = speedStyle.copy(
+                                            fontSize = speedStyle.fontSize * NowPlayingChrome.BOTTOM_CONTROL_SCALE
+                                        )
+                                    )
                                 }
                                 DropdownMenu(
                                     expanded = speedMenuOpen,
@@ -1262,23 +1275,34 @@ private fun NowPlayingActionBar(
                                 }
                             }
                             NowPlayingChrome.BottomAction.Equalizer -> {
+                                val eqLabel = MaterialTheme.typography.labelMedium
                                 TextButton(
                                     onClick = onEq,
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = NowPlayingChrome.MIN_TAP_TARGET_DP.dp),
+                                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
                                 ) {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Icon(
                                             Icons.Default.Equalizer,
                                             "Graphic equalizer",
-                                            modifier = Modifier.size(22.dp)
+                                            modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.EQUALIZER_ICON_DP).dp)
                                         )
-                                        Text("EQ", style = MaterialTheme.typography.labelMedium)
+                                        Text(
+                                            "EQ",
+                                            style = eqLabel.copy(
+                                                fontSize = eqLabel.fontSize * NowPlayingChrome.BOTTOM_CONTROL_SCALE
+                                            )
+                                        )
                                     }
                                 }
                             }
                             NowPlayingChrome.BottomAction.Sleep -> {
-                                IconButton(onClick = { sleepMenuOpen = true }) {
+                                IconButton(
+                                    onClick = { sleepMenuOpen = true },
+                                    modifier = Modifier.size(NowPlayingChrome.MIN_TAP_TARGET_DP.dp)
+                                ) {
                                     Icon(
                                         Icons.Default.Bedtime,
                                         if (player.sleepActive) {
@@ -1286,6 +1310,7 @@ private fun NowPlayingActionBar(
                                         } else {
                                             "Sleep timer"
                                         },
+                                        modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.STANDARD_ICON_DP).dp),
                                         tint = if (player.sleepActive) {
                                             MaterialTheme.colorScheme.primary
                                         } else {
@@ -1305,8 +1330,35 @@ private fun NowPlayingActionBar(
                                 }
                             }
                             NowPlayingChrome.BottomAction.Share -> {
-                                IconButton(onClick = onShare, enabled = episode != null) {
-                                    Icon(Icons.Default.Share, "Share episode")
+                                IconButton(
+                                    onClick = onShare,
+                                    enabled = episode != null,
+                                    modifier = Modifier.size(NowPlayingChrome.MIN_TAP_TARGET_DP.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Share,
+                                        "Share episode",
+                                        modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.STANDARD_ICON_DP).dp)
+                                    )
+                                }
+                            }
+                            NowPlayingChrome.BottomAction.Favorite -> {
+                                val favorite = episode?.favorite == true
+                                IconButton(
+                                    onClick = { episode?.let { vm.toggleFavorite(it.id) } },
+                                    enabled = episode != null,
+                                    modifier = Modifier.size(NowPlayingChrome.MIN_TAP_TARGET_DP.dp)
+                                ) {
+                                    Icon(
+                                        if (favorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        NowPlayingChrome.favoriteContentDescription(favorite),
+                                        modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.STANDARD_ICON_DP).dp),
+                                        tint = if (favorite) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        }
+                                    )
                                 }
                             }
                         }

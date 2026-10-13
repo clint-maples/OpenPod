@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.37  
-**Download:** [OpenPod 1.37 APK](https://github.com/clint-maples/OpenPod/releases/download/1.37/OpenPod-1.37.apk)
+**Current version:** 1.38  
+**Download:** [OpenPod 1.38 APK](https://github.com/clint-maples/OpenPod/releases/download/1.38/OpenPod-1.38.apk)
 
 **Previous**
 
+- [1.37](https://github.com/clint-maples/OpenPod/releases/download/1.37/OpenPod-1.37.apk)
 - [1.36](https://github.com/clint-maples/OpenPod/releases/download/1.36/OpenPod-1.36.apk)
 - [1.35](https://github.com/clint-maples/OpenPod/releases/download/1.35/OpenPod-1.35.apk)
-- [1.34](https://github.com/clint-maples/OpenPod/releases/download/1.34/OpenPod-1.34.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -63,7 +63,7 @@ On a podcast screen, **Find existing downloads** scans that showâ€™s folder for 
 
 ## Playback
 
-Now Playing stacks artwork in the top third, then the episode and show, the scrubber, and skip/play transport. The whole player scrolls so publisher notes, chapters, and the transcript sit below the transport. The pinned bottom action bar is Speed (current rate, for example **1.0x**), graphic equalizer, sleep timer, and share. The equalizer button opens the graphic equalizer screen. Up Next stays on the mini player. Speed opens a menu that is still a text box from **0.5x to 5.0x**, with **- / +** stepping by **0.1x**. Skip back/forward on Now Playing and the mini player use the Settings amounts (free-text seconds; changes apply when you leave the field). The mini player skip buttons are icon-only — they do not show the second counts. Per-show settings can skip the first and/or last N seconds of every episode (intro/outro trim). The sleep menu can fade out at the end of the episode, after **5–60** minutes, or whichever comes first — cancel it while it is running. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer puts the volume boost slider at the top (center = default; left quieter, right louder than system volume), then the enable switch, reset, and frequency bands. The mini player stays on other tabs with artwork, skip, play/pause, tap-to-expand, and an **Up Next** shortcut. Up Next is a real queue (not a playlist): **Play next** inserts at the front, **Add to Up Next** appends, and you can reorder or clear. Playing an episode starts it now and removes it from the queue if it was listed; when an episode ends, the next queued item starts. On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata. Tap the artwork on Now Playing to open that show's episode list. Share an episode from Now Playing, the episode screen, or the episode-row overflow -- the system share sheet sends the show name, episode title, and public stream URL (plus permalink when we have one).
+Now Playing stacks artwork in the top third, then the episode and show, the scrubber, and skip/play transport. The whole player scrolls so publisher notes, chapters, and the transcript sit below the transport. The pinned bottom action bar is Speed (current rate, for example **1.0x**), graphic equalizer, sleep timer, share, and a favorite heart at the right. The equalizer button opens the graphic equalizer screen. Up Next stays on the mini player. Speed opens a menu that is still a text box from **0.5x to 5.0x**, with **- / +** stepping by **0.1x**. Skip back/forward on Now Playing and the mini player use the Settings amounts (free-text seconds; changes apply when you leave the field). The mini player skip buttons are icon-only — they do not show the second counts. Per-show settings can skip the first and/or last N seconds of every episode (intro/outro trim). The sleep menu can fade out at the end of the episode, after **5–60** minutes, or whichever comes first — cancel it while it is running. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer puts the volume boost slider at the top (center = default; left quieter, right louder than system volume), then the enable switch, reset, and frequency bands. The mini player stays on other tabs with artwork, skip, play/pause, tap-to-expand, and an **Up Next** shortcut. Up Next is a real queue (not a playlist): **Play next** inserts at the front, **Add to Up Next** appends, and you can reorder or clear. Playing an episode starts it now and removes it from the queue if it was listed; when an episode ends, the next queued item starts. On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata. Tap the artwork on Now Playing to open that show's episode list. Share an episode from Now Playing, the episode screen, or the episode-row overflow -- the system share sheet sends the show name, episode title, and public stream URL (plus permalink when we have one).
 
 ## Sync schedule
 
@@ -75,6 +75,11 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+
+## 1.38
+Now Playing’s bottom bar keeps Speed, EQ, Sleep, and Share, with slightly smaller icons and labels and the same tap size. A heart at the far right marks the current episode as a favorite. That flag is stored on the episode and stays after a restart.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `4e40f92d4eb04137f3a29cdfd6029bc6efb6d2bac0bcaaacb74df6c17f5dc094`
 
 ## 1.37
 Play works again after OpenPod has been idle, backgrounded, or killed. The first Play tap re-prepares the saved episode at its saved position instead of calling play on an idle player that ignores it. A downloaded file is used when it is still on disk; otherwise the episode's enclosure URL is refreshed. If playback still cannot start, OpenPod shows a short error toast.

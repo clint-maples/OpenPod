@@ -3,6 +3,7 @@ package com.openpod.app.ui
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NowPlayingChromeTest {
@@ -13,16 +14,35 @@ class NowPlayingChromeTest {
                 NowPlayingChrome.BottomAction.Speed,
                 NowPlayingChrome.BottomAction.Equalizer,
                 NowPlayingChrome.BottomAction.Sleep,
-                NowPlayingChrome.BottomAction.Share
+                NowPlayingChrome.BottomAction.Share,
+                NowPlayingChrome.BottomAction.Favorite
             ),
             NowPlayingChrome.bottomActions
+        )
+        assertEquals(
+            NowPlayingChrome.BottomAction.Favorite,
+            NowPlayingChrome.bottomActions.last()
         )
     }
 
     @Test
     fun playlistIsNotOnTheBottomBar() {
-        assertEquals(4, NowPlayingChrome.bottomActions.size)
+        assertEquals(5, NowPlayingChrome.bottomActions.size)
         assertFalse(NowPlayingChrome.bottomActions.any { it.name == "Playlist" })
+    }
+
+    @Test
+    fun existingControlsShrinkWithoutDroppingTheTapTarget() {
+        assertTrue(NowPlayingChrome.BOTTOM_CONTROL_SCALE in 0.80f..0.85f)
+        assertEquals(20, NowPlayingChrome.scaledDp(NowPlayingChrome.STANDARD_ICON_DP))
+        assertEquals(18, NowPlayingChrome.scaledDp(NowPlayingChrome.EQUALIZER_ICON_DP))
+        assertTrue(NowPlayingChrome.MIN_TAP_TARGET_DP >= 48)
+    }
+
+    @Test
+    fun favoriteContentDescriptionTogglesWithState() {
+        assertEquals("Favorite", NowPlayingChrome.favoriteContentDescription(false))
+        assertEquals("Unfavorite", NowPlayingChrome.favoriteContentDescription(true))
     }
 
     @Test
@@ -35,6 +55,7 @@ class NowPlayingChromeTest {
         assertNull(NowPlayingChrome.equalizerRoute(NowPlayingChrome.BottomAction.Speed))
         assertNull(NowPlayingChrome.equalizerRoute(NowPlayingChrome.BottomAction.Sleep))
         assertNull(NowPlayingChrome.equalizerRoute(NowPlayingChrome.BottomAction.Share))
+        assertNull(NowPlayingChrome.equalizerRoute(NowPlayingChrome.BottomAction.Favorite))
     }
 
     @Test
