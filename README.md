@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.40  
-**Download:** [OpenPod 1.40 APK](https://github.com/clint-maples/OpenPod/releases/download/1.40/OpenPod-1.40.apk)
+**Current version:** 1.41  
+**Download:** [OpenPod 1.41 APK](https://github.com/clint-maples/OpenPod/releases/download/1.41/OpenPod-1.41.apk)
 
 **Previous**
 
+- [1.40](https://github.com/clint-maples/OpenPod/releases/download/1.40/OpenPod-1.40.apk)
 - [1.39](https://github.com/clint-maples/OpenPod/releases/download/1.39/OpenPod-1.39.apk)
 - [1.38](https://github.com/clint-maples/OpenPod/releases/download/1.38/OpenPod-1.38.apk)
-- [1.37](https://github.com/clint-maples/OpenPod/releases/download/1.37/OpenPod-1.37.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -52,8 +52,8 @@ On a podcast screen, **Find existing downloads** scans that showâ€™s folder for 
 - On the thumbnail grid, long-press a cover and drag it to reorder shows. The order is saved and the list uses it too
 - On a podcast screen, tap the gear for that show’s settings: auto-download, auto-delete, and skip-first / skip-last seconds so every episode trims intro and/or outro
 - On a podcast screen, search/filter episodes by title (useful for long feeds)
-- Episode rows show remaining time when in progress, a downloaded mark, a gold star under that mark when the episode is a favorite, **In queue** when queued, and one-tap play/pause without opening Now Playing
-- Each episode row’s three-dot menu has **Play next**, **Add to Up Next**, **Share**, and **Archive episode**. **Archive episode** hides that one episode; the subscription stays. With **Show archived** on, the same menu offers **Unarchive episode**
+- Episode rows show remaining time when in progress, a downloaded mark, a heart under that mark (outlined when the episode is not a favorite, filled when it is), **In queue** when queued, and one-tap play/pause without opening Now Playing
+- Each episode row’s three-dot menu has **Play next**, **Add to Up Next**, **Share**, **Add to favorites** (or **Remove from favorites** when it already is), and **Archive episode**. **Archive episode** hides that one episode; the subscription stays. With **Show archived** on, the same menu offers **Unarchive episode**
 
 ## Playlists
 
@@ -63,7 +63,7 @@ On a podcast screen, **Find existing downloads** scans that showâ€™s folder for 
 
 ## Playback
 
-Now Playing stacks artwork in the top third of the area above the footer, then the episode and show. Publisher notes, chapters, and the transcript scroll in that area, with room to bring the last line clear of the footer. The pinned footer is the seek bar and its times, then rewind, play/pause, and fast-forward, then Speed (current rate, for example **1.0x**), graphic equalizer, sleep timer, share, and a favorite heart at the right. It stays above the system navigation bar. The equalizer button opens the graphic equalizer screen. Up Next stays on the mini player. Speed opens a menu that is still a text box from **0.5x to 5.0x**, with **- / +** stepping by **0.1x**. Skip back/forward on Now Playing and the mini player use the Settings amounts (free-text seconds; changes apply when you leave the field). The mini player skip buttons are icon-only — they do not show the second counts. Per-show settings can skip the first and/or last N seconds of every episode (intro/outro trim). The sleep menu can fade out at the end of the episode, after **5–60** minutes, or whichever comes first — cancel it while it is running. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer puts the volume boost slider at the top (center = default; left quieter, right louder than system volume), then the enable switch, reset, and frequency bands. The mini player stays on other tabs with artwork, skip, play/pause, tap-to-expand, and an **Up Next** shortcut. Up Next is a real queue (not a playlist): **Play next** inserts at the front, **Add to Up Next** appends, and you can reorder or clear. Playing an episode starts it now and removes it from the queue if it was listed; when an episode ends, the next queued item starts. On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata. Tap the artwork on Now Playing to open that show's episode list. Share an episode from Now Playing, the episode screen, or the episode-row overflow -- the system share sheet sends the show name, episode title, and public stream URL (plus permalink when we have one).
+Now Playing stacks artwork in the top third of the area above the footer, then the episode and show. Publisher notes, chapters, and the transcript scroll in that area, with room to bring the last line clear of the footer. The pinned footer is the seek bar and its times, then rewind, play/pause, and fast-forward, then Speed (current rate, for example **1.0x**), graphic equalizer, sleep timer, share, and a favorite heart at the right. It stays above the system navigation bar. The equalizer button opens the graphic equalizer screen. Up Next stays on the mini player. Speed opens a menu that is still a text box from **0.5x to 5.0x**, with **- / +** stepping by **0.1x**. Skip back/forward on Now Playing and the mini player use the Settings amounts (free-text seconds; changes apply when you leave the field). The mini player skip buttons are icon-only — they do not show the second counts. Per-show settings can skip the first and/or last N seconds of every episode (intro/outro trim). The sleep menu can fade out at the end of the episode, after **5–60** minutes, or whichever comes first — cancel it while it is running. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer puts the volume boost slider at the top (center = default; left quieter, right louder than system volume), then the enable switch, reset, and frequency bands. The mini player stays on other tabs with artwork, the episode and show names, skip, play/pause, and an **Up Next** shortcut. Tapping the artwork, those titles, the progress bar, or any other blank area opens Now Playing. Skip, play/pause, and Up Next keep their own actions. Up Next is a real queue (not a playlist): **Play next** inserts at the front, **Add to Up Next** appends, and you can reorder or clear. Playing an episode starts it now and removes it from the queue if it was listed; when an episode ends, the next queued item starts. On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata. Tap the artwork on Now Playing to open that show's episode list. Share an episode from Now Playing, the episode screen, or the episode-row overflow -- the system share sheet sends the show name, episode title, and public stream URL (plus permalink when we have one).
 
 ## Sync schedule
 
@@ -75,6 +75,11 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+
+## 1.41
+Episode rows use a heart under the download mark: outlined when the episode is not a favorite, filled when it is. The same heart is the favorite control on Now Playing. Each episode's three-dot menu adds **Add to favorites**, or **Remove from favorites** when it already is, using the existing favorite flag. The mini player shows the episode and show names beside the artwork. Tapping the artwork, those titles, the progress bar, or any other blank area opens Now Playing. Skip, play/pause, and Up Next keep their own actions.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `ccb2faf2ef9553650abb7718de8278bed2ac9fda5472a37508976d166384b019`
 
 ## 1.40
 Now Playing keeps the seek bar, its times, and the rewind, play/pause, and fast-forward buttons in a fixed footer with Speed, EQ, Sleep, Share, and Favorite. The footer stays on screen while artwork, titles, and notes scroll above it. Favorite remains the rightmost control. The transport buttons stay large, and the footer sits above the system navigation bar.

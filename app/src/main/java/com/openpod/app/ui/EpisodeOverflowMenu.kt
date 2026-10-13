@@ -3,11 +3,13 @@ package com.openpod.app.ui
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.QueuePlayNext
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Unarchive
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,20 +25,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 
 /**
- * Three-dot menu on a podcast episode row (Play next, Add to Up Next, Share).
- * Archive episode marks that one episode archived through the existing
- * episode archive path. The podcast subscription is not changed.
+ * Three-dot menu on a podcast episode row (Play next, Add to Up Next, Share,
+ * favorite, archive). Archive episode marks that one episode archived through
+ * the existing episode archive path. The podcast subscription is not changed.
+ * Favorite uses the same per-episode flag as the Now Playing heart.
  */
 internal object EpisodeOverflowMenu {
     const val playNextLabel = "Play next"
     const val upNextLabel = "Add to Up Next"
     const val shareLabel = "Share"
+    const val addFavoriteLabel = "Add to favorites"
+    const val removeFavoriteLabel = "Remove from favorites"
     const val archiveLabel = "Archive episode"
     const val unarchiveLabel = "Unarchive episode"
     const val overflowContentDescription = "More"
     const val overflowTag = "episode-overflow"
 
     fun actionLabel(archived: Boolean): String = if (archived) unarchiveLabel else archiveLabel
+
+    fun favoriteActionLabel(favorite: Boolean): String =
+        if (favorite) removeFavoriteLabel else addFavoriteLabel
 
     /** True when the menu action should set archived, so the episode leaves the available list. */
     fun archivesEpisode(archived: Boolean): Boolean = !archived
@@ -46,10 +54,12 @@ internal object EpisodeOverflowMenu {
 @Composable
 internal fun EpisodeOverflowMenu(
     archived: Boolean,
+    favorite: Boolean,
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
     onShare: () -> Unit,
     onArchive: () -> Unit,
+    onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -84,6 +94,19 @@ internal fun EpisodeOverflowMenu(
                     onShare()
                 },
                 leadingIcon = { Icon(Icons.Default.Share, null) }
+            )
+            DropdownMenuItem(
+                text = { Text(EpisodeOverflowMenu.favoriteActionLabel(favorite)) },
+                onClick = {
+                    menuOpen = false
+                    onToggleFavorite()
+                },
+                leadingIcon = {
+                    Icon(
+                        if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        null
+                    )
+                }
             )
             DropdownMenuItem(
                 text = { Text(EpisodeOverflowMenu.actionLabel(archived)) },

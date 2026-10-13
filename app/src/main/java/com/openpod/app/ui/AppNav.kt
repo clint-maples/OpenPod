@@ -60,7 +60,7 @@ import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -75,7 +75,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
@@ -120,6 +119,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.core.app.NotificationManagerCompat
 import com.openpod.app.BuildConfig
 import androidx.compose.ui.platform.LocalFocusManager
@@ -255,9 +255,11 @@ fun OpenPodRoot(vm: AppViewModel) {
             if (MiniPlayerVisibility.shouldShow(back, player.episodeId)) {
                 MiniPlayer(
                     player,
-                    vm,
                     onOpen = { nav.navigate("player") },
-                    onUpNext = { nav.navigate("upnext") }
+                    onUpNext = { nav.navigate("upnext") },
+                    onTogglePlay = { vm.togglePlay() },
+                    onSkipBack = { vm.skip(false) },
+                    onSkipForward = { vm.skip(true) }
                 )
             }
         }
@@ -281,17 +283,25 @@ private fun RowScope.NavItem(
 }
 
 @Composable
-private fun MiniPlayer(
+internal fun MiniPlayer(
     player: com.openpod.app.playback.PlayerUiState,
-    vm: AppViewModel,
     onOpen: () -> Unit,
-    onUpNext: () -> Unit
+    onUpNext: () -> Unit,
+    onTogglePlay: () -> Unit,
+    onSkipBack: () -> Unit,
+    onSkipForward: () -> Unit
 ) {
     val nowPlayingLabel = listOf(player.podcastTitle, player.title)
         .filter { it.isNotBlank() }
         .joinToString(" — ")
         .ifBlank { "Now playing" }
-    Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        tonalElevation = 3.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(MiniPlayerVisibility.containerTag)
+            .clickable(onClick = onOpen, onClickLabel = "Open now playing")
+    ) {
         Column {
             HorizontalDivider()
             val miniDuration = player.effectiveDurationMs.takeIf { it > 0L } ?: player.durationMs
@@ -301,16 +311,18 @@ private fun MiniPlayer(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-            Box(
+            BoxWithConstraints(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 64.dp)
                     .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
+                val transportWidth = 48.dp * 3
+                val sideWidth = ((maxWidth - transportWidth) / 2).coerceAtLeast(48.dp)
                 Row(
                     Modifier
                         .align(Alignment.CenterStart)
-                        .clickable(onClick = onOpen, onClickLabel = "Open now playing"),
+                        .width(sideWidth),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AsyncImage(
@@ -321,13 +333,34 @@ private fun MiniPlayer(
                             .clip(RoundedCornerShape(8.dp)),
                         contentScale = ContentScale.Crop
                     )
-                    if (player.sleepActive) {
-                        Spacer(Modifier.width(10.dp))
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .padding(start = 8.dp)
+                    ) {
                         Text(
-                            "Sleep ${SleepTimerLogic.formatRemaining(player.sleepRemainingMs)}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
+                            player.title.ifBlank { "Now playing" },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodyMedium
                         )
+                        if (player.podcastTitle.isNotBlank()) {
+                            Text(
+                                player.podcastTitle,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        if (player.sleepActive) {
+                            Text(
+                                "Sleep ${SleepTimerLogic.formatRemaining(player.sleepRemainingMs)}",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
                 Row(
@@ -338,17 +371,17 @@ private fun MiniPlayer(
                     SkipIconButton(
                         seconds = player.skipBackSec,
                         forward = false,
-                        onClick = { vm.skip(false) },
+                        onClick = onSkipBack,
                         compact = true,
                         showAmount = false
                     )
-                    IconButton({ vm.togglePlay() }) {
+                    IconButton(onTogglePlay) {
                         Icon(if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play")
                     }
                     SkipIconButton(
                         seconds = player.skipForwardSec,
                         forward = true,
-                        onClick = { vm.skip(true) },
+                        onClick = onSkipForward,
                         compact = true,
                         showAmount = false
                     )
@@ -657,6 +690,7 @@ private fun PodcastScreen(
                     onShare = {
                         context.startActivity(EpisodeShare.chooserIntent(podcast.title, episode))
                     },
+                    onToggleFavorite = { vm.toggleFavorite(episode.id) },
                     onArchive = {
                         vm.archiveMany(listOf(episode.id), archived = !episode.archived)
                     },
@@ -823,6 +857,7 @@ private fun EpisodeRow(
     onDownload: () -> Unit,
     onDeleteDownload: () -> Unit,
     onShare: () -> Unit,
+    onToggleFavorite: () -> Unit,
     onArchive: () -> Unit,
     onToggle: () -> Unit,
     onLongPress: () -> Unit
@@ -898,10 +933,12 @@ private fun EpisodeRow(
                 }
                 EpisodeOverflowMenu(
                     archived = episode.archived,
+                    favorite = episode.favorite,
                     onPlayNext = onPlayNext,
                     onAddToQueue = onAddToQueue,
                     onShare = onShare,
-                    onArchive = onArchive
+                    onArchive = onArchive,
+                    onToggleFavorite = onToggleFavorite
                 )
             }
         }
@@ -912,8 +949,7 @@ private fun EpisodeRow(
 @Composable
 private fun EpisodeStatusMarks(episode: EpisodeEntity) {
     val downloaded = EpisodeRowChrome.isDownloaded(episode)
-    val favorite = EpisodeRowChrome.showsFavoriteStar(episode)
-    if (!downloaded && !favorite) return
+    val favorite = EpisodeRowChrome.isFavorite(episode)
     Spacer(Modifier.width(6.dp))
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         if (downloaded) {
@@ -926,15 +962,17 @@ private fun EpisodeStatusMarks(episode: EpisodeEntity) {
         } else {
             Spacer(Modifier.size(16.dp))
         }
-        if (favorite) {
-            Spacer(Modifier.height(2.dp))
-            Icon(
-                Icons.Default.Star,
-                "Favorite",
-                Modifier.size(16.dp),
-                tint = Color(EpisodeRowChrome.FAVORITE_STAR_ARGB)
-            )
-        }
+        Spacer(Modifier.height(2.dp))
+        Icon(
+            if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+            EpisodeRowChrome.favoriteMarkContentDescription(favorite),
+            Modifier.size(16.dp),
+            tint = if (favorite) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            }
+        )
     }
 }
 
@@ -1407,7 +1445,7 @@ private fun NowPlayingActionBar(
                                     modifier = Modifier.size(NowPlayingChrome.MIN_TAP_TARGET_DP.dp)
                                 ) {
                                     Icon(
-                                        if (favorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                         NowPlayingChrome.favoriteContentDescription(favorite),
                                         modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.STANDARD_ICON_DP).dp),
                                         tint = if (favorite) {

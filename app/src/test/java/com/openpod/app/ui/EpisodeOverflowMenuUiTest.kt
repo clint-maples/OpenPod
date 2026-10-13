@@ -25,14 +25,17 @@ class EpisodeOverflowMenuUiTest {
         var queued = 0
         var shared = 0
         var archived = 0
+        var favorited = 0
         rule.setContent {
             OpenPodTheme {
                 EpisodeOverflowMenu(
                     archived = false,
+                    favorite = false,
                     onPlayNext = { playedNext++ },
                     onAddToQueue = { queued++ },
                     onShare = { shared++ },
-                    onArchive = { archived++ }
+                    onArchive = { archived++ },
+                    onToggleFavorite = { favorited++ }
                 )
             }
         }
@@ -41,6 +44,7 @@ class EpisodeOverflowMenuUiTest {
         rule.onNodeWithText(EpisodeOverflowMenu.playNextLabel).assertIsDisplayed()
         rule.onNodeWithText(EpisodeOverflowMenu.upNextLabel).assertIsDisplayed()
         rule.onNodeWithText(EpisodeOverflowMenu.shareLabel).assertIsDisplayed()
+        rule.onNodeWithText(EpisodeOverflowMenu.addFavoriteLabel).assertIsDisplayed()
         rule.onNodeWithText(EpisodeOverflowMenu.archiveLabel).assertIsDisplayed()
 
         rule.onNodeWithText(EpisodeOverflowMenu.archiveLabel).performClick()
@@ -48,6 +52,29 @@ class EpisodeOverflowMenuUiTest {
         assertEquals(0, playedNext)
         assertEquals(0, queued)
         assertEquals(0, shared)
+        assertEquals(0, favorited)
+    }
+
+    @Test
+    fun favoriteRowOffersRemoveFromFavorites() {
+        var favorited = 0
+        rule.setContent {
+            OpenPodTheme {
+                EpisodeOverflowMenu(
+                    archived = false,
+                    favorite = true,
+                    onPlayNext = {},
+                    onAddToQueue = {},
+                    onShare = {},
+                    onArchive = {},
+                    onToggleFavorite = { favorited++ }
+                )
+            }
+        }
+
+        rule.onNodeWithTag(EpisodeOverflowMenu.overflowTag).performClick()
+        rule.onNodeWithText(EpisodeOverflowMenu.removeFavoriteLabel).assertIsDisplayed().performClick()
+        assertEquals(1, favorited)
     }
 
     @Test
@@ -57,10 +84,12 @@ class EpisodeOverflowMenuUiTest {
             OpenPodTheme {
                 EpisodeOverflowMenu(
                     archived = true,
+                    favorite = false,
                     onPlayNext = {},
                     onAddToQueue = {},
                     onShare = {},
-                    onArchive = { archived++ }
+                    onArchive = { archived++ },
+                    onToggleFavorite = {}
                 )
             }
         }

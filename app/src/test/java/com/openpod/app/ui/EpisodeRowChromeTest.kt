@@ -46,10 +46,11 @@ class EpisodeRowChromeTest {
     }
 
     @Test
-    fun favoriteStarUsesTheEpisodeFlag() {
-        assertTrue(EpisodeRowChrome.showsFavoriteStar(episode(downloadStatus = EpisodeEntity.STATUS_NONE, favorite = true)))
-        assertFalse(EpisodeRowChrome.showsFavoriteStar(episode(downloadStatus = EpisodeEntity.STATUS_DONE, localUri = "content://1")))
-        assertEquals(0xFFFFD700.toInt(), EpisodeRowChrome.FAVORITE_STAR_ARGB)
+    fun favoriteMarkUsesTheEpisodeFlag() {
+        assertTrue(EpisodeRowChrome.isFavorite(episode(downloadStatus = EpisodeEntity.STATUS_NONE, favorite = true)))
+        assertFalse(EpisodeRowChrome.isFavorite(episode(downloadStatus = EpisodeEntity.STATUS_DONE, localUri = "content://1")))
+        assertEquals("Favorite", EpisodeRowChrome.favoriteMarkContentDescription(true))
+        assertEquals("Not a favorite", EpisodeRowChrome.favoriteMarkContentDescription(false))
     }
 
     @Test
