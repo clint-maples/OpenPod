@@ -660,6 +660,9 @@ private fun PodcastScreen(
                             selected = visibleEpisodes.filter { it.downloadStatus != EpisodeEntity.STATUS_DONE }
                                 .map { it.id }.toSet()
                         }) { Text("Not downloaded") }
+                        TextButton({
+                            selected = EpisodeRowChrome.favoriteEpisodeIds(visibleEpisodes)
+                        }) { Text("Favorites") }
                         TextButton({ selected = emptySet() }) { Text("Clear") }
                     }
                 }
@@ -967,11 +970,7 @@ private fun EpisodeStatusMarks(episode: EpisodeEntity) {
             if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
             EpisodeRowChrome.favoriteMarkContentDescription(favorite),
             Modifier.size(16.dp),
-            tint = if (favorite) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            }
+            tint = Color(EpisodeRowChrome.FAVORITE_HEART_ARGB)
         )
     }
 }
@@ -1448,11 +1447,7 @@ private fun NowPlayingActionBar(
                                         if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                         NowPlayingChrome.favoriteContentDescription(favorite),
                                         modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.STANDARD_ICON_DP).dp),
-                                        tint = if (favorite) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurface
-                                        }
+                                        tint = Color(EpisodeRowChrome.FAVORITE_HEART_ARGB)
                                     )
                                 }
                             }

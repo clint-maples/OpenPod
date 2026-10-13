@@ -22,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 
 /**
@@ -104,7 +105,8 @@ internal fun EpisodeOverflowMenu(
                 leadingIcon = {
                     Icon(
                         if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        null
+                        null,
+                        tint = Color(EpisodeRowChrome.FAVORITE_HEART_ARGB)
                     )
                 }
             )

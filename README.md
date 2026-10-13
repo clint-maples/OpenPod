@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.41  
-**Download:** [OpenPod 1.41 APK](https://github.com/clint-maples/OpenPod/releases/download/1.41/OpenPod-1.41.apk)
+**Current version:** 1.42  
+**Download:** [OpenPod 1.42 APK](https://github.com/clint-maples/OpenPod/releases/download/1.42/OpenPod-1.42.apk)
 
 **Previous**
 
+- [1.41](https://github.com/clint-maples/OpenPod/releases/download/1.41/OpenPod-1.41.apk)
 - [1.40](https://github.com/clint-maples/OpenPod/releases/download/1.40/OpenPod-1.40.apk)
 - [1.39](https://github.com/clint-maples/OpenPod/releases/download/1.39/OpenPod-1.39.apk)
-- [1.38](https://github.com/clint-maples/OpenPod/releases/download/1.38/OpenPod-1.38.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -44,7 +44,7 @@ On a podcast screen, **Find existing downloads** scans that showâ€™s folder for 
 ## Library
 
 - Long-press an episode, or tap **Select episodes**, to multi-select
-- **Select all** selects every episode listed for that podcast; **Downloaded** / **Not downloaded** select only those
+- **Select all** selects every episode listed for that podcast; **Downloaded**, **Not downloaded**, and **Favorites** select only those
 - Batch **download**, **delete downloaded files**, **archive / unarchive**, or **add to a playlist**
 - Remove a show from the podcast screen (trash icon), not the main library list
 - Archive hides episodes; turn on **Show archived** on the podcast screen to see them again
@@ -52,7 +52,7 @@ On a podcast screen, **Find existing downloads** scans that showâ€™s folder for 
 - On the thumbnail grid, long-press a cover and drag it to reorder shows. The order is saved and the list uses it too
 - On a podcast screen, tap the gear for that show’s settings: auto-download, auto-delete, and skip-first / skip-last seconds so every episode trims intro and/or outro
 - On a podcast screen, search/filter episodes by title (useful for long feeds)
-- Episode rows show remaining time when in progress, a downloaded mark, a heart under that mark (outlined when the episode is not a favorite, filled when it is), **In queue** when queued, and one-tap play/pause without opening Now Playing
+- Episode rows show remaining time when in progress, a downloaded mark, a pink heart under that mark (outlined when the episode is not a favorite, filled when it is), **In queue** when queued, and one-tap play/pause without opening Now Playing
 - Each episode row’s three-dot menu has **Play next**, **Add to Up Next**, **Share**, **Add to favorites** (or **Remove from favorites** when it already is), and **Archive episode**. **Archive episode** hides that one episode; the subscription stays. With **Show archived** on, the same menu offers **Unarchive episode**
 
 ## Playlists
@@ -75,6 +75,11 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+
+## 1.42
+Favorite hearts are pink in the episode list, on Now Playing, and in the episode menu, whether outlined or filled. In **Select episodes**, **Favorites** selects every favorited episode in the current list.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `319ffc1856133b64e70bde204963f6dc4abd2e9bff2b99367204c3366c8c1b31`
 
 ## 1.41
 Episode rows use a heart under the download mark: outlined when the episode is not a favorite, filled when it is. The same heart is the favorite control on Now Playing. Each episode's three-dot menu adds **Add to favorites**, or **Remove from favorites** when it already is, using the existing favorite flag. The mini player shows the episode and show names beside the artwork. Tapping the artwork, those titles, the progress bar, or any other blank area opens Now Playing. Skip, play/pause, and Up Next keep their own actions.

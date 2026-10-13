@@ -32,9 +32,19 @@ object EpisodeRowChrome {
     /** Same per-episode flag as the Now Playing heart. */
     fun isFavorite(episode: EpisodeEntity): Boolean = episode.favorite
 
+    /**
+     * Pink used for every favorite heart, outlined and filled, so it stays
+     * distinct from the theme primary on both dark and light backgrounds.
+     */
+    const val FAVORITE_HEART_ARGB: Int = 0xFFE91E63.toInt()
+
     /** Status mark beside the download check: filled heart when favorite, outline otherwise. */
     fun favoriteMarkContentDescription(isFavorite: Boolean): String =
         if (isFavorite) "Favorite" else "Not a favorite"
+
+    /** Episode ids to select for the Favorites choice in the current list. */
+    fun favoriteEpisodeIds(episodes: List<EpisodeEntity>): Set<Long> =
+        episodes.filter { isFavorite(it) }.map { it.id }.toSet()
 
     fun metaParts(
         dateLabel: String,
