@@ -64,6 +64,30 @@ class NowPlayingChromeTest {
     }
 
     @Test
+    fun footerStacksSeekThenTransportThenActions() {
+        assertEquals(
+            listOf(
+                NowPlayingChrome.FooterBand.Progress,
+                NowPlayingChrome.FooterBand.Transport,
+                NowPlayingChrome.FooterBand.Actions
+            ),
+            NowPlayingChrome.footerBands
+        )
+        assertEquals(
+            NowPlayingChrome.BottomAction.Favorite,
+            NowPlayingChrome.bottomActions.last()
+        )
+    }
+
+    @Test
+    fun transportButtonsStayLargeAndNotesClearTheFooter() {
+        assertTrue(NowPlayingChrome.TRANSPORT_BUTTON_DP >= 72)
+        assertTrue(NowPlayingChrome.TRANSPORT_PLAY_ICON_DP >= 48)
+        assertTrue(NowPlayingChrome.TRANSPORT_SKIP_ICON_DP >= 36)
+        assertTrue(NowPlayingChrome.NOTES_END_PADDING_DP >= 16)
+    }
+
+    @Test
     fun speedButtonShowsCurrentRate() {
         assertEquals("1.0x", NowPlayingChrome.speedButtonLabel(1f))
         assertEquals("1.5x", NowPlayingChrome.speedButtonLabel(1.54f))
