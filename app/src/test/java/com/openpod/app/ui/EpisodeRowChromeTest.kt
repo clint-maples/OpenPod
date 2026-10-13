@@ -46,6 +46,13 @@ class EpisodeRowChromeTest {
     }
 
     @Test
+    fun favoriteStarUsesTheEpisodeFlag() {
+        assertTrue(EpisodeRowChrome.showsFavoriteStar(episode(downloadStatus = EpisodeEntity.STATUS_NONE, favorite = true)))
+        assertFalse(EpisodeRowChrome.showsFavoriteStar(episode(downloadStatus = EpisodeEntity.STATUS_DONE, localUri = "content://1")))
+        assertEquals(0xFFFFD700.toInt(), EpisodeRowChrome.FAVORITE_STAR_ARGB)
+    }
+
+    @Test
     fun metaIncludesQueueAndRemaining() {
         val line = EpisodeRowChrome.metaParts(
             dateLabel = "Sep 18, 2026",
@@ -60,7 +67,8 @@ class EpisodeRowChromeTest {
 
     private fun episode(
         downloadStatus: String,
-        localUri: String = ""
+        localUri: String = "",
+        favorite: Boolean = false
     ) = EpisodeEntity(
         id = 1,
         podcastId = 1,
@@ -68,6 +76,7 @@ class EpisodeRowChromeTest {
         title = "Episode",
         audioUrl = "https://cdn.example.com/1.mp3",
         localUri = localUri,
-        downloadStatus = downloadStatus
+        downloadStatus = downloadStatus,
+        favorite = favorite
     )
 }

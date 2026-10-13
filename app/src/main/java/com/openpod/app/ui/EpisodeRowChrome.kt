@@ -29,6 +29,12 @@ object EpisodeRowChrome {
 
     fun isDownloaded(episode: EpisodeEntity): Boolean = episodeHasLocalDownload(episode)
 
+    /** Same per-episode flag as the Now Playing heart. Unfavorited rows draw nothing in this spot. */
+    fun showsFavoriteStar(episode: EpisodeEntity): Boolean = episode.favorite
+
+    /** Filled-star tint: gold, as an Android color int. */
+    const val FAVORITE_STAR_ARGB: Int = 0xFFFFD700.toInt()
+
     fun metaParts(
         dateLabel: String,
         episodeNumber: Int?,
