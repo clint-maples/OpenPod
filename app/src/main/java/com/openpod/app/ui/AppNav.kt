@@ -23,13 +23,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -190,7 +195,12 @@ fun OpenPodRoot(vm: AppViewModel) {
             }
         }
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
+        Column(
+            Modifier
+                .padding(padding)
+                .consumeWindowInsets(padding)
+                .fillMaxSize()
+        ) {
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             NavHost(navController = nav, startDestination = "library", modifier = Modifier.weight(1f)) {
                 composable("library") { LibraryScreen(vm, { nav.navigate("podcast/$it") }, { vm.refreshAll() }) }
@@ -1069,6 +1079,8 @@ private fun PlayerScreen(
                 NowPlayingActionBar(
                     player = player,
                     episode = episode,
+                    skipBackSec = settings.skipBackSec,
+                    skipForwardSec = settings.skipForwardSec,
                     onSpeed = { vm.setSpeed(it) },
                     onEq = onEq,
                     onShare = {
@@ -1097,7 +1109,12 @@ private fun PlayerScreen(
             )
             LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = horizontalPad, vertical = 12.dp),
+                contentPadding = PaddingValues(
+                    start = horizontalPad,
+                    end = horizontalPad,
+                    top = 12.dp,
+                    bottom = 12.dp + NowPlayingChrome.NOTES_END_PADDING_DP.dp
+                ),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -1150,44 +1167,6 @@ private fun PlayerScreen(
                                 Icon(Icons.Default.ChevronRight, "Next chapter", Modifier.size(22.dp))
                             }
                         }
-                    }
-                    val displayDuration = player.effectiveDurationMs.takeIf { it > 0L } ?: player.durationMs
-                    Slider(
-                        value = if (displayDuration > 0) (player.positionMs.toFloat() / displayDuration).coerceIn(0f, 1f) else 0f,
-                        onValueChange = { if (displayDuration > 0) vm.seek((it * displayDuration).toLong()) }
-                    )
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(formatMs(player.positionMs))
-                        Text(formatMs(displayDuration))
-                    }
-                    val controlSize = 96.dp
-                    val iconSize = 64.dp
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        SkipIconButton(
-                            seconds = settings.skipBackSec,
-                            forward = false,
-                            onClick = { vm.skip(false) },
-                            controlSize = controlSize,
-                            iconSize = 48.dp
-                        )
-                        IconButton({ vm.togglePlay() }, Modifier.size(controlSize)) {
-                            Icon(
-                                if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                "Play",
-                                Modifier.size(iconSize)
-                            )
-                        }
-                        SkipIconButton(
-                            seconds = settings.skipForwardSec,
-                            forward = true,
-                            onClick = { vm.skip(true) },
-                            controlSize = controlSize,
-                            iconSize = 48.dp
-                        )
                     }
                 }
                 }
@@ -1242,6 +1221,8 @@ private fun PlayerScreen(
 private fun NowPlayingActionBar(
     player: com.openpod.app.playback.PlayerUiState,
     episode: EpisodeEntity?,
+    skipBackSec: Int,
+    skipForwardSec: Int,
     onSpeed: (Float) -> Unit,
     onEq: () -> Unit,
     onShare: () -> Unit,
@@ -1249,9 +1230,63 @@ private fun NowPlayingActionBar(
 ) {
     var speedMenuOpen by remember { mutableStateOf(false) }
     var sleepMenuOpen by remember { mutableStateOf(false) }
-    Surface(tonalElevation = 3.dp) {
-        Column {
+    val displayDuration = player.effectiveDurationMs.takeIf { it > 0L } ?: player.durationMs
+    val transportSize = NowPlayingChrome.TRANSPORT_BUTTON_DP.dp
+    Surface(
+        tonalElevation = 3.dp,
+        modifier = Modifier.windowInsetsPadding(
+            WindowInsets.navigationBars.only(
+                WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+            )
+        )
+    ) {
+        Column(Modifier.fillMaxWidth()) {
             HorizontalDivider()
+            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+                Slider(
+                    value = if (displayDuration > 0) {
+                        (player.positionMs.toFloat() / displayDuration).coerceIn(0f, 1f)
+                    } else {
+                        0f
+                    },
+                    onValueChange = { fraction ->
+                        if (displayDuration > 0) vm.seek((fraction * displayDuration).toLong())
+                    }
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(formatMs(player.positionMs), style = MaterialTheme.typography.bodySmall)
+                    Text(formatMs(displayDuration), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                SkipIconButton(
+                    seconds = skipBackSec,
+                    forward = false,
+                    onClick = { vm.skip(false) },
+                    controlSize = transportSize,
+                    iconSize = NowPlayingChrome.TRANSPORT_SKIP_ICON_DP.dp
+                )
+                IconButton({ vm.togglePlay() }, Modifier.size(transportSize)) {
+                    Icon(
+                        if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        if (player.playing) "Pause" else "Play",
+                        Modifier.size(NowPlayingChrome.TRANSPORT_PLAY_ICON_DP.dp)
+                    )
+                }
+                SkipIconButton(
+                    seconds = skipForwardSec,
+                    forward = true,
+                    onClick = { vm.skip(true) },
+                    controlSize = transportSize,
+                    iconSize = NowPlayingChrome.TRANSPORT_SKIP_ICON_DP.dp
+                )
+            }
             Row(
                 Modifier
                     .fillMaxWidth()
