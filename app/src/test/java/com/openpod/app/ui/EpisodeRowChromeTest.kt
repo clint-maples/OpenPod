@@ -51,6 +51,17 @@ class EpisodeRowChromeTest {
         assertFalse(EpisodeRowChrome.isFavorite(episode(downloadStatus = EpisodeEntity.STATUS_DONE, localUri = "content://1")))
         assertEquals("Favorite", EpisodeRowChrome.favoriteMarkContentDescription(true))
         assertEquals("Not a favorite", EpisodeRowChrome.favoriteMarkContentDescription(false))
+        assertEquals(0xFFE91E63.toInt(), EpisodeRowChrome.FAVORITE_HEART_ARGB)
+    }
+
+    @Test
+    fun favoritesChoiceSelectsOnlyFavoritedEpisodesInTheCurrentList() {
+        val episodes = listOf(
+            episode(downloadStatus = EpisodeEntity.STATUS_NONE, favorite = true).copy(id = 1),
+            episode(downloadStatus = EpisodeEntity.STATUS_DONE, localUri = "content://1", favorite = false).copy(id = 2),
+            episode(downloadStatus = EpisodeEntity.STATUS_DONE, localUri = "content://2", favorite = true).copy(id = 3)
+        )
+        assertEquals(setOf(1L, 3L), EpisodeRowChrome.favoriteEpisodeIds(episodes))
     }
 
     @Test
