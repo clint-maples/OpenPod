@@ -13,6 +13,12 @@ class EpisodeOverflowMenuTest {
         assertEquals("Play next", EpisodeOverflowMenu.playNextLabel)
         assertEquals("Add to Up Next", EpisodeOverflowMenu.upNextLabel)
         assertEquals("Share", EpisodeOverflowMenu.shareLabel)
+        assertEquals("Add to favorites", EpisodeOverflowMenu.favoriteActionLabel(favorite = false))
+    }
+
+    @Test
+    fun favoriteEpisodeOffersRemoveFromFavorites() {
+        assertEquals("Remove from favorites", EpisodeOverflowMenu.favoriteActionLabel(favorite = true))
     }
 
     @Test
