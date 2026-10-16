@@ -52,6 +52,9 @@ class EpisodeRowChromeTest {
         assertEquals("Favorite", EpisodeRowChrome.favoriteMarkContentDescription(true))
         assertEquals("Not a favorite", EpisodeRowChrome.favoriteMarkContentDescription(false))
         assertEquals(0xFFE91E63.toInt(), EpisodeRowChrome.FAVORITE_HEART_ARGB)
+        val downloadCheck = 0xFF7FB7C9.toInt()
+        assertEquals(downloadCheck, EpisodeRowChrome.favoriteHeartArgb(isFavorite = false, downloadCheckArgb = downloadCheck))
+        assertEquals(EpisodeRowChrome.FAVORITE_HEART_ARGB, EpisodeRowChrome.favoriteHeartArgb(isFavorite = true, downloadCheckArgb = downloadCheck))
     }
 
     @Test

@@ -960,7 +960,7 @@ private fun EpisodeStatusMarks(episode: EpisodeEntity) {
                 Icons.Default.CheckCircle,
                 "Downloaded",
                 Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.primary
+                tint = EpisodeRowChrome.downloadedCheckColor()
             )
         } else {
             Spacer(Modifier.size(16.dp))
@@ -970,7 +970,7 @@ private fun EpisodeStatusMarks(episode: EpisodeEntity) {
             if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
             EpisodeRowChrome.favoriteMarkContentDescription(favorite),
             Modifier.size(16.dp),
-            tint = Color(EpisodeRowChrome.FAVORITE_HEART_ARGB)
+            tint = EpisodeRowChrome.favoriteHeartColor(favorite)
         )
     }
 }
@@ -1447,7 +1447,7 @@ private fun NowPlayingActionBar(
                                         if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                         NowPlayingChrome.favoriteContentDescription(favorite),
                                         modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.STANDARD_ICON_DP).dp),
-                                        tint = Color(EpisodeRowChrome.FAVORITE_HEART_ARGB)
+                                        tint = EpisodeRowChrome.favoriteHeartColor(favorite)
                                     )
                                 }
                             }
