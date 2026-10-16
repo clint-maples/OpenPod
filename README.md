@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.42  
-**Download:** [OpenPod 1.42 APK](https://github.com/clint-maples/OpenPod/releases/download/1.42/OpenPod-1.42.apk)
+**Current version:** 1.43  
+**Download:** [OpenPod 1.43 APK](https://github.com/clint-maples/OpenPod/releases/download/1.43/OpenPod-1.43.apk)
 
 **Previous**
 
+- [1.42](https://github.com/clint-maples/OpenPod/releases/download/1.42/OpenPod-1.42.apk)
 - [1.41](https://github.com/clint-maples/OpenPod/releases/download/1.41/OpenPod-1.41.apk)
 - [1.40](https://github.com/clint-maples/OpenPod/releases/download/1.40/OpenPod-1.40.apk)
-- [1.39](https://github.com/clint-maples/OpenPod/releases/download/1.39/OpenPod-1.39.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -52,7 +52,7 @@ On a podcast screen, **Find existing downloads** scans that showâ€™s folder for 
 - On the thumbnail grid, long-press a cover and drag it to reorder shows. The order is saved and the list uses it too
 - On a podcast screen, tap the gear for that show’s settings: auto-download, auto-delete, and skip-first / skip-last seconds so every episode trims intro and/or outro
 - On a podcast screen, search/filter episodes by title (useful for long feeds)
-- Episode rows show remaining time when in progress, a downloaded mark, a pink heart under that mark (outlined when the episode is not a favorite, filled when it is), **In queue** when queued, and one-tap play/pause without opening Now Playing
+- Episode rows show remaining time when in progress, a downloaded mark, a heart under that mark (outlined in the same blue as the downloaded check when it is not a favorite, filled pink when it is), **In queue** when queued, and one-tap play/pause without opening Now Playing
 - Each episode row’s three-dot menu has **Play next**, **Add to Up Next**, **Share**, **Add to favorites** (or **Remove from favorites** when it already is), and **Archive episode**. **Archive episode** hides that one episode; the subscription stays. With **Show archived** on, the same menu offers **Unarchive episode**
 
 ## Playlists
@@ -75,6 +75,11 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+
+## 1.43
+The outlined heart uses the same blue as the downloaded check mark in the episode list, on Now Playing, and in the episode menu. Only the filled favorite heart stays pink.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `08074649c8bd3c8dc6d66488aeffcf203ad372da96a24ffdba5c6a00abb1203c`
 
 ## 1.42
 Favorite hearts are pink in the episode list, on Now Playing, and in the episode menu, whether outlined or filled. In **Select episodes**, **Favorites** selects every favorited episode in the current list.

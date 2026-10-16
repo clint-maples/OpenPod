@@ -1,5 +1,9 @@
 package com.openpod.app.ui
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import com.openpod.app.data.db.EpisodeEntity
 import com.openpod.app.download.episodeHasLocalDownload
 
@@ -32,11 +36,19 @@ object EpisodeRowChrome {
     /** Same per-episode flag as the Now Playing heart. */
     fun isFavorite(episode: EpisodeEntity): Boolean = episode.favorite
 
-    /**
-     * Pink used for every favorite heart, outlined and filled, so it stays
-     * distinct from the theme primary on both dark and light backgrounds.
-     */
+    /** Pink for the filled heart only. Outlined hearts use [downloadedCheckColor]. */
     const val FAVORITE_HEART_ARGB: Int = 0xFFE91E63.toInt()
+
+    /** Same color as the downloaded check mark. Outlined hearts use this, not pink. */
+    @Composable
+    fun downloadedCheckColor(): Color = MaterialTheme.colorScheme.primary
+
+    fun favoriteHeartArgb(isFavorite: Boolean, downloadCheckArgb: Int): Int =
+        if (isFavorite) FAVORITE_HEART_ARGB else downloadCheckArgb
+
+    @Composable
+    fun favoriteHeartColor(isFavorite: Boolean): Color =
+        Color(favoriteHeartArgb(isFavorite, downloadedCheckColor().toArgb()))
 
     /** Status mark beside the download check: filled heart when favorite, outline otherwise. */
     fun favoriteMarkContentDescription(isFavorite: Boolean): String =
