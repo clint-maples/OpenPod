@@ -15,7 +15,7 @@ Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {ep
 
 **Stack:** Kotlin, Jetpack Compose, Room, Media3, WorkManager, iTunes search + RSS.
 
-1.19 and earlier sideload APKs were signed with the Android **debug** certificate. **1.20 is release-signed** and needs a fresh install — uninstall the older APK first.
+1.19 and earlier sideload APKs were signed with the Android **debug** certificate. **1.20 is release-signed** and needs a fresh install â€” uninstall the older APK first.
 
 Published 1.20 fingerprints:
 
@@ -26,20 +26,20 @@ Published 1.20 fingerprints:
 
 `assembleRelease` signs with an off-repo keystore. Set these environment variables (never commit the `.jks` or passwords):
 
-- `CLINT_ANDROID_KEYSTORE` — absolute path to the keystore file
+- `CLINT_ANDROID_KEYSTORE` â€” absolute path to the keystore file
 - `CLINT_ANDROID_STORE_PASSWORD`
-- `CLINT_ANDROID_KEY_ALIAS` — `openpod` for this app
+- `CLINT_ANDROID_KEY_ALIAS` â€” `openpod` for this app
 - `CLINT_ANDROID_KEY_PASSWORD`
 
 The release build fails if any of those are missing. Debug builds do not need them. Git ignores `*.jks`, `*.keystore`, and `*passwords.json`.
 
 ## Subscriptions
 
-Settings → **Export subscriptions** writes an OPML file you can keep or open in other podcast apps. **Import subscriptions** adds missing shows (default) or can replace the library after a confirmation. OpenPod extras (auto-download, auto-delete, folder name, skip first/last seconds) are stored in an `openpod:` extension and round-trip on import. After import, feeds are fetched so episodes appear.
+Settings â†’ **Export subscriptions** writes an OPML file you can keep or open in other podcast apps. **Import subscriptions** adds missing shows (default) or can replace the library after a confirmation. OpenPod extras (auto-download, auto-delete, folder name, skip first/last seconds) are stored in an `openpod:` extension and round-trip on import. After import, feeds are fetched so episodes appear.
 
 ## Downloads
 
-On a podcast screen, **Find existing downloads** scans that show’s folder for files that already match OpenPod’s naming pattern, episode title, or a distinctive guid. High-confidence matches are marked downloaded and play locally; **Not downloaded** / bulk download skip them.
+On a podcast screen, **Find existing downloads** scans that showâ€™s folder for files that already match OpenPodâ€™s naming pattern, episode title, or a distinctive guid. High-confidence matches are marked downloaded and play locally; **Not downloaded** / bulk download skip them.
 
 ## Library
 
@@ -50,10 +50,10 @@ On a podcast screen, **Find existing downloads** scans that show’s folder for 
 - Archive hides episodes; turn on **Show archived** on the podcast screen to see them again
 - Library layout toggle: list, or a scrolling **5-wide thumbnail grid**
 - On the thumbnail grid, long-press a cover and drag it to reorder shows. The order is saved and the list uses it too
-- On a podcast screen, tap the gear for that show�s settings: auto-download, auto-delete, and skip-first / skip-last seconds so every episode trims intro and/or outro
+- On a podcast screen, tap the gear for that show’s settings: auto-download, auto-delete, and skip-first / skip-last seconds so every episode trims intro and/or outro
 - On a podcast screen, search/filter episodes by title (useful for long feeds)
 - Episode rows show remaining time when in progress, a downloaded mark, a heart under that mark (outlined in the same blue as the downloaded check when it is not a favorite, filled pink when it is), **In queue** when queued, and one-tap play/pause without opening Now Playing
-- Each episode row�s three-dot menu has **Play next**, **Add to Up Next**, **Share**, **Add to favorites** (or **Remove from favorites** when it already is), and **Archive episode**. **Archive episode** hides that one episode; the subscription stays. With **Show archived** on, the same menu offers **Unarchive episode**
+- Each episode row’s three-dot menu has **Play next**, **Add to Up Next**, **Share**, **Add to favorites** (or **Remove from favorites** when it already is), and **Archive episode**. **Archive episode** hides that one episode; the subscription stays. With **Show archived** on, the same menu offers **Unarchive episode**
 
 ## Playlists
 
@@ -63,11 +63,11 @@ On a podcast screen, **Find existing downloads** scans that show’s folder for 
 
 ## Playback
 
-Now Playing stacks artwork in the top third of the area above the footer, then the episode and show. Publisher notes, chapters, and the transcript scroll in that area, with room to bring the last line clear of the footer. The pinned footer is the seek bar and its times, then rewind, play/pause, and fast-forward, then Speed (current rate, for example **1.0x**), graphic equalizer, sleep timer, share, and a favorite heart at the right. It stays above the system navigation bar. The equalizer button opens the graphic equalizer screen. Up Next stays on the mini player. Speed opens a menu that is still a text box from **0.5x to 5.0x**, with **- / +** stepping by **0.1x**. Skip back/forward on Now Playing and the mini player use the Settings amounts (free-text seconds; changes apply when you leave the field). The mini player skip buttons are icon-only � they do not show the second counts. Per-show settings can skip the first and/or last N seconds of every episode (intro/outro trim). The sleep menu can fade out at the end of the episode, after **5�60** minutes, or whichever comes first � cancel it while it is running. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer puts the volume boost slider at the top (center = default; left quieter, right louder than system volume), then the enable switch, reset, and frequency bands. The mini player stays on other tabs with artwork, the episode and show names, skip, play/pause, and an **Up Next** shortcut. Tapping the artwork, those titles, the progress bar, or any other blank area opens Now Playing. Skip, play/pause, and Up Next keep their own actions. Up Next is a real queue (not a playlist): **Play next** inserts at the front, **Add to Up Next** appends, and you can reorder or clear. Playing an episode starts it now and removes it from the queue if it was listed; when an episode ends, the next queued item starts. On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata. Tap the artwork on Now Playing to open that show's episode list. Share an episode from Now Playing, the episode screen, or the episode-row overflow -- the system share sheet sends the show name, episode title, and public stream URL (plus permalink when we have one).
+Now Playing stacks artwork in the top third of the area above the footer, then the episode and show. Publisher notes, chapters, and the transcript scroll in that area, with room to bring the last line clear of the footer. The pinned footer is the seek bar and its times, then rewind, play/pause, and fast-forward, then Speed (current rate, for example **1.0x**), graphic equalizer, sleep timer, share, and a favorite heart at the right. It stays above the system navigation bar. The equalizer button opens the graphic equalizer screen. Up Next stays on the mini player. Speed opens a menu that is still a text box from **0.5x to 5.0x**, with **- / +** stepping by **0.1x**. Skip back/forward on Now Playing and the mini player use the Settings amounts (free-text seconds; changes apply when you leave the field). The mini player skip buttons are icon-only — they do not show the second counts. Per-show settings can skip the first and/or last N seconds of every episode (intro/outro trim). The sleep menu can fade out at the end of the episode, after **5–60** minutes, or whichever comes first — cancel it while it is running. Scroll down on Now Playing for the publisher episode notes. Playback continues from the lock screen and notification with play/pause, rewind, and skip. The equalizer puts the volume boost slider at the top (center = default; left quieter, right louder than system volume), then the enable switch, reset, and frequency bands. The mini player stays on other tabs with artwork, the episode and show names, skip, play/pause, and an **Up Next** shortcut. Tapping the artwork, those titles, the progress bar, or any other blank area opens Now Playing. Skip, play/pause, and Up Next keep their own actions. Up Next is a real queue (not a playlist): **Play next** inserts at the front, **Add to Up Next** appends, and you can reorder or clear. Playing an episode starts it now and removes it from the queue if it was listed; when an episode ends, the next queued item starts. On Now Playing, chapter arrows appear under the episode name when the episode has chapter metadata. Tap the artwork on Now Playing to open that show's episode list. Share an episode from Now Playing, the episode screen, or the episode-row overflow -- the system share sheet sends the show name, episode title, and public stream URL (plus permalink when we have one).
 
 ## Sync schedule
 
-Settings → **Check for new episodes**: hourly, daily, or weekly. Daily and weekly also take a time of day.
+Settings â†’ **Check for new episodes**: hourly, daily, or weekly. Daily and weekly also take a time of day.
 
 Built for Clint Maples.
 
@@ -97,12 +97,12 @@ Now Playing keeps the seek bar, its times, and the rewind, play/pause, and fast-
 Release-signed with the shared OpenPod keystore. APK SHA-256: `be573dc6b13c7dd687a01e2dde081b8077dbd639cd60ba7cc639648b65442793`
 
 ## 1.39
-On a podcast�s episode list, a filled gold star sits directly under the downloaded check when that episode is a favorite. Nothing is shown in that spot otherwise. It uses the same per-episode favorite flag as the Now Playing heart, and it updates as soon as that heart is toggled. The heart stays the rightmost control on the Now Playing bottom bar.
+On a podcast’s episode list, a filled gold star sits directly under the downloaded check when that episode is a favorite. Nothing is shown in that spot otherwise. It uses the same per-episode favorite flag as the Now Playing heart, and it updates as soon as that heart is toggled. The heart stays the rightmost control on the Now Playing bottom bar.
 
 Release-signed with the shared OpenPod keystore. APK SHA-256: `dde4b49dd04962e9c44cc991c2300d551d66713f15b8ea246709062770392a6e`
 
 ## 1.38
-Now Playing�s bottom bar keeps Speed, EQ, Sleep, and Share, with slightly smaller icons and labels and the same tap size. A heart at the far right marks the current episode as a favorite. That flag is stored on the episode and stays after a restart.
+Now Playing’s bottom bar keeps Speed, EQ, Sleep, and Share, with slightly smaller icons and labels and the same tap size. A heart at the far right marks the current episode as a favorite. That flag is stored on the episode and stays after a restart.
 
 Release-signed with the shared OpenPod keystore. APK SHA-256: `4e40f92d4eb04137f3a29cdfd6029bc6efb6d2bac0bcaaacb74df6c17f5dc094`
 
@@ -122,7 +122,7 @@ On the library thumbnail grid, long-press a podcast cover and drag it to another
 Release-signed with the shared OpenPod keystore. APK SHA-256: `c2ff5002a991e718eb20d7edadeda647a7b5f7c16e4405c1b50786e9b2a117b7`
 
 ## 1.34
-On a podcast�s episode list, the episode-row three-dot menu (**Play next**, **Add to Up Next**, **Share**) now includes **Archive episode**. That archives the one episode and leaves the subscription. The library home grid and list are back to the 1.32 overflow: a plain three-dot control, with **Archive podcast** still archiving every available episode. The 1.33 dark circular grid button and split list click target are gone.
+On a podcast’s episode list, the episode-row three-dot menu (**Play next**, **Add to Up Next**, **Share**) now includes **Archive episode**. That archives the one episode and leaves the subscription. The library home grid and list are back to the 1.32 overflow: a plain three-dot control, with **Archive podcast** still archiving every available episode. The 1.33 dark circular grid button and split list click target are gone.
 
 Release-signed with the shared OpenPod keystore. APK SHA-256: `c537bd40d8ee946b6a03bb686402b7c1610a9de8892e5d1a2ee1a405a28bb354`
 
@@ -159,7 +159,7 @@ Each subscribed show has its own **podcast settings** screen (gear on the podcas
 Release-signed with the shared OpenPod keystore. APK SHA-256: `d8921111d667355f3f7a4f06787310339b372a5bdb38cc5dab2cefb76239d99c`
 
 ## 1.27
-Skip back/forward in Settings are free-text seconds (1�600) instead of 10/15/30/45/60 chips. Mini player skip buttons are icon-only. Per-show settings can skip the first and/or last N seconds of every episode so playback starts after the intro and finishes/auto-advances before the outro.
+Skip back/forward in Settings are free-text seconds (1–600) instead of 10/15/30/45/60 chips. Mini player skip buttons are icon-only. Per-show settings can skip the first and/or last N seconds of every episode so playback starts after the intro and finishes/auto-advances before the outro.
 
 Release-signed with the shared OpenPod keystore. APK SHA-256: `e94fbdd8ba14b036331220911a8b82e904424512a1a4de8634bed579cde21c08`
 
@@ -193,3 +193,7 @@ Release APKs are signed from `CLINT_ANDROID_*` environment variables. The keysto
 
 ## 1.9
 Lock-screen / notification player: satisfy foreground-service start immediately, remove custom MediaSession.Callback that could block system UI, and refresh Media3 media notifications on play-state changes.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
