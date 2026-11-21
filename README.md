@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.44  
-**Download:** [OpenPod 1.44 APK](https://github.com/clint-maples/OpenPod/releases/download/1.44/OpenPod-1.44.apk)
+**Current version:** 1.45  
+**Download:** [OpenPod 1.45 APK](https://github.com/clint-maples/OpenPod/releases/download/1.45/OpenPod-1.45.apk)
 
 **Previous**
 
+- [1.44](https://github.com/clint-maples/OpenPod/releases/download/1.44/OpenPod-1.44.apk)
 - [1.43](https://github.com/clint-maples/OpenPod/releases/download/1.43/OpenPod-1.43.apk)
 - [1.42](https://github.com/clint-maples/OpenPod/releases/download/1.42/OpenPod-1.42.apk)
-- [1.41](https://github.com/clint-maples/OpenPod/releases/download/1.41/OpenPod-1.41.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -75,6 +75,11 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+
+## 1.45
+The bottom navigation **Now Playing** label stays centered when it wraps onto two lines. Other nav labels are unchanged.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `8041a14429839d13f27b8c4cb00f0565b0374546d953bf8e08bfb2b0609e7424`
 
 ## 1.44
 New episodes are checked about every 30 minutes, all day. Installs still on the old daily default move to that schedule; hourly, daily, and weekly remain available. Auto-download uses the same per-episode download job as a manual download, and retries episodes that were missed or stuck. Trim silence is an optional playback effect, off by default, in Settings and in the Now Playing Playback Effects sheet.
