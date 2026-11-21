@@ -6,6 +6,7 @@ import android.os.SystemClock
 import androidx.documentfile.provider.DocumentFile
 import com.openpod.app.data.db.AppDatabase
 import com.openpod.app.data.db.EpisodeEntity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
@@ -97,6 +98,9 @@ class EpisodeDownloader(private val context: Context) {
                 EpisodeEntity.STATUS_DONE
             )
             Result.success(uri)
+        } catch (e: CancellationException) {
+            // A replacement worker deletes the partial file and starts clean. Don't mark this one failed.
+            throw e
         } catch (e: Exception) {
             dest?.delete()
             db.episodes().setDownloadStatus(episodeId, EpisodeEntity.STATUS_ERROR)

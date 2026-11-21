@@ -151,14 +151,16 @@ data class SettingsEntity(
     val eqEnabled: Boolean = false,
     val eqBandsJson: String = "",
     val showArchived: Boolean = false,
-    val syncFrequency: String = SYNC_DAILY,
+    val syncFrequency: String = SYNC_30_MIN,
     val syncHour: Int = 6,
     val syncMinute: Int = 0,
     val lastEpisodeId: Long = 0L,
     val volumeBoost: Float = 0f,
-    val libraryLayout: String = LAYOUT_LIST
+    val libraryLayout: String = LAYOUT_LIST,
+    val skipSilence: Boolean = false
 ) {
     companion object {
+        const val SYNC_30_MIN = "30min"
         const val SYNC_HOURLY = "hourly"
         const val SYNC_DAILY = "daily"
         const val SYNC_WEEKLY = "weekly"

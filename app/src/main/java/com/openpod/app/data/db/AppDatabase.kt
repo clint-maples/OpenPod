@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         QueueItemEntity::class,
         SettingsEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -113,6 +113,19 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** Old installs left on the daily default move to every 30 minutes. Hourly and weekly stay. */
+        internal val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "UPDATE settings SET syncFrequency = '${SettingsEntity.SYNC_30_MIN}' " +
+                        "WHERE syncFrequency = '${SettingsEntity.SYNC_DAILY}'"
+                )
+                db.execSQL(
+                    "ALTER TABLE settings ADD COLUMN skipSilence INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase {
             return instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -129,7 +142,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_7_8,
                     MIGRATION_8_9,
                     MIGRATION_9_10,
-                    MIGRATION_10_11
+                    MIGRATION_10_11,
+                    MIGRATION_11_12
                 ).build().also { instance = it }
             }
         }
