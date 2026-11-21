@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -154,6 +155,7 @@ import com.openpod.app.data.db.PlaylistEntity
 import com.openpod.app.data.db.PodcastEntity
 import com.openpod.app.data.db.SettingsEntity
 import com.openpod.app.data.search.DiscoverQuery
+import com.openpod.app.data.search.TopPodcastGenres
 import com.openpod.app.download.DownloadProgress
 import com.openpod.app.download.EpisodeDownloadAction
 import com.openpod.app.download.episodeDownloadAction
@@ -478,6 +480,8 @@ private fun PodcastRow(podcast: PodcastEntity, onClick: () -> Unit) {
 private fun DiscoverScreen(vm: AppViewModel) {
     var query by remember { mutableStateOf("") }
     val results by vm.searchResults.collectAsState()
+    val charts by vm.topCharts.collectAsState()
+    LaunchedEffect(Unit) { vm.loadTopCharts(null) }
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     fun hideKeyboard() {
@@ -528,6 +532,54 @@ private fun DiscoverScreen(vm: AppViewModel) {
                         Text(hit.author, style = MaterialTheme.typography.bodySmall, maxLines = 1)
                     }
                     TextButton({ vm.subscribe(hit.feedUrl) }) { Text("Add") }
+                }
+            }
+            if (query.isBlank() && results.isEmpty()) {
+                item {
+                    Text("Top Podcasts", style = MaterialTheme.typography.titleMedium)
+                }
+                if (charts.showGenres) {
+                    item {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            item {
+                                FilterChip(
+                                    selected = charts.selectedGenreId == null,
+                                    onClick = { vm.loadTopCharts(null) },
+                                    label = { Text("All") }
+                                )
+                            }
+                            items(TopPodcastGenres.all, key = { it.id }) { genre ->
+                                FilterChip(
+                                    selected = charts.selectedGenreId == genre.id,
+                                    onClick = { vm.loadTopCharts(genre.id) },
+                                    label = { Text(genre.name) }
+                                )
+                            }
+                        }
+                    }
+                }
+                if (charts.needsRetry && charts.shows.isEmpty()) {
+                    item {
+                        Text("Couldn't load Top Podcasts.")
+                        TextButton({ vm.loadTopCharts(null) }) { Text("Retry") }
+                    }
+                } else {
+                    items(charts.shows, key = { it.appleId }) { show ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            AsyncImage(
+                                show.artworkUrl,
+                                show.name,
+                                Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(show.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(show.artistName, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                            }
+                            TextButton({ vm.subscribeApplePodcast(show.appleId) }) { Text("Add") }
+                        }
+                    }
                 }
             }
         }
