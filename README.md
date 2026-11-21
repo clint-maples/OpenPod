@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.47  
-**Download:** [OpenPod 1.47 APK](https://github.com/clint-maples/OpenPod/releases/download/1.47/OpenPod-1.47.apk)
+**Current version:** 1.48  
+**Download:** [OpenPod 1.48 APK](https://github.com/clint-maples/OpenPod/releases/download/1.48/OpenPod-1.48.apk)
 
 **Previous**
 
+- [1.47](https://github.com/clint-maples/OpenPod/releases/download/1.47/OpenPod-1.47.apk)
 - [1.46](https://github.com/clint-maples/OpenPod/releases/download/1.46/OpenPod-1.46.apk)
 - [1.45](https://github.com/clint-maples/OpenPod/releases/download/1.45/OpenPod-1.45.apk)
-- [1.44](https://github.com/clint-maples/OpenPod/releases/download/1.44/OpenPod-1.44.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -75,6 +75,11 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text. With the field empty, Discover shows **Top Podcasts** for the US. A filter under the heading opens All and the genre charts. Add uses the same iTunes lookup as search.
+
+## 1.48
+Settings no longer has a Trim silence switch. Trim silence stays in the Now Playing Playback Effects sheet, including All podcasts and This podcast.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `bda16d5537493799e0795324dfeb1d55f59ff638ed8248fea54cc634d4371364`
 
 ## 1.47
 The Playback Effects sheet border sits on the sheet, with a dimmed scrim behind it. Speed, trim silence, and volume boost can apply to every show or just the one that is playing. Discover's genre charts open from a filter under Top Podcasts instead of a scrolling chip row. All stays first; the genres are alphabetical.

@@ -2402,17 +2402,6 @@ private fun SettingsScreen(vm: AppViewModel) {
                 TextButton({ vm.setNaming(pattern) }) { Text("Save pattern") }
             }
             item {
-                Text("Playback", style = MaterialTheme.typography.titleMedium)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Trim silence", Modifier.weight(1f))
-                    Switch(settings.skipSilence, { vm.setSkipSilence(it) })
-                }
-                Text(
-                    "Skip quiet stretches during playback. Off by default. The audio file is not rewritten.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            item {
                 Text("Skip intervals", style = MaterialTheme.typography.titleMedium)
                 Text(
                     "Back and forward amounts on Now Playing, the mini player, lock screen, and headset skips. Enter seconds and leave the field to save.",
