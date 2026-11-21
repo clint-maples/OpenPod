@@ -296,7 +296,7 @@ private fun RowScope.NavItem(
         selected = selected,
         onClick = onClick,
         icon = { Icon(icon, contentDescription = label) },
-        label = { Text(label) }
+        label = { Text(label, textAlign = TextAlign.Center) }
     )
 }
 
