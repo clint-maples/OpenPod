@@ -305,6 +305,21 @@ class PodRepository(context: Context) {
         }
     }
 
+    suspend fun setPodcastPlaybackSpeed(id: Long, speed: Float) {
+        val podcast = db.podcasts().byId(id) ?: return
+        db.podcasts().update(podcast.copy(playbackSpeed = speed))
+    }
+
+    suspend fun setPodcastSkipSilence(id: Long, enabled: Boolean) {
+        val podcast = db.podcasts().byId(id) ?: return
+        db.podcasts().update(podcast.copy(skipSilence = enabled))
+    }
+
+    suspend fun setPodcastVolumeBoost(id: Long, value: Float) {
+        val podcast = db.podcasts().byId(id) ?: return
+        db.podcasts().update(podcast.copy(volumeBoost = value))
+    }
+
     suspend fun unsubscribe(id: Long) {
         val podcast = db.podcasts().byId(id) ?: return
         db.episodes().forPodcast(id).forEach { downloader.deleteLocal(it.id) }

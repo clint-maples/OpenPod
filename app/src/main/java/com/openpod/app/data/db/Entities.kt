@@ -24,11 +24,20 @@ data class PodcastEntity(
     val autoArchive: Boolean = false,
     // -1 keeps the historical title sort. A drag assigns 0..n-1 and later shows sort after that.
     @ColumnInfo(defaultValue = "-1")
-    val libraryOrder: Int = UNORDERED
+    val libraryOrder: Int = UNORDERED,
+    /** Null inherits the global playback speed. */
+    val playbackSpeed: Float? = null,
+    /** Null inherits the global trim-silence setting. */
+    val skipSilence: Boolean? = null,
+    /** Null inherits the global volume boost. */
+    val volumeBoost: Float? = null
 ) {
     companion object {
         const val UNORDERED = -1
     }
+
+    fun hasPlaybackOverride(): Boolean =
+        playbackSpeed != null || skipSilence != null || volumeBoost != null
 }
 
 @Entity(
@@ -157,7 +166,8 @@ data class SettingsEntity(
     val lastEpisodeId: Long = 0L,
     val volumeBoost: Float = 0f,
     val libraryLayout: String = LAYOUT_LIST,
-    val skipSilence: Boolean = false
+    val skipSilence: Boolean = false,
+    val playbackSpeed: Float = 1f
 ) {
     companion object {
         const val SYNC_30_MIN = "30min"
