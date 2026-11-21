@@ -19,6 +19,9 @@ import com.openpod.app.playback.EpisodeTrim
 import com.openpod.app.playback.PlaybackQueue
 import com.openpod.app.data.rss.RssParser
 import com.openpod.app.data.search.ItunesSearch
+import com.openpod.app.data.search.TopPodcastCharts
+import com.openpod.app.data.search.ChartCache
+import java.io.File
 import com.openpod.app.download.DownloadFolderScanner
 import com.openpod.app.download.DownloadScanResult
 import com.openpod.app.download.DownloadTracker
@@ -47,6 +50,7 @@ class PodRepository(context: Context) {
     private val app = context.applicationContext
     val db = AppDatabase.get(app)
     private val downloader = EpisodeDownloader(app)
+    private val topCharts = TopPodcastCharts(ChartCache(File(app.cacheDir, "top-podcasts")))
 
     fun podcasts() = db.podcasts().observeAll()
     fun episodes(podcastId: Long) = db.episodes().observeForPodcast(podcastId)
@@ -74,6 +78,14 @@ class PodRepository(context: Context) {
     }
 
     suspend fun search(query: String) = withContext(Dispatchers.IO) { ItunesSearch.search(query) }
+
+    suspend fun topPodcasts(genreId: String?) = withContext(Dispatchers.IO) {
+        topCharts.load(genreId, System.currentTimeMillis())
+    }
+
+    suspend fun lookupPodcastFeed(appleId: String) = withContext(Dispatchers.IO) {
+        ItunesSearch.lookupFeedUrl(appleId)
+    }
 
     suspend fun exportOpml(): String = withContext(Dispatchers.IO) {
         Opml.export(db.podcasts().all())

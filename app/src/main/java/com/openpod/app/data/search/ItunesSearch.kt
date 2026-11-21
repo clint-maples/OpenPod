@@ -33,4 +33,17 @@ object ItunesSearch {
         }
         return hits
     }
+
+    /** Apple collection id -> RSS feed, the same lookup search results already carry as feedUrl. */
+    fun lookupFeedUrl(appleId: String): String {
+        val id = appleId.trim()
+        if (id.isEmpty()) return ""
+        val encoded = URLEncoder.encode(id, "UTF-8")
+        return parseLookupFeedUrl(Http.get("https://itunes.apple.com/lookup?id=$encoded"))
+    }
+
+    fun parseLookupFeedUrl(body: String): String {
+        val results = JSONObject(body).optJSONArray("results") ?: return ""
+        return results.optJSONObject(0)?.optString("feedUrl").orEmpty().trim()
+    }
 }

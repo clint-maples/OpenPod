@@ -12,6 +12,7 @@ import com.openpod.app.data.TranscriptLine
 import com.openpod.app.data.db.EpisodeEntity
 import com.openpod.app.data.db.PlaylistEntity
 import com.openpod.app.data.db.PodcastEntity
+import com.openpod.app.data.search.ChartShow
 import com.openpod.app.data.search.SearchHit
 import com.openpod.app.download.DownloadTracker
 import com.openpod.app.playback.PlaybackResume
@@ -40,6 +41,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _searchResults = MutableStateFlow<List<SearchHit>>(emptyList())
     val searchResults = _searchResults.asStateFlow()
+
+    data class TopChartsUi(
+        val shows: List<ChartShow> = emptyList(),
+        val showGenres: Boolean = true,
+        val selectedGenreId: String? = null,
+        val loading: Boolean = false,
+        val needsRetry: Boolean = false
+    )
+
+    private val _topCharts = MutableStateFlow(TopChartsUi())
+    val topCharts = _topCharts.asStateFlow()
+    private var chartGeneration = 0
     private val _busy = MutableStateFlow(false)
     val busy = _busy.asStateFlow()
     private val _message = MutableStateFlow<String?>(null)
@@ -64,6 +77,49 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearSearch() {
         _searchResults.value = emptyList()
+    }
+
+    fun loadTopCharts(genreId: String?) {
+        val selected = genreId?.takeIf { it.isNotBlank() }
+        val generation = ++chartGeneration
+        viewModelScope.launch {
+            val current = _topCharts.value
+            val alreadyShowing = current.selectedGenreId == selected && current.shows.isNotEmpty() && !current.needsRetry
+            _topCharts.value = current.copy(loading = !alreadyShowing, needsRetry = false, selectedGenreId = selected)
+            val shows = runCatching { repo.topPodcasts(selected) }.getOrNull()
+            if (generation != chartGeneration) return@launch
+            if (shows != null) {
+                _topCharts.value = _topCharts.value.copy(
+                    shows = shows,
+                    loading = false,
+                    needsRetry = false,
+                    selectedGenreId = selected
+                )
+                return@launch
+            }
+            if (selected != null) {
+                _topCharts.value = _topCharts.value.copy(showGenres = false, selectedGenreId = null, loading = true)
+                loadTopCharts(null)
+                return@launch
+            }
+            _topCharts.value = _topCharts.value.copy(loading = false, needsRetry = true, shows = emptyList())
+        }
+    }
+
+    fun subscribeApplePodcast(appleId: String) {
+        viewModelScope.launch {
+            _busy.value = true
+            val feed = runCatching { repo.lookupPodcastFeed(appleId) }.getOrNull().orEmpty()
+            if (feed.isBlank()) {
+                _message.value = "Could not add podcast"
+                _busy.value = false
+                return@launch
+            }
+            runCatching { repo.subscribe(feed) }
+                .onSuccess { _message.value = "Subscribed to ${it.title}" }
+                .onFailure { _message.value = it.message ?: "Could not add podcast" }
+            _busy.value = false
+        }
     }
 
     fun subscribe(feedUrl: String) {

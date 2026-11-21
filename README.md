@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.45  
-**Download:** [OpenPod 1.45 APK](https://github.com/clint-maples/OpenPod/releases/download/1.45/OpenPod-1.45.apk)
+**Current version:** 1.46  
+**Download:** [OpenPod 1.46 APK](https://github.com/clint-maples/OpenPod/releases/download/1.46/OpenPod-1.46.apk)
 
 **Previous**
 
+- [1.45](https://github.com/clint-maples/OpenPod/releases/download/1.45/OpenPod-1.45.apk)
 - [1.44](https://github.com/clint-maples/OpenPod/releases/download/1.44/OpenPod-1.44.apk)
 - [1.43](https://github.com/clint-maples/OpenPod/releases/download/1.43/OpenPod-1.43.apk)
-- [1.42](https://github.com/clint-maples/OpenPod/releases/download/1.42/OpenPod-1.42.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -74,7 +74,12 @@ Built for Clint Maples.
 
 ## Discover
 
-One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text. With the field empty, Discover shows **Top Podcasts** for the US, plus a scrolling row of Apple genre charts. Add uses the same iTunes lookup as search.
+
+## 1.46
+Discover shows Apple's US Top Podcasts, with a genre chip row for the 19 top-level podcast categories. Each chart is cached for about an hour. Adding a chart show looks up its RSS feed the same way search does.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `4633c2bcedebeaea5fc6f21f3ee641ec7ee20ff300f0c694f3ac3b1cbf8c6757`
 
 ## 1.45
 The bottom navigation **Now Playing** label stays centered when it wraps onto two lines. Other nav labels are unchanged.
