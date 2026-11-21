@@ -8,6 +8,21 @@ import java.io.File
 
 class TopPodcastChartsTest {
     @Test
+    fun genresAreAlphabeticalAfterAll() {
+        assertEquals(
+            listOf(
+                "Arts", "Business", "Comedy", "Education", "Fiction", "Government",
+                "Health & Fitness", "History", "Kids & Family", "Leisure", "Music", "News",
+                "Religion & Spirituality", "Science", "Society & Culture", "Sports",
+                "Technology", "True Crime", "TV & Film"
+            ),
+            TopPodcastGenres.all.map { it.name }
+        )
+        assertEquals("1512", TopPodcastGenres.all.first { it.name == "Health & Fitness" }.id)
+        assertEquals("1309", TopPodcastGenres.all.first { it.name == "TV & Film" }.id)
+    }
+
+    @Test
     fun marketingFeedReadsAppleIds() {
         val body = """
             {"feed":{"results":[

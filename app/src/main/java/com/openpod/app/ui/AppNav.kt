@@ -10,8 +10,11 @@ import android.widget.TextView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,7 +40,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,7 +50,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ClearAll
@@ -540,19 +545,36 @@ private fun DiscoverScreen(vm: AppViewModel) {
                 }
                 if (charts.showGenres) {
                     item {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            item {
-                                FilterChip(
-                                    selected = charts.selectedGenreId == null,
-                                    onClick = { vm.loadTopCharts(null) },
-                                    label = { Text("All") }
-                                )
-                            }
-                            items(TopPodcastGenres.all, key = { it.id }) { genre ->
-                                FilterChip(
-                                    selected = charts.selectedGenreId == genre.id,
-                                    onClick = { vm.loadTopCharts(genre.id) },
-                                    label = { Text(genre.name) }
+                        var genreListOpen by remember { mutableStateOf(false) }
+                        val selectedName = TopPodcastGenres.all
+                            .find { it.id == charts.selectedGenreId }
+                            ?.name
+                            ?: "All categories"
+                        Row(
+                            Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { genreListOpen = true }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.FilterList,
+                                contentDescription = "Categories",
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(selectedName, style = MaterialTheme.typography.bodyMedium)
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        }
+                        if (genreListOpen) {
+                            OpenPodBottomSheet(onDismiss = { genreListOpen = false }) {
+                                CategoryPicker(
+                                    selectedGenreId = charts.selectedGenreId,
+                                    onSelect = { genreId ->
+                                        genreListOpen = false
+                                        vm.loadTopCharts(genreId)
+                                    }
                                 )
                             }
                         }
@@ -1189,11 +1211,6 @@ private fun PlayerScreen(
                     episode = episode,
                     skipBackSec = settings.skipBackSec,
                     skipForwardSec = settings.skipForwardSec,
-                    onSpeed = { vm.setSpeed(it) },
-                    skipSilence = settings.skipSilence,
-                    onSkipSilence = { vm.setSkipSilence(it) },
-                    volumeBoost = settings.volumeBoost,
-                    onVolumeBoost = { vm.setVolumeBoost(it) },
                     onEq = onEq,
                     onShare = {
                         val current = episode ?: return@NowPlayingActionBar
@@ -1336,11 +1353,6 @@ private fun NowPlayingActionBar(
     episode: EpisodeEntity?,
     skipBackSec: Int,
     skipForwardSec: Int,
-    onSpeed: (Float) -> Unit,
-    skipSilence: Boolean,
-    onSkipSilence: (Boolean) -> Unit,
-    volumeBoost: Float,
-    onVolumeBoost: (Float) -> Unit,
     onEq: () -> Unit,
     onShare: () -> Unit,
     vm: AppViewModel
@@ -1438,40 +1450,39 @@ private fun NowPlayingActionBar(
                                     )
                                 }
                                 if (speedMenuOpen) {
-                                    val sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-                                    val accent = MaterialTheme.colorScheme.primary
-                                    ModalBottomSheet(
-                                        onDismissRequest = { speedMenuOpen = false },
-                                        modifier = if (PLAYBACK_EFFECTS_SHEET_BORDER) {
-                                            Modifier.border(1.dp, accent, sheetShape)
-                                        } else {
-                                            Modifier
-                                        },
-                                        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-                                        shape = sheetShape,
-                                        containerColor = Color(0xFF1C1C1E),
-                                        contentColor = Color(0xFFF2F2F7),
-                                        scrimColor = if (PLAYBACK_EFFECTS_SHEET_SCRIM) {
-                                            Color.Black.copy(alpha = 0.5f)
-                                        } else {
-                                            Color.Transparent
-                                        },
-                                        dragHandle = {
-                                            BottomSheetDefaults.DragHandle(
-                                                width = 36.dp,
-                                                height = 4.dp,
-                                                shape = RoundedCornerShape(2.dp),
-                                                color = Color(0xFFD1D1D6)
-                                            )
-                                        }
-                                    ) {
+                                    val effectSettings by vm.settings.collectAsState()
+                                    val effectPodcasts by vm.podcasts.collectAsState()
+                                    val effectPodcast = effectPodcasts.find { it.id == player.podcastId }
+                                    val hasOverride = effectPodcast?.hasPlaybackOverride() == true
+                                    var forThisPodcast by remember(effectPodcast?.id, speedMenuOpen) {
+                                        mutableStateOf(hasOverride)
+                                    }
+                                    val speed = if (forThisPodcast) {
+                                        effectPodcast?.playbackSpeed ?: effectSettings.playbackSpeed
+                                    } else {
+                                        effectSettings.playbackSpeed
+                                    }
+                                    val silence = if (forThisPodcast) {
+                                        effectPodcast?.skipSilence ?: effectSettings.skipSilence
+                                    } else {
+                                        effectSettings.skipSilence
+                                    }
+                                    val boost = if (forThisPodcast) {
+                                        effectPodcast?.volumeBoost ?: effectSettings.volumeBoost
+                                    } else {
+                                        effectSettings.volumeBoost
+                                    }
+                                    OpenPodBottomSheet(onDismiss = { speedMenuOpen = false }) {
                                         PlaybackEffectsSheet(
-                                            speed = player.speed,
-                                            onSpeed = onSpeed,
-                                            skipSilence = skipSilence,
-                                            onSkipSilence = onSkipSilence,
-                                            volumeBoost = volumeBoost,
-                                            onVolumeBoost = onVolumeBoost
+                                            forThisPodcast = forThisPodcast,
+                                            thisPodcastEnabled = effectPodcast != null,
+                                            onForThisPodcast = { forThisPodcast = it },
+                                            speed = speed,
+                                            onSpeed = { vm.setScopedSpeed(forThisPodcast, it) },
+                                            skipSilence = silence,
+                                            onSkipSilence = { vm.setScopedSkipSilence(forThisPodcast, it) },
+                                            volumeBoost = boost,
+                                            onVolumeBoost = { vm.setScopedVolumeBoost(forThisPodcast, it) }
                                         )
                                     }
                                 }
@@ -1593,6 +1604,9 @@ private fun PublisherText(html: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun PlaybackEffectsSheet(
+    forThisPodcast: Boolean,
+    thisPodcastEnabled: Boolean,
+    onForThisPodcast: (Boolean) -> Unit,
     speed: Float,
     onSpeed: (Float) -> Unit,
     skipSilence: Boolean,
@@ -1616,6 +1630,11 @@ private fun PlaybackEffectsSheet(
             "Playback Effects",
             Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
             style = MaterialTheme.typography.titleMedium
+        )
+        EffectScopeToggle(
+            forThisPodcast = forThisPodcast,
+            thisPodcastEnabled = thisPodcastEnabled,
+            onForThisPodcast = onForThisPodcast
         )
         HorizontalDivider(color = divider)
         PlaybackEffectRow(
@@ -1675,6 +1694,141 @@ private fun PlaybackEffectsSheet(
                 modifier = Modifier.scale(0.85f)
             )
         }
+    }
+}
+
+@Composable
+private fun CategoryPicker(
+    selectedGenreId: String?,
+    onSelect: (String?) -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(max = 480.dp)
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 24.dp)
+    ) {
+        Text(
+            "Categories",
+            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.titleMedium
+        )
+        CategoryRow("All", selected = selectedGenreId == null) { onSelect(null) }
+        TopPodcastGenres.all.forEach { genre ->
+            CategoryRow(genre.name, selected = selectedGenreId == genre.id) { onSelect(genre.id) }
+        }
+    }
+}
+
+@Composable
+private fun CategoryRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        if (selected) {
+            Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OpenPodBottomSheet(
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    val accent = MaterialTheme.colorScheme.primary
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = shape,
+        containerColor = Color(0xFF1C1C1E),
+        contentColor = Color(0xFFF2F2F7),
+        scrimColor = if (PLAYBACK_EFFECTS_SHEET_SCRIM) {
+            Color.Black.copy(alpha = 0.5f)
+        } else {
+            Color.Transparent
+        },
+        dragHandle = null
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .then(if (PLAYBACK_EFFECTS_SHEET_BORDER) Modifier.border(1.dp, accent, shape) else Modifier)
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp, bottom = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    Modifier
+                        .size(width = 36.dp, height = 4.dp)
+                        .background(Color(0xFFD1D1D6), RoundedCornerShape(2.dp))
+                )
+            }
+            content()
+        }
+    }
+}
+
+@Composable
+private fun EffectScopeToggle(
+    forThisPodcast: Boolean,
+    thisPodcastEnabled: Boolean,
+    onForThisPodcast: (Boolean) -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .height(36.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.White.copy(alpha = 0.08f))
+    ) {
+        EffectScopeButton("All podcasts", selected = !forThisPodcast, enabled = true) {
+            onForThisPodcast(false)
+        }
+        EffectScopeButton("This podcast", selected = forThisPodcast, enabled = thisPodcastEnabled) {
+            onForThisPodcast(true)
+        }
+    }
+}
+
+@Composable
+private fun RowScope.EffectScopeButton(
+    label: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val background = when {
+        selected -> MaterialTheme.colorScheme.primary
+        else -> Color.Transparent
+    }
+    val text = when {
+        !enabled -> Color(0xFF8E8E93)
+        selected -> MaterialTheme.colorScheme.onPrimary
+        else -> Color(0xFFF2F2F7)
+    }
+    Box(
+        Modifier
+            .weight(1f)
+            .height(36.dp)
+            .background(background)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, color = text, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
     }
 }
 

@@ -205,11 +205,8 @@ class PlayerService : MediaSessionService() {
             if (fwd != settings.skipForwardSec || back != settings.skipBackSec) {
                 repo.updateSettings { it.copy(skipForwardSec = fwd, skipBackSec = back) }
             }
-            scope.launch {
-                applyVolumeBoost(settings.volumeBoost)
-                setSkipSeconds(fwd, back)
-                applySkipSilence(settings.skipSilence)
-            }
+            scope.launch { setSkipSeconds(fwd, back) }
+            applyEffectivePlayback(settings, _state.value.podcastId)
         }
         consumePending()
     }
@@ -319,6 +316,7 @@ class PlayerService : MediaSessionService() {
             )
         }
         ioScope.launch {
+            applyEffectivePlayback(repo.settingsOnce(), episode.podcastId)
             val resolved = try {
                 resolveForPlayback(episode)
             } catch (e: CancellationException) {
@@ -620,6 +618,18 @@ class PlayerService : MediaSessionService() {
     fun applySkipSilence(enabled: Boolean) {
         if (::exo.isInitialized) {
             exo.skipSilenceEnabled = enabled
+        }
+    }
+
+    private suspend fun applyEffectivePlayback(settings: com.openpod.app.data.db.SettingsEntity, podcastId: Long) {
+        val podcast = if (podcastId == 0L) null else repo.db.podcasts().byId(podcastId)
+        val speed = (podcast?.playbackSpeed ?: settings.playbackSpeed).coerceIn(0.5f, 5f)
+        val silence = podcast?.skipSilence ?: settings.skipSilence
+        val boost = podcast?.volumeBoost ?: settings.volumeBoost
+        scope.launch {
+            setSpeed(speed)
+            applySkipSilence(silence)
+            applyVolumeBoost(boost)
         }
     }
 

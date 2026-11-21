@@ -23,8 +23,8 @@ object TopPodcastGenres {
         PodcastGenre("1304", "Education"),
         PodcastGenre("1483", "Fiction"),
         PodcastGenre("1511", "Government"),
-        PodcastGenre("1487", "History"),
         PodcastGenre("1512", "Health & Fitness"),
+        PodcastGenre("1487", "History"),
         PodcastGenre("1305", "Kids & Family"),
         PodcastGenre("1502", "Leisure"),
         PodcastGenre("1310", "Music"),
@@ -36,7 +36,7 @@ object TopPodcastGenres {
         PodcastGenre("1318", "Technology"),
         PodcastGenre("1488", "True Crime"),
         PodcastGenre("1309", "TV & Film")
-    )
+    ).sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
 }
 
 object TopPodcastFeeds {

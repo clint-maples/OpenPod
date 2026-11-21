@@ -306,11 +306,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun seek(ms: Long) = PlayerService.seekOrQueue(ms)
     fun setSpeed(speed: Float) = PlayerService.setSpeed(clampSpeed(speed))
 
-    fun setSkipSilence(enabled: Boolean) {
+    fun setScopedSpeed(forThisPodcast: Boolean, speed: Float) {
+        val clamped = clampSpeed(speed)
+        val podcastId = player.value.podcastId
         viewModelScope.launch {
-            repo.updateSettings { it.copy(skipSilence = enabled) }
-            PlayerService.setSkipSilence(enabled)
+            if (forThisPodcast && podcastId != 0L) repo.setPodcastPlaybackSpeed(podcastId, clamped)
+            else repo.updateSettings { it.copy(playbackSpeed = clamped) }
+            applyEffectivePlayback()
         }
+    }
+
+    fun setSkipSilence(enabled: Boolean) {
+        setScopedSkipSilence(forThisPodcast = false, enabled = enabled)
+    }
+
+    fun setScopedSkipSilence(forThisPodcast: Boolean, enabled: Boolean) {
+        val podcastId = player.value.podcastId
+        viewModelScope.launch {
+            if (forThisPodcast && podcastId != 0L) repo.setPodcastSkipSilence(podcastId, enabled)
+            else repo.updateSettings { it.copy(skipSilence = enabled) }
+            applyEffectivePlayback()
+        }
+    }
+
+    private suspend fun applyEffectivePlayback() {
+        val settings = repo.settingsOnce()
+        val podcastId = player.value.podcastId
+        val podcast = if (podcastId == 0L) null else repo.db.podcasts().byId(podcastId)
+        PlayerService.setSpeed(podcast?.playbackSpeed ?: settings.playbackSpeed)
+        PlayerService.setSkipSilence(podcast?.skipSilence ?: settings.skipSilence)
+        PlayerService.setVolumeBoost(podcast?.volumeBoost ?: settings.volumeBoost)
     }
 
     private suspend fun restoreLastEpisode() {
@@ -423,10 +448,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setVolumeBoost(value: Float) {
+        setScopedVolumeBoost(forThisPodcast = false, value = value)
+    }
+
+    fun setScopedVolumeBoost(forThisPodcast: Boolean, value: Float) {
         val clamped = value.coerceIn(-1f, 1f)
-        PlayerService.setVolumeBoost(clamped)
+        val podcastId = player.value.podcastId
         viewModelScope.launch {
-            repo.updateSettings { it.copy(volumeBoost = clamped) }
+            if (forThisPodcast && podcastId != 0L) repo.setPodcastVolumeBoost(podcastId, clamped)
+            else repo.updateSettings { it.copy(volumeBoost = clamped) }
+            applyEffectivePlayback()
         }
     }
 

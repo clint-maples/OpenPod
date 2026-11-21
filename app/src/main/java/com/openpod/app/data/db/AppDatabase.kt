@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         QueueItemEntity::class,
         SettingsEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -126,6 +126,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE settings ADD COLUMN playbackSpeed REAL NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN playbackSpeed REAL")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN skipSilence INTEGER")
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN volumeBoost REAL")
+            }
+        }
+
         fun get(context: Context): AppDatabase {
             return instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -143,7 +152,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_8_9,
                     MIGRATION_9_10,
                     MIGRATION_10_11,
-                    MIGRATION_11_12
+                    MIGRATION_11_12,
+                    MIGRATION_12_13
                 ).build().also { instance = it }
             }
         }
