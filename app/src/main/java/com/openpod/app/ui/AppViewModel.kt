@@ -129,12 +129,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun download(id: Long) {
         viewModelScope.launch {
-            runCatching { repo.download(id) }
-                .onSuccess { result ->
-                    result.onSuccess { _message.value = "Saved episode" }
-                        .onFailure { _message.value = it.message ?: "Download failed" }
-                }
-                .onFailure { _message.value = it.message ?: "Download failed" }
+            val episode = repo.db.episodes().byId(id)
+            if (episode != null &&
+                episode.downloadStatus == com.openpod.app.data.db.EpisodeEntity.STATUS_DONE &&
+                episode.localUri.isNotBlank()
+            ) {
+                _message.value = "Saved episode"
+                return@launch
+            }
+            repo.enqueueDownload(id)
+            _message.value = "Downloading"
         }
     }
 
@@ -245,6 +249,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun seek(ms: Long) = PlayerService.seekOrQueue(ms)
     fun setSpeed(speed: Float) = PlayerService.setSpeed(clampSpeed(speed))
+
+    fun setSkipSilence(enabled: Boolean) {
+        viewModelScope.launch {
+            repo.updateSettings { it.copy(skipSilence = enabled) }
+            PlayerService.setSkipSilence(enabled)
+        }
+    }
 
     private suspend fun restoreLastEpisode() {
         if (PlayerService.state.value.episodeId != 0L) return
@@ -413,8 +424,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val count = repo.downloadMany(ids)
             _message.value = when {
                 count == 0 -> "Already downloaded"
-                count < ids.size -> "Download finished for $count episode(s); skipped ${ids.size - count} already saved"
-                else -> "Download finished for $count episode(s)"
+                count < ids.size -> "Downloading $count episode(s); skipped ${ids.size - count} already saved"
+                else -> "Downloading $count episode(s)"
             }
         }
     }

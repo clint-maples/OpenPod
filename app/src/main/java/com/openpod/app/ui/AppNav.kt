@@ -10,6 +10,7 @@ import android.widget.TextView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +38,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -75,8 +77,12 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.ContentCut
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -90,6 +96,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -114,6 +122,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -155,6 +164,12 @@ import com.openpod.app.playback.SleepTimerLogic
 import com.openpod.app.playback.formatVolumeBoost
 import com.openpod.app.share.EpisodeShare
 
+/** One-line flip for the Playback Effects sheet accent border. */
+private const val PLAYBACK_EFFECTS_SHEET_BORDER = true
+
+/** One-line flip for the dimmed scrim behind the Playback Effects sheet. */
+private const val PLAYBACK_EFFECTS_SHEET_SCRIM = true
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OpenPodRoot(vm: AppViewModel) {
@@ -172,7 +187,10 @@ fun OpenPodRoot(vm: AppViewModel) {
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp
+            ) {
                 NavItem("Library", Icons.Default.LibraryMusic, back.startsWith("library") || back.startsWith("podcast") || back.startsWith("episode")) {
                     nav.navigate("library") { popUpTo(nav.graph.findStartDestination().id); launchSingleTop = true }
                 }
@@ -296,7 +314,8 @@ internal fun MiniPlayer(
         .joinToString(" — ")
         .ifBlank { "Now playing" }
     Surface(
-        tonalElevation = 3.dp,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 0.dp,
         modifier = Modifier
             .fillMaxWidth()
             .testTag(MiniPlayerVisibility.containerTag)
@@ -1119,6 +1138,10 @@ private fun PlayerScreen(
                     skipBackSec = settings.skipBackSec,
                     skipForwardSec = settings.skipForwardSec,
                     onSpeed = { vm.setSpeed(it) },
+                    skipSilence = settings.skipSilence,
+                    onSkipSilence = { vm.setSkipSilence(it) },
+                    volumeBoost = settings.volumeBoost,
+                    onVolumeBoost = { vm.setVolumeBoost(it) },
                     onEq = onEq,
                     onShare = {
                         val current = episode ?: return@NowPlayingActionBar
@@ -1254,6 +1277,7 @@ private fun PlayerScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NowPlayingActionBar(
     player: com.openpod.app.playback.PlayerUiState,
@@ -1261,6 +1285,10 @@ private fun NowPlayingActionBar(
     skipBackSec: Int,
     skipForwardSec: Int,
     onSpeed: (Float) -> Unit,
+    skipSilence: Boolean,
+    onSkipSilence: (Boolean) -> Unit,
+    volumeBoost: Float,
+    onVolumeBoost: (Float) -> Unit,
     onEq: () -> Unit,
     onShare: () -> Unit,
     vm: AppViewModel
@@ -1357,15 +1385,43 @@ private fun NowPlayingActionBar(
                                         )
                                     )
                                 }
-                                DropdownMenu(
-                                    expanded = speedMenuOpen,
-                                    onDismissRequest = { speedMenuOpen = false }
-                                ) {
-                                    SpeedControl(
-                                        speed = player.speed,
-                                        onSpeed = onSpeed,
-                                        modifier = Modifier.width(280.dp).padding(horizontal = 12.dp, vertical = 8.dp)
-                                    )
+                                if (speedMenuOpen) {
+                                    val sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+                                    val accent = MaterialTheme.colorScheme.primary
+                                    ModalBottomSheet(
+                                        onDismissRequest = { speedMenuOpen = false },
+                                        modifier = if (PLAYBACK_EFFECTS_SHEET_BORDER) {
+                                            Modifier.border(1.dp, accent, sheetShape)
+                                        } else {
+                                            Modifier
+                                        },
+                                        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                                        shape = sheetShape,
+                                        containerColor = Color(0xFF1C1C1E),
+                                        contentColor = Color(0xFFF2F2F7),
+                                        scrimColor = if (PLAYBACK_EFFECTS_SHEET_SCRIM) {
+                                            Color.Black.copy(alpha = 0.5f)
+                                        } else {
+                                            Color.Transparent
+                                        },
+                                        dragHandle = {
+                                            BottomSheetDefaults.DragHandle(
+                                                width = 36.dp,
+                                                height = 4.dp,
+                                                shape = RoundedCornerShape(2.dp),
+                                                color = Color(0xFFD1D1D6)
+                                            )
+                                        }
+                                    ) {
+                                        PlaybackEffectsSheet(
+                                            speed = player.speed,
+                                            onSpeed = onSpeed,
+                                            skipSilence = skipSilence,
+                                            onSkipSilence = onSkipSilence,
+                                            volumeBoost = volumeBoost,
+                                            onVolumeBoost = onVolumeBoost
+                                        )
+                                    }
                                 }
                             }
                             NowPlayingChrome.BottomAction.Equalizer -> {
@@ -1484,67 +1540,136 @@ private fun PublisherText(html: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SpeedControl(
+private fun PlaybackEffectsSheet(
     speed: Float,
     onSpeed: (Float) -> Unit,
-    modifier: Modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+    skipSilence: Boolean,
+    onSkipSilence: (Boolean) -> Unit,
+    volumeBoost: Float,
+    onVolumeBoost: (Float) -> Unit
 ) {
-    val focusManager = LocalFocusManager.current
-    var focused by remember { mutableStateOf(false) }
-    var text by remember { mutableStateOf(formatSpeed(speed)) }
-    LaunchedEffect(speed) {
-        if (!focused) text = formatSpeed(speed)
+    val iconTint = Color(0xFF8E8E93)
+    val divider = Color.White.copy(alpha = 0.12f)
+    val boostOn = volumeBoost > 0.02f
+    var restoreBoost by remember { mutableStateOf(if (boostOn) volumeBoost else 0.5f) }
+    LaunchedEffect(volumeBoost) {
+        if (volumeBoost > 0.02f) restoreBoost = volumeBoost
     }
-    fun apply(raw: String) {
-        val parsed = raw.trim().removeSuffix("x").replace(',', '.').toFloatOrNull()
-        if (parsed != null) {
-            val clamped = clampSpeed(parsed)
-            text = formatSpeed(clamped)
-            onSpeed(clamped)
-        } else {
-            text = formatSpeed(speed)
-        }
-    }
-    fun nudge(delta: Float) {
-        val current = text.toFloatOrNull() ?: speed
-        val next = clampSpeed(current + delta)
-        text = formatSpeed(next)
-        onSpeed(next)
-    }
-    val current = text.toFloatOrNull() ?: speed
     Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 28.dp)
     ) {
-        Text("Playback speed", style = MaterialTheme.typography.labelLarge)
-        Spacer(Modifier.height(16.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-            IconButton({ nudge(-SPEED_STEP) }, enabled = current > SPEED_MIN) {
-                Icon(Icons.Default.Remove, "Slower")
-            }
-            OutlinedTextField(
-                value = text,
-                onValueChange = { value ->
-                    text = value.filter { it.isDigit() || it == '.' || it == ',' }.take(4)
-                },
-                modifier = Modifier
-                    .width(70.dp)
-                    .onFocusChanged { focused = it.isFocused },
-                singleLine = true,
-                textStyle = TextStyle(textAlign = TextAlign.Center),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Decimal,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(onDone = {
-                    apply(text)
-                    focusManager.clearFocus()
-                })
+        Text(
+            "Playback Effects",
+            Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.titleMedium
+        )
+        HorizontalDivider(color = divider)
+        PlaybackEffectRow(
+            icon = Icons.Outlined.Speed,
+            title = "Speed",
+            iconTint = iconTint
+        ) {
+            val current = clampSpeed(speed)
+            CircleStepButton(
+                icon = Icons.Default.Remove,
+                contentDescription = "Slower",
+                enabled = current > SPEED_MIN,
+                onClick = { onSpeed(clampSpeed(current - SPEED_STEP)) }
             )
-            IconButton({ nudge(SPEED_STEP) }, enabled = current < SPEED_MAX) {
-                Icon(Icons.Default.Add, "Faster")
+            Box(
+                Modifier
+                    .padding(horizontal = 6.dp)
+                    .heightIn(min = 32.dp)
+                    .border(1.dp, iconTint, RoundedCornerShape(6.dp))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("${formatSpeed(current)}x", style = MaterialTheme.typography.bodyMedium)
+            }
+            CircleStepButton(
+                icon = Icons.Default.Add,
+                contentDescription = "Faster",
+                enabled = current < SPEED_MAX,
+                onClick = { onSpeed(clampSpeed(current + SPEED_STEP)) }
+            )
+        }
+        HorizontalDivider(color = divider)
+        PlaybackEffectRow(
+            icon = Icons.Outlined.ContentCut,
+            title = "Trim Silence",
+            subtitle = "Reduces the length of an episode by trimming silence in conversations.",
+            iconTint = iconTint
+        ) {
+            Switch(
+                checked = skipSilence,
+                onCheckedChange = onSkipSilence,
+                modifier = Modifier.scale(0.85f)
+            )
+        }
+        HorizontalDivider(color = divider)
+        PlaybackEffectRow(
+            icon = Icons.Outlined.GraphicEq,
+            title = "Volume Boost",
+            subtitle = "Voices sound louder",
+            iconTint = iconTint
+        ) {
+            Switch(
+                checked = boostOn,
+                onCheckedChange = { enabled ->
+                    onVolumeBoost(if (enabled) restoreBoost.coerceIn(0.05f, 1f) else 0f)
+                },
+                modifier = Modifier.scale(0.85f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlaybackEffectRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    iconTint: Color,
+    subtitle: String? = null,
+    trailing: @Composable () -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = if (subtitle == null) 48.dp else 56.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium)
+            if (subtitle != null) {
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = iconTint)
             }
         }
+        Spacer(Modifier.width(8.dp))
+        trailing()
+    }
+}
+
+@Composable
+private fun CircleStepButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val color = Color(0xFF8E8E93).copy(alpha = if (enabled) 1f else 0.35f)
+    Box(
+        Modifier
+            .size(32.dp)
+            .border(1.dp, color, CircleShape)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription, tint = color, modifier = Modifier.size(16.dp))
     }
 }
 
@@ -2071,6 +2196,17 @@ private fun SettingsScreen(vm: AppViewModel) {
                 TextButton({ vm.setNaming(pattern) }) { Text("Save pattern") }
             }
             item {
+                Text("Playback", style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Trim silence", Modifier.weight(1f))
+                    Switch(settings.skipSilence, { vm.setSkipSilence(it) })
+                }
+                Text(
+                    "Skip quiet stretches during playback. Off by default. The audio file is not rewritten.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            item {
                 Text("Skip intervals", style = MaterialTheme.typography.titleMedium)
                 Text(
                     "Back and forward amounts on Now Playing, the mini player, lock screen, and headset skips. Enter seconds and leave the field to save.",
@@ -2119,19 +2255,22 @@ private fun SettingsScreen(vm: AppViewModel) {
                 var frequency by remember(settings.syncFrequency) { mutableStateOf(settings.syncFrequency) }
                 var hour by remember(settings.syncHour) { mutableStateOf(settings.syncHour.toFloat()) }
                 var minute by remember(settings.syncMinute) { mutableStateOf(settings.syncMinute.toFloat()) }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(frequency == SettingsEntity.SYNC_30_MIN, { frequency = SettingsEntity.SYNC_30_MIN }, label = { Text("Every 30 minutes") })
                     FilterChip(frequency == SettingsEntity.SYNC_HOURLY, { frequency = SettingsEntity.SYNC_HOURLY }, label = { Text("Hourly") })
                     FilterChip(frequency == SettingsEntity.SYNC_DAILY, { frequency = SettingsEntity.SYNC_DAILY }, label = { Text("Daily") })
                     FilterChip(frequency == SettingsEntity.SYNC_WEEKLY, { frequency = SettingsEntity.SYNC_WEEKLY }, label = { Text("Weekly") })
                 }
-                if (frequency != SettingsEntity.SYNC_HOURLY) {
+                if (frequency == SettingsEntity.SYNC_30_MIN) {
+                    Text("OpenPod checks for new episodes about every 30 minutes, all day.")
+                } else if (frequency == SettingsEntity.SYNC_HOURLY) {
+                    Text("OpenPod will look for new episodes about every hour.")
+                } else {
                     Text("Time of day: ${hour.toInt().toString().padStart(2, '0')}:${minute.toInt().toString().padStart(2, '0')}")
                     Text("Hour")
                     Slider(hour, { hour = it }, valueRange = 0f..23f, steps = 22)
                     Text("Minute")
                     Slider(minute, { minute = it }, valueRange = 0f..59f, steps = 58)
-                } else {
-                    Text("OpenPod will look for new episodes about every hour.")
                 }
                 TextButton({ vm.setSyncSchedule(frequency, hour.toInt(), minute.toInt()) }) { Text("Save sync schedule") }
             }

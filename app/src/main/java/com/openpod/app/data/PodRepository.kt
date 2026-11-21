@@ -22,6 +22,7 @@ import com.openpod.app.data.search.ItunesSearch
 import com.openpod.app.download.DownloadFolderScanner
 import com.openpod.app.download.DownloadScanResult
 import com.openpod.app.download.DownloadTracker
+import com.openpod.app.download.EpisodeDownloadWork
 import com.openpod.app.download.EpisodeDownloader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -144,9 +145,9 @@ class PodRepository(context: Context) {
                 folderName = parsed.title
             )
         )
-        upsertEpisodes(id, parsed)
+        upsertEpisodes(id, parsed, queueNew = false)
         if (defaults.autoDownloadDefault) {
-            db.episodes().forPodcast(id).firstOrNull()?.let { downloader.download(it.id) }
+            db.episodes().forPodcast(id).firstOrNull()?.let { enqueueEpisodeDownload(it.id) }
         }
         db.podcasts().byId(id)!!
     }
@@ -186,9 +187,9 @@ class PodRepository(context: Context) {
             )
         )
         if (parsed != null) {
-            upsertEpisodes(id, parsed)
+            upsertEpisodes(id, parsed, queueNew = false)
             if (feed.autoDownload ?: defaults.autoDownloadDefault) {
-                db.episodes().forPodcast(id).firstOrNull()?.let { downloader.download(it.id) }
+                db.episodes().forPodcast(id).firstOrNull()?.let { enqueueEpisodeDownload(it.id) }
             }
         } else {
             runCatching { refreshPodcast(id) }
@@ -209,21 +210,27 @@ class PodRepository(context: Context) {
             )
         )
         val before = db.episodes().forPodcast(podcastId).map { it.guid }.toSet()
-        upsertEpisodes(podcastId, parsed)
-        val refreshed = db.podcasts().byId(podcastId) ?: return@withContext
-        if (refreshed.autoDownload) {
+        upsertEpisodes(podcastId, parsed, queueNew = podcast.autoDownload)
+        if (podcast.autoDownload) {
             db.episodes().forPodcast(podcastId)
-                .filter { it.guid !in before && it.downloadStatus == EpisodeEntity.STATUS_NONE }
-                .forEach { downloader.download(it.id) }
+                .filter { it.guid !in before && it.downloadStatus == EpisodeEntity.STATUS_QUEUED }
+                .forEach { enqueueEpisodeDownload(it.id) }
         }
     }
 
     suspend fun refreshAll() = withContext(Dispatchers.IO) {
-        db.podcasts().all().forEach { refreshPodcast(it.id) }
+        db.podcasts().all().forEach { podcast ->
+            runCatching { refreshPodcast(podcast.id) }
+        }
         autoDeleteCompleted()
+        EpisodeDownloadWork.sweep(app)
     }
 
-    private suspend fun upsertEpisodes(podcastId: Long, parsed: com.openpod.app.data.rss.ParsedPodcast) {
+    private suspend fun upsertEpisodes(
+        podcastId: Long,
+        parsed: com.openpod.app.data.rss.ParsedPodcast,
+        queueNew: Boolean
+    ) {
         val existing = db.episodes().forPodcast(podcastId).associateBy { it.guid }
         parsed.episodes.forEach { item ->
             val current = existing[item.guid]
@@ -244,7 +251,12 @@ class PodRepository(context: Context) {
                         imageUrl = item.imageUrl,
                         transcriptUrl = item.transcriptUrl,
                         transcriptType = item.transcriptType,
-                        chaptersUrl = item.chaptersUrl
+                        chaptersUrl = item.chaptersUrl,
+                        downloadStatus = if (queueNew) {
+                            EpisodeEntity.STATUS_QUEUED
+                        } else {
+                            EpisodeEntity.STATUS_NONE
+                        }
                     )
                 )
             } else {
@@ -291,7 +303,18 @@ class PodRepository(context: Context) {
         db.withTransaction { reorderPodcastRows(db.podcasts(), orderedIds) }
     }
 
-    suspend fun download(episodeId: Long) = downloader.download(episodeId)
+    /** Manual and bulk downloads use the same per-episode worker as auto-download. */
+    fun enqueueDownload(episodeId: Long) {
+        EpisodeDownloadWork.enqueue(app, episodeId)
+    }
+
+    private suspend fun enqueueEpisodeDownload(episodeId: Long) {
+        val episode = db.episodes().byId(episodeId) ?: return
+        if (episode.downloadStatus != EpisodeEntity.STATUS_DOWNLOADING) {
+            db.episodes().setDownloadStatus(episodeId, EpisodeEntity.STATUS_QUEUED)
+        }
+        EpisodeDownloadWork.enqueue(app, episodeId)
+    }
     suspend fun deleteDownload(episodeId: Long) = downloader.deleteLocal(episodeId)
     val downloadProgress = DownloadTracker.progress
 
@@ -479,15 +502,7 @@ class PodRepository(context: Context) {
             episode.downloadStatus != EpisodeEntity.STATUS_DONE &&
                 !downloader.localFileExists(episode)
         }
-        pending.forEach { id ->
-            val episode = db.episodes().byId(id) ?: return@forEach
-            if (episode.downloadStatus != EpisodeEntity.STATUS_DOWNLOADING) {
-                db.episodes().setDownloadStatus(id, EpisodeEntity.STATUS_QUEUED)
-            }
-        }
-        pending.forEach { id ->
-            runCatching { downloader.download(id) }
-        }
+        pending.forEach { enqueueEpisodeDownload(it) }
         return pending.size
     }
 

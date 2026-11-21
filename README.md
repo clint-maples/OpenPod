@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.43  
-**Download:** [OpenPod 1.43 APK](https://github.com/clint-maples/OpenPod/releases/download/1.43/OpenPod-1.43.apk)
+**Current version:** 1.44  
+**Download:** [OpenPod 1.44 APK](https://github.com/clint-maples/OpenPod/releases/download/1.44/OpenPod-1.44.apk)
 
 **Previous**
 
+- [1.43](https://github.com/clint-maples/OpenPod/releases/download/1.43/OpenPod-1.43.apk)
 - [1.42](https://github.com/clint-maples/OpenPod/releases/download/1.42/OpenPod-1.42.apk)
 - [1.41](https://github.com/clint-maples/OpenPod/releases/download/1.41/OpenPod-1.41.apk)
-- [1.40](https://github.com/clint-maples/OpenPod/releases/download/1.40/OpenPod-1.40.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -67,7 +67,7 @@ Now Playing stacks artwork in the top third of the area above the footer, then t
 
 ## Sync schedule
 
-Settings â†’ **Check for new episodes**: hourly, daily, or weekly. Daily and weekly also take a time of day.
+Settings â†’ **Check for new episodes**: every 30 minutes all day (the default), hourly, daily, or weekly. Daily and weekly also take a time of day. Trim silence is optional and off by default.
 
 Built for Clint Maples.
 
@@ -75,6 +75,11 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text.
+
+## 1.44
+New episodes are checked about every 30 minutes, all day. Installs still on the old daily default move to that schedule; hourly, daily, and weekly remain available. Auto-download uses the same per-episode download job as a manual download, and retries episodes that were missed or stuck. Trim silence is an optional playback effect, off by default, in Settings and in the Now Playing Playback Effects sheet.
+
+Release-signed with the shared OpenPod keystore. APK SHA-256: `e96d7eccdeb6665efb6fcb64ffa672ada1747ccddf23bc3692f062297fe7a01c`
 
 ## 1.43
 The outlined heart uses the same blue as the downloaded check mark in the episode list, on Now Playing, and in the episode menu. Only the filled favorite heart stays pink.

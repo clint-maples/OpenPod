@@ -233,7 +233,11 @@ class LibraryOrderPersistenceTest {
         sqlite.close()
 
         db = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-            .addMigrations(AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11)
+            .addMigrations(
+                AppDatabase.MIGRATION_9_10,
+                AppDatabase.MIGRATION_10_11,
+                AppDatabase.MIGRATION_11_12
+            )
             .allowMainThreadQueries()
             .build()
         assertEquals(listOf("alpha", "Zebra"), db.podcasts().all().map { it.title })

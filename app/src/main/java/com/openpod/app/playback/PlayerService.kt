@@ -19,8 +19,10 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.core.content.ContextCompat
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
@@ -113,7 +115,13 @@ class PlayerService : MediaSessionService() {
                 return DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .setAudioProcessors(arrayOf(gainProcessor))
+                    .setAudioProcessorChain(
+                        DefaultAudioSink.DefaultAudioProcessorChain(
+                            arrayOf(gainProcessor),
+                            SilenceSkippingAudioProcessor(),
+                            SonicAudioProcessor()
+                        )
+                    )
                     .build()
             }
         }
@@ -200,6 +208,7 @@ class PlayerService : MediaSessionService() {
             scope.launch {
                 applyVolumeBoost(settings.volumeBoost)
                 setSkipSeconds(fwd, back)
+                applySkipSilence(settings.skipSilence)
             }
         }
         consumePending()
@@ -608,6 +617,12 @@ class PlayerService : MediaSessionService() {
         _state.update { it.copy(volumeBoost = value) }
     }
 
+    fun applySkipSilence(enabled: Boolean) {
+        if (::exo.isInitialized) {
+            exo.skipSilenceEnabled = enabled
+        }
+    }
+
     fun equalizer(): EqController = eq
 
     fun stopAndClear() {
@@ -948,6 +963,10 @@ class PlayerService : MediaSessionService() {
             val value = slider.coerceIn(-1f, 1f)
             _state.update { it.copy(volumeBoost = value) }
             instance?.applyVolumeBoost(value)
+        }
+
+        fun setSkipSilence(enabled: Boolean) {
+            instance?.applySkipSilence(enabled)
         }
 
         fun play(context: android.content.Context, episode: EpisodeEntity, podcastTitle: String, artwork: String) {

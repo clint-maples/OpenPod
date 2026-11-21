@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.os.Build
 import com.openpod.app.data.db.AppDatabase
 import com.openpod.app.data.db.SettingsEntity
+import com.openpod.app.download.EpisodeDownloadWork
 import com.openpod.app.work.PodcastSyncWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +46,16 @@ class OpenPodApp : Application() {
                     NotificationManager.IMPORTANCE_LOW
                 )
             )
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    "downloads",
+                    "Downloads",
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    setShowBadge(false)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                }
+            )
         }
         CoroutineScope(Dispatchers.IO).launch {
             val settings = AppDatabase.get(this@OpenPodApp).settings().get() ?: SettingsEntity()
@@ -54,6 +65,7 @@ class OpenPodApp : Application() {
                 settings.syncHour,
                 settings.syncMinute
             )
+            EpisodeDownloadWork.sweep(this@OpenPodApp)
         }
     }
 }
