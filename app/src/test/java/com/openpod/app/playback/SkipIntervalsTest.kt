@@ -25,8 +25,8 @@ class SkipIntervalsTest {
 
     @Test
     fun labelsUseExactSanitizedSeconds() {
-        assertEquals("−12", SkipIntervals.compactLabel(12, forward = false))
-        assertEquals("+90", SkipIntervals.compactLabel(90, forward = true))
+        assertEquals("12", SkipIntervals.compactLabel(12, forward = false))
+        assertEquals("90", SkipIntervals.compactLabel(90, forward = true))
         assertEquals("Back 12s", SkipIntervals.contentDescription(12, forward = false))
         assertEquals("Forward 90s", SkipIntervals.contentDescription(90, forward = true))
     }

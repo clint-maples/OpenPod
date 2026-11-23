@@ -82,8 +82,12 @@ class NowPlayingChromeTest {
     @Test
     fun transportButtonsStayLargeAndNotesClearTheFooter() {
         assertTrue(NowPlayingChrome.TRANSPORT_BUTTON_DP >= 72)
-        assertTrue(NowPlayingChrome.TRANSPORT_PLAY_ICON_DP >= 48)
-        assertTrue(NowPlayingChrome.TRANSPORT_SKIP_ICON_DP >= 36)
+        assertEquals(58, NowPlayingChrome.TRANSPORT_PLAY_ICON_DP)
+        assertEquals(43, NowPlayingChrome.TRANSPORT_SKIP_ICON_DP)
+        assertEquals(4, NowPlayingChrome.FOOTER_BAND_GAP_DP)
+        assertEquals(1, NowPlayingChrome.NAV_ACCENT_LINE_DP)
+        assertEquals(3, NowPlayingChrome.PROGRESS_TRACK_DP)
+        assertEquals(12, NowPlayingChrome.PROGRESS_THUMB_DP)
         assertTrue(NowPlayingChrome.NOTES_END_PADDING_DP >= 16)
     }
 

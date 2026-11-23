@@ -10,7 +10,9 @@ import android.widget.TextView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -110,6 +112,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -125,6 +128,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -194,10 +200,16 @@ fun OpenPodRoot(vm: AppViewModel) {
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 0.dp
-            ) {
+            Column(Modifier.background(MaterialTheme.colorScheme.background)) {
+                Spacer(Modifier.height(NowPlayingChrome.FOOTER_BAND_GAP_DP.dp))
+                HorizontalDivider(
+                    thickness = NowPlayingChrome.NAV_ACCENT_LINE_DP.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp
+                ) {
                 NavItem("Library", Icons.Default.LibraryMusic, back.startsWith("library") || back.startsWith("podcast") || back.startsWith("episode")) {
                     nav.navigate("library") { popUpTo(nav.graph.findStartDestination().id); launchSingleTop = true }
                 }
@@ -216,6 +228,7 @@ fun OpenPodRoot(vm: AppViewModel) {
                 }
                 NavItem("Settings", Icons.Default.Settings, back == "settings") {
                     nav.navigate("settings") { launchSingleTop = true }
+                }
                 }
             }
         }
@@ -1361,24 +1374,27 @@ private fun NowPlayingActionBar(
     var sleepMenuOpen by remember { mutableStateOf(false) }
     val displayDuration = player.effectiveDurationMs.takeIf { it > 0L } ?: player.durationMs
     val transportSize = NowPlayingChrome.TRANSPORT_BUTTON_DP.dp
-    Surface(
-        tonalElevation = 3.dp,
-        modifier = Modifier.windowInsetsPadding(
-            WindowInsets.navigationBars.only(
-                WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+    val bandColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    val bandGap = Modifier.height(NowPlayingChrome.FOOTER_BAND_GAP_DP.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
+            .windowInsetsPadding(
+                WindowInsets.navigationBars.only(
+                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+                )
             )
-        )
     ) {
-        Column(Modifier.fillMaxWidth()) {
-            HorizontalDivider()
-            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-                Slider(
-                    value = if (displayDuration > 0) {
+        Surface(color = bandColor, tonalElevation = 0.dp) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+                NowPlayingSeekBar(
+                    fraction = if (displayDuration > 0) {
                         (player.positionMs.toFloat() / displayDuration).coerceIn(0f, 1f)
                     } else {
                         0f
                     },
-                    onValueChange = { fraction ->
+                    onFraction = { fraction ->
                         if (displayDuration > 0) vm.seek((fraction * displayDuration).toLong())
                     }
                 )
@@ -1387,10 +1403,13 @@ private fun NowPlayingActionBar(
                     Text(formatMs(displayDuration), style = MaterialTheme.typography.bodySmall)
                 }
             }
+        }
+        Spacer(bandGap)
+        Surface(color = bandColor, tonalElevation = 0.dp) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
@@ -1413,9 +1432,13 @@ private fun NowPlayingActionBar(
                     forward = true,
                     onClick = { vm.skip(true) },
                     controlSize = transportSize,
-                    iconSize = NowPlayingChrome.TRANSPORT_SKIP_ICON_DP.dp
+                    iconSize = NowPlayingChrome.TRANSPORT_SKIP_ICON_DP.dp,
+                    mirrorForwardGlyph = true
                 )
             }
+        }
+        Spacer(bandGap)
+        Surface(color = bandColor, tonalElevation = 0.dp) {
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -1879,6 +1902,63 @@ private fun CircleStepButton(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NowPlayingSeekBar(
+    fraction: Float,
+    onFraction: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val primary = MaterialTheme.colorScheme.primary
+    val inactive = SliderDefaults.colors().inactiveTrackColor
+    val interactionSource = remember { MutableInteractionSource() }
+    val trackH = NowPlayingChrome.PROGRESS_TRACK_DP.dp
+    val thumbD = NowPlayingChrome.PROGRESS_THUMB_DP.dp
+    Slider(
+        value = fraction,
+        onValueChange = onFraction,
+        modifier = modifier,
+        colors = SliderDefaults.colors(
+            thumbColor = primary,
+            activeTrackColor = primary,
+            inactiveTrackColor = inactive
+        ),
+        interactionSource = interactionSource,
+        thumb = {
+            Box(
+                Modifier
+                    .size(thumbD)
+                    .background(primary, CircleShape)
+            )
+        },
+        track = { state ->
+            val range = state.valueRange
+            val span = range.endInclusive - range.start
+            val pos = if (span <= 0f) 0f else ((state.value - range.start) / span).coerceIn(0f, 1f)
+            Box(
+                Modifier.fillMaxWidth().height(thumbD),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(Modifier.fillMaxWidth().height(trackH)) {
+                    val radius = size.height / 2
+                    drawRoundRect(
+                        color = inactive,
+                        size = size,
+                        cornerRadius = CornerRadius(radius, radius)
+                    )
+                    if (pos > 0f) {
+                        drawRoundRect(
+                            color = primary,
+                            size = Size(size.width * pos, size.height),
+                            cornerRadius = CornerRadius(radius, radius)
+                        )
+                    }
+                }
+            }
+        }
+    )
+}
+
 @Composable
 private fun SkipIconButton(
     seconds: Int,
@@ -1887,14 +1967,28 @@ private fun SkipIconButton(
     compact: Boolean = false,
     showAmount: Boolean = true,
     controlSize: androidx.compose.ui.unit.Dp = if (compact) 48.dp else 72.dp,
-    iconSize: androidx.compose.ui.unit.Dp = if (compact) 22.dp else 36.dp
+    iconSize: androidx.compose.ui.unit.Dp = if (compact) 22.dp else 36.dp,
+    mirrorForwardGlyph: Boolean = false
 ) {
     IconButton(onClick, Modifier.size(controlSize)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            val glyph = if (forward && !mirrorForwardGlyph) {
+                Icons.Default.FastForward
+            } else {
+                Icons.Default.Replay
+            }
             Icon(
-                if (forward) Icons.Default.FastForward else Icons.Default.Replay,
+                glyph,
                 SkipIntervals.contentDescription(seconds, forward),
-                Modifier.size(iconSize)
+                Modifier
+                    .size(iconSize)
+                    .then(
+                        if (forward && mirrorForwardGlyph) {
+                            Modifier.graphicsLayer { scaleX = -1f }
+                        } else {
+                            Modifier
+                        }
+                    )
             )
             if (showAmount) {
                 Text(

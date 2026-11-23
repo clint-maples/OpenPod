@@ -16,8 +16,9 @@ object SkipIntervals {
     }
 
     fun compactLabel(seconds: Int, forward: Boolean): String {
-        val amount = sanitize(seconds)
-        return if (forward) "+$amount" else "−$amount"
+        // Visible skip counts on Now Playing are unsigned ("15" / "60").
+        // The unused `forward` flag is kept so existing call sites stay the same.
+        return sanitize(seconds).toString()
     }
 
     fun contentDescription(seconds: Int, forward: Boolean): String {
