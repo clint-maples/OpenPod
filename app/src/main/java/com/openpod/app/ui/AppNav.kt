@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -120,7 +121,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -150,6 +153,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -1374,7 +1378,8 @@ private fun NowPlayingActionBar(
     var sleepMenuOpen by remember { mutableStateOf(false) }
     val displayDuration = player.effectiveDurationMs.takeIf { it > 0L } ?: player.durationMs
     val transportSize = NowPlayingChrome.TRANSPORT_BUTTON_DP.dp
-    val bandColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    val progressTransportColor = Color(NowPlayingChrome.PROGRESS_TRANSPORT_COLOR)
+    val actionsColor = MaterialTheme.colorScheme.surfaceContainerHigh
     val bandGap = Modifier.height(NowPlayingChrome.FOOTER_BAND_GAP_DP.dp)
     Column(
         Modifier
@@ -1386,8 +1391,21 @@ private fun NowPlayingActionBar(
                 )
             )
     ) {
-        Surface(color = bandColor, tonalElevation = 0.dp) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Surface(color = progressTransportColor, tonalElevation = 0.dp) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(NowPlayingChrome.PROGRESS_BAND_HEIGHT_DP.dp)
+                    .padding(horizontal = NowPlayingChrome.PROGRESS_HORIZONTAL_PADDING_DP.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    formatMs(player.positionMs),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    softWrap = false
+                )
+                Spacer(Modifier.width(NowPlayingChrome.PROGRESS_INLINE_GAP_DP.dp))
                 NowPlayingSeekBar(
                     fraction = if (displayDuration > 0) {
                         (player.positionMs.toFloat() / displayDuration).coerceIn(0f, 1f)
@@ -1396,20 +1414,25 @@ private fun NowPlayingActionBar(
                     },
                     onFraction = { fraction ->
                         if (displayDuration > 0) vm.seek((fraction * displayDuration).toLong())
-                    }
+                    },
+                    modifier = Modifier.weight(1f)
                 )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(formatMs(player.positionMs), style = MaterialTheme.typography.bodySmall)
-                    Text(formatMs(displayDuration), style = MaterialTheme.typography.bodySmall)
-                }
+                Spacer(Modifier.width(NowPlayingChrome.PROGRESS_INLINE_GAP_DP.dp))
+                Text(
+                    formatMs(displayDuration),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    softWrap = false
+                )
             }
         }
         Spacer(bandGap)
-        Surface(color = bandColor, tonalElevation = 0.dp) {
+        Surface(color = progressTransportColor, tonalElevation = 0.dp) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                    .height(NowPlayingChrome.TRANSPORT_BAND_HEIGHT_DP.dp)
+                    .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
@@ -1438,12 +1461,12 @@ private fun NowPlayingActionBar(
             }
         }
         Spacer(bandGap)
-        Surface(color = bandColor, tonalElevation = 0.dp) {
+        Surface(color = actionsColor, tonalElevation = 0.dp) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 64.dp)
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                    .height(NowPlayingChrome.ACTIONS_BAND_HEIGHT_DP.dp)
+                    .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 NowPlayingChrome.bottomActions.forEach { action ->
@@ -1914,49 +1937,53 @@ private fun NowPlayingSeekBar(
     val interactionSource = remember { MutableInteractionSource() }
     val trackH = NowPlayingChrome.PROGRESS_TRACK_DP.dp
     val thumbD = NowPlayingChrome.PROGRESS_THUMB_DP.dp
-    Slider(
-        value = fraction,
-        onValueChange = onFraction,
-        modifier = modifier,
-        colors = SliderDefaults.colors(
-            thumbColor = primary,
-            activeTrackColor = primary,
-            inactiveTrackColor = inactive
-        ),
-        interactionSource = interactionSource,
-        thumb = {
-            Box(
-                Modifier
-                    .size(thumbD)
-                    .background(primary, CircleShape)
-            )
-        },
-        track = { state ->
-            val range = state.valueRange
-            val span = range.endInclusive - range.start
-            val pos = if (span <= 0f) 0f else ((state.value - range.start) / span).coerceIn(0f, 1f)
-            Box(
-                Modifier.fillMaxWidth().height(thumbD),
-                contentAlignment = Alignment.Center
-            ) {
-                Canvas(Modifier.fillMaxWidth().height(trackH)) {
-                    val radius = size.height / 2
-                    drawRoundRect(
-                        color = inactive,
-                        size = size,
-                        cornerRadius = CornerRadius(radius, radius)
-                    )
-                    if (pos > 0f) {
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+        Slider(
+            value = fraction,
+            onValueChange = onFraction,
+            modifier = modifier.height(NowPlayingChrome.PROGRESS_BAND_HEIGHT_DP.dp),
+            colors = SliderDefaults.colors(
+                thumbColor = primary,
+                activeTrackColor = primary,
+                inactiveTrackColor = inactive
+            ),
+            interactionSource = interactionSource,
+            thumb = {
+                Box(
+                    Modifier
+                        .size(thumbD)
+                        .background(primary, CircleShape)
+                )
+            },
+            track = { state ->
+                val range = state.valueRange
+                val span = range.endInclusive - range.start
+                val pos = if (span <= 0f) 0f else ((state.value - range.start) / span).coerceIn(0f, 1f)
+                // Fill the 32 dp row and center the 3 dp track so it shares a vertical
+                // center with the 12 dp thumb.
+                Box(
+                    Modifier.fillMaxWidth().fillMaxHeight(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Canvas(Modifier.fillMaxWidth().height(trackH)) {
+                        val radius = size.height / 2
                         drawRoundRect(
-                            color = primary,
-                            size = Size(size.width * pos, size.height),
+                            color = inactive,
+                            size = size,
                             cornerRadius = CornerRadius(radius, radius)
                         )
+                        if (pos > 0f) {
+                            drawRoundRect(
+                                color = primary,
+                                size = Size(size.width * pos, size.height),
+                                cornerRadius = CornerRadius(radius, radius)
+                            )
+                        }
                     }
                 }
             }
-        }
-    )
+        )
+    }
 }
 
 @Composable

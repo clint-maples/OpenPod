@@ -81,14 +81,25 @@ class NowPlayingChromeTest {
 
     @Test
     fun transportButtonsStayLargeAndNotesClearTheFooter() {
-        assertTrue(NowPlayingChrome.TRANSPORT_BUTTON_DP >= 72)
+        assertEquals(70, NowPlayingChrome.TRANSPORT_BUTTON_DP)
         assertEquals(58, NowPlayingChrome.TRANSPORT_PLAY_ICON_DP)
         assertEquals(43, NowPlayingChrome.TRANSPORT_SKIP_ICON_DP)
+        assertEquals(32, NowPlayingChrome.PROGRESS_BAND_HEIGHT_DP)
+        assertEquals(78, NowPlayingChrome.TRANSPORT_BAND_HEIGHT_DP)
+        assertEquals(45, NowPlayingChrome.ACTIONS_BAND_HEIGHT_DP)
         assertEquals(4, NowPlayingChrome.FOOTER_BAND_GAP_DP)
         assertEquals(1, NowPlayingChrome.NAV_ACCENT_LINE_DP)
+        assertEquals(12, NowPlayingChrome.PROGRESS_HORIZONTAL_PADDING_DP)
+        assertEquals(8, NowPlayingChrome.PROGRESS_INLINE_GAP_DP)
         assertEquals(3, NowPlayingChrome.PROGRESS_TRACK_DP)
         assertEquals(12, NowPlayingChrome.PROGRESS_THUMB_DP)
+        assertEquals(0xFF000000L, NowPlayingChrome.PROGRESS_TRANSPORT_COLOR)
         assertTrue(NowPlayingChrome.NOTES_END_PADDING_DP >= 16)
+        // Transport band packs 4 dp + 70 dp button + 4 dp; play 58 and skip 43+label clear 70.
+        assertEquals(
+            NowPlayingChrome.TRANSPORT_BAND_HEIGHT_DP,
+            4 + NowPlayingChrome.TRANSPORT_BUTTON_DP + 4
+        )
     }
 
     @Test
