@@ -13,12 +13,15 @@ package com.openpod.app.ui
  * [FooterBand.Actions]: speed, equalizer, sleep, share, and favorite at the right.
  * Speed and sleep open menus. The equalizer action opens [EQUALIZER_ROUTE].
  * Action icons and labels are [BOTTOM_CONTROL_SCALE] of their previous size.
- * Action tap targets stay at least [MIN_TAP_TARGET_DP]. Transport buttons stay
- * at [TRANSPORT_BUTTON_DP]; the play and skip glyphs are 10% smaller than the
- * previous 64 / 48 dp sizes. The three footer bands sit on
- * [androidx.compose.material3.ColorScheme.surfaceContainerHigh] with
- * [FOOTER_BAND_GAP_DP] of page background between them. A 1 dp primary line
- * ([NAV_ACCENT_LINE_DP]) is drawn above the app navigation bar on every screen.
+ * Action tap targets stay at least [MIN_TAP_TARGET_DP] wide. Transport buttons
+ * stay at [TRANSPORT_BUTTON_DP]; the play and skip glyphs are 10% smaller than
+ * the previous 64 / 48 dp sizes. The progress and transport bands use pure
+ * black ([PROGRESS_TRANSPORT_COLOR]); the actions bar stays on
+ * [androidx.compose.material3.ColorScheme.surfaceContainerHigh]. [FOOTER_BAND_GAP_DP]
+ * of page background sits between the bands. Elapsed and remaining times sit
+ * inline at the ends of the [PROGRESS_BAND_HEIGHT_DP] dp seek row. A 1 dp
+ * primary line ([NAV_ACCENT_LINE_DP]) is drawn above the app navigation bar on
+ * every screen.
  */
 object NowPlayingChrome {
     const val ARTWORK_HEIGHT_FRACTION = 1f / 3f
@@ -29,19 +32,31 @@ object NowPlayingChrome {
     const val EQUALIZER_ICON_DP = 22
 
     /** Hit target for rewind, play/pause, and fast-forward in the pinned footer. */
-    const val TRANSPORT_BUTTON_DP = 96
+    const val TRANSPORT_BUTTON_DP = 70
     /** 10% smaller than the previous 64 dp play glyph. */
     const val TRANSPORT_PLAY_ICON_DP = 58
     /** 10% smaller than the previous 48 dp skip glyph. */
     const val TRANSPORT_SKIP_ICON_DP = 43
 
+    /** Locked band heights from the 1.50 Now Playing footer (round 6 v4). */
+    const val PROGRESS_BAND_HEIGHT_DP = 32
+    const val TRANSPORT_BAND_HEIGHT_DP = 78
+    const val ACTIONS_BAND_HEIGHT_DP = 45
+
     /** Gap of page background between the Now Playing footer bands (and above the nav line). */
     const val FOOTER_BAND_GAP_DP = 4
     const val NAV_ACCENT_LINE_DP = 1
 
+    /** Horizontal inset of the seek row, and gap between inline times and the track. */
+    const val PROGRESS_HORIZONTAL_PADDING_DP = 12
+    const val PROGRESS_INLINE_GAP_DP = 8
+
     /** pb4 seek bar: 3 dp rounded track, 12 dp round dot thumb. */
     const val PROGRESS_TRACK_DP = 3
     const val PROGRESS_THUMB_DP = 12
+
+    /** Pure black used by the progress and transport bands. Actions stay on surfaceContainerHigh. */
+    const val PROGRESS_TRANSPORT_COLOR = 0xFF000000L
 
     /** Space after the last scrolling line so it can clear the pinned footer. */
     const val NOTES_END_PADDING_DP = 24
