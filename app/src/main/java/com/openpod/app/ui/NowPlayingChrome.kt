@@ -14,7 +14,11 @@ package com.openpod.app.ui
  * Speed and sleep open menus. The equalizer action opens [EQUALIZER_ROUTE].
  * Action icons and labels are [BOTTOM_CONTROL_SCALE] of their previous size.
  * Action tap targets stay at least [MIN_TAP_TARGET_DP]. Transport buttons stay
- * at [TRANSPORT_BUTTON_DP].
+ * at [TRANSPORT_BUTTON_DP]; the play and skip glyphs are 10% smaller than the
+ * previous 64 / 48 dp sizes. The three footer bands sit on
+ * [androidx.compose.material3.ColorScheme.surfaceContainerHigh] with
+ * [FOOTER_BAND_GAP_DP] of page background between them. A 1 dp primary line
+ * ([NAV_ACCENT_LINE_DP]) is drawn above the app navigation bar on every screen.
  */
 object NowPlayingChrome {
     const val ARTWORK_HEIGHT_FRACTION = 1f / 3f
@@ -26,8 +30,18 @@ object NowPlayingChrome {
 
     /** Hit target for rewind, play/pause, and fast-forward in the pinned footer. */
     const val TRANSPORT_BUTTON_DP = 96
-    const val TRANSPORT_PLAY_ICON_DP = 64
-    const val TRANSPORT_SKIP_ICON_DP = 48
+    /** 10% smaller than the previous 64 dp play glyph. */
+    const val TRANSPORT_PLAY_ICON_DP = 58
+    /** 10% smaller than the previous 48 dp skip glyph. */
+    const val TRANSPORT_SKIP_ICON_DP = 43
+
+    /** Gap of page background between the Now Playing footer bands (and above the nav line). */
+    const val FOOTER_BAND_GAP_DP = 4
+    const val NAV_ACCENT_LINE_DP = 1
+
+    /** pb4 seek bar: 3 dp rounded track, 12 dp round dot thumb. */
+    const val PROGRESS_TRACK_DP = 3
+    const val PROGRESS_THUMB_DP = 12
 
     /** Space after the last scrolling line so it can clear the pinned footer. */
     const val NOTES_END_PADDING_DP = 24
