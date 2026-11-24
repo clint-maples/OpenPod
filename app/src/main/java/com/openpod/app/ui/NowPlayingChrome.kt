@@ -28,6 +28,7 @@ object NowPlayingChrome {
     const val EQUALIZER_ROUTE = "eq"
     const val ELAPSED_TAG = "now-playing-elapsed"
     const val REMAINING_TAG = "now-playing-remaining"
+    const val SEEK_TAG = "now-playing-seek"
     const val BOTTOM_CONTROL_SCALE = 0.82f
     const val MIN_TAP_TARGET_DP = 48
     const val STANDARD_ICON_DP = 24
@@ -102,3 +103,26 @@ object NowPlayingChrome {
     fun equalizerRoute(action: BottomAction): String? =
         if (action == BottomAction.Equalizer) EQUALIZER_ROUTE else null
 }
+
+/**
+ * Layout math for the Now Playing 12 dp thumb on the 3 dp track.
+ * Material3's [androidx.compose.material3.Slider] cannot host this pairing:
+ * it wraps the thumb in a box whose minimum height is the 16 dp track token
+ * and top-aligns a smaller custom thumb, so the dot sits 2 dp above the track.
+ * We draw both ourselves so they share one vertical center.
+ */
+internal object NowPlayingSeekBarGeometry {
+    fun fractionFromX(x: Float, widthPx: Float, thumbPx: Float): Float {
+        val usable = (widthPx - thumbPx).coerceAtLeast(0f)
+        if (usable <= 0f) return 0f
+        return ((x - thumbPx / 2f) / usable).coerceIn(0f, 1f)
+    }
+
+    fun thumbCenterX(widthPx: Float, fraction: Float, thumbPx: Float): Float {
+        val usable = (widthPx - thumbPx).coerceAtLeast(0f)
+        return thumbPx / 2f + usable * fraction.coerceIn(0f, 1f)
+    }
+
+    fun centerY(heightPx: Float): Float = heightPx / 2f
+}
+

@@ -11,6 +11,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.border
@@ -122,7 +124,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -133,6 +134,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
@@ -142,10 +144,14 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.core.app.NotificationManagerCompat
 import com.openpod.app.BuildConfig
 import androidx.compose.ui.platform.LocalFocusManager
@@ -1919,7 +1925,6 @@ private fun CircleStepButton(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun NowPlayingProgressRow(
     positionMs: Long,
@@ -1997,7 +2002,6 @@ internal fun NowPlayingProgressRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NowPlayingSeekBar(
     fraction: Float,
@@ -2007,55 +2011,83 @@ private fun NowPlayingSeekBar(
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val inactive = SliderDefaults.colors().inactiveTrackColor
-    val interactionSource = remember { MutableInteractionSource() }
     val trackH = NowPlayingChrome.PROGRESS_TRACK_DP.dp
     val thumbD = NowPlayingChrome.PROGRESS_THUMB_DP.dp
-    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-        Slider(
-            value = fraction,
-            onValueChange = onFraction,
-            onValueChangeFinished = onChangeFinished,
-            modifier = modifier.height(NowPlayingChrome.PROGRESS_BAND_HEIGHT_DP.dp),
-            colors = SliderDefaults.colors(
-                thumbColor = primary,
-                activeTrackColor = primary,
-                inactiveTrackColor = inactive
-            ),
-            interactionSource = interactionSource,
-            thumb = {
-                Box(
-                    Modifier
-                        .size(thumbD)
-                        .background(primary, CircleShape)
-                )
-            },
-            track = { state ->
-                val range = state.valueRange
-                val span = range.endInclusive - range.start
-                val pos = if (span <= 0f) 0f else ((state.value - range.start) / span).coerceIn(0f, 1f)
-                // Fill the 32 dp row and center the 3 dp track so it shares a vertical
-                // center with the 12 dp thumb.
-                Box(
-                    Modifier.fillMaxWidth().fillMaxHeight(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Canvas(Modifier.fillMaxWidth().height(trackH)) {
-                        val radius = size.height / 2
-                        drawRoundRect(
-                            color = inactive,
-                            size = size,
-                            cornerRadius = CornerRadius(radius, radius)
+    val pos = fraction.coerceIn(0f, 1f)
+    Canvas(
+        modifier
+            .fillMaxWidth()
+            .height(NowPlayingChrome.PROGRESS_BAND_HEIGHT_DP.dp)
+            .testTag(NowPlayingChrome.SEEK_TAG)
+            .semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(pos, 0f..1f)
+            }
+            .pointerInput(onFraction, onChangeFinished, thumbD) {
+                val thumbPx = thumbD.toPx()
+                detectTapGestures { offset ->
+                    onFraction(
+                        NowPlayingSeekBarGeometry.fractionFromX(
+                            offset.x,
+                            size.width.toFloat(),
+                            thumbPx
                         )
-                        if (pos > 0f) {
-                            drawRoundRect(
-                                color = primary,
-                                size = Size(size.width * pos, size.height),
-                                cornerRadius = CornerRadius(radius, radius)
-                            )
-                        }
-                    }
+                    )
+                    onChangeFinished()
                 }
             }
+            .pointerInput(onFraction, onChangeFinished, thumbD) {
+                val thumbPx = thumbD.toPx()
+                detectDragGestures(
+                    onDragStart = { offset ->
+                        onFraction(
+                            NowPlayingSeekBarGeometry.fractionFromX(
+                                offset.x,
+                                size.width.toFloat(),
+                                thumbPx
+                            )
+                        )
+                    },
+                    onDragEnd = { onChangeFinished() },
+                    onDragCancel = { onChangeFinished() },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        onFraction(
+                            NowPlayingSeekBarGeometry.fractionFromX(
+                                change.position.x,
+                                size.width.toFloat(),
+                                thumbPx
+                            )
+                        )
+                    }
+                )
+            }
+    ) {
+        val thumbPx = thumbD.toPx()
+        val trackPx = trackH.toPx()
+        val cy = NowPlayingSeekBarGeometry.centerY(size.height)
+        val cx = NowPlayingSeekBarGeometry.thumbCenterX(size.width, pos, thumbPx)
+        val trackStart = thumbPx / 2f
+        val trackWidth = (size.width - thumbPx).coerceAtLeast(0f)
+        val trackTop = cy - trackPx / 2f
+        val radius = trackPx / 2f
+        drawRoundRect(
+            color = inactive,
+            topLeft = Offset(trackStart, trackTop),
+            size = Size(trackWidth, trackPx),
+            cornerRadius = CornerRadius(radius, radius)
+        )
+        if (pos > 0f && trackWidth > 0f) {
+            drawRoundRect(
+                color = primary,
+                topLeft = Offset(trackStart, trackTop),
+                size = Size(trackWidth * pos, trackPx),
+                cornerRadius = CornerRadius(radius, radius)
+            )
+        }
+        drawCircle(
+            color = primary,
+            radius = thumbPx / 2f,
+            center = Offset(cx, cy)
         )
     }
 }
