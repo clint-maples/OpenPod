@@ -29,6 +29,8 @@ object NowPlayingChrome {
     const val ELAPSED_TAG = "now-playing-elapsed"
     const val REMAINING_TAG = "now-playing-remaining"
     const val SEEK_TAG = "now-playing-seek"
+    const val ACTIONS_BAR_TAG = "now-playing-actions"
+    const val EQUALIZER_TAG = "now-playing-eq"
     const val BOTTOM_CONTROL_SCALE = 0.82f
     const val MIN_TAP_TARGET_DP = 48
     const val STANDARD_ICON_DP = 24
