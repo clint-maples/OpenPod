@@ -1416,6 +1416,25 @@ private fun PlayerScreen(
     }
 }
 
+@Composable
+internal fun NowPlayingEqualizerButton(onClick: () -> Unit) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(NowPlayingChrome.MIN_TAP_TARGET_DP.dp)
+            .testTag(NowPlayingChrome.EQUALIZER_TAG)
+    ) {
+        OpenPodControlWell(Modifier.size(32.dp)) {
+            Icon(
+                Icons.Default.Equalizer,
+                "Equalizer",
+                modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.EQUALIZER_ICON_DP).dp),
+                tint = openPodControlTint()
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NowPlayingActionBar(
@@ -1503,7 +1522,8 @@ private fun NowPlayingActionBar(
                 Modifier
                     .fillMaxWidth()
                     .height(NowPlayingChrome.ACTIONS_BAND_HEIGHT_DP.dp)
-                    .padding(horizontal = 4.dp),
+                    .padding(horizontal = 4.dp)
+                    .testTag(NowPlayingChrome.ACTIONS_BAR_TAG),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 NowPlayingChrome.bottomActions.forEach { action ->
@@ -1577,31 +1597,7 @@ private fun NowPlayingActionBar(
                                 }
                             }
                             NowPlayingChrome.BottomAction.Equalizer -> {
-                                val eqLabel = MaterialTheme.typography.labelMedium
-                                TextButton(
-                                    onClick = onEq,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(min = NowPlayingChrome.MIN_TAP_TARGET_DP.dp),
-                                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        OpenPodControlWell(Modifier.size(32.dp)) {
-                                            Icon(
-                                                Icons.Default.Equalizer,
-                                                "Graphic equalizer",
-                                                modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.EQUALIZER_ICON_DP).dp),
-                                                tint = openPodControlTint()
-                                            )
-                                        }
-                                        Text(
-                                            "EQ",
-                                            style = eqLabel.copy(
-                                                fontSize = eqLabel.fontSize * NowPlayingChrome.BOTTOM_CONTROL_SCALE
-                                            )
-                                        )
-                                    }
-                                }
+                                NowPlayingEqualizerButton(onClick = onEq)
                             }
                             NowPlayingChrome.BottomAction.Sleep -> {
                                 IconButton(
