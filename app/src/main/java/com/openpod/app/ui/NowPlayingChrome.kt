@@ -18,14 +18,16 @@ package com.openpod.app.ui
  * the previous 64 / 48 dp sizes. The progress and transport bands use pure
  * black ([PROGRESS_TRANSPORT_COLOR]); the actions bar stays on
  * [androidx.compose.material3.ColorScheme.surfaceContainerHigh]. [FOOTER_BAND_GAP_DP]
- * of page background sits between the bands. Elapsed and remaining times sit
- * inline at the ends of the [PROGRESS_BAND_HEIGHT_DP] dp seek row. A 1 dp
+ * of page background sits between the bands. Elapsed time sits at the left of the [PROGRESS_BAND_HEIGHT_DP] dp seek row;
+ * remaining time sits at the right as a countdown with a leading minus (-42:10). A 1 dp
  * primary line ([NAV_ACCENT_LINE_DP]) is drawn above the app navigation bar on
  * every screen.
  */
 object NowPlayingChrome {
     const val ARTWORK_HEIGHT_FRACTION = 1f / 3f
     const val EQUALIZER_ROUTE = "eq"
+    const val ELAPSED_TAG = "now-playing-elapsed"
+    const val REMAINING_TAG = "now-playing-remaining"
     const val BOTTOM_CONTROL_SCALE = 0.82f
     const val MIN_TAP_TARGET_DP = 48
     const val STANDARD_ICON_DP = 24

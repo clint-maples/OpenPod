@@ -19,6 +19,15 @@ fun formatMs(ms: Long): String {
     else "%d:%02d".format(minutes, seconds)
 }
 
+/** Remaining playback time, never negative. Unknown or empty duration is 0. */
+fun remainingMs(durationMs: Long, positionMs: Long): Long {
+    if (durationMs <= 0L) return 0L
+    return (durationMs - positionMs.coerceAtLeast(0L)).coerceAtLeast(0L)
+}
+
+/** Countdown label for the progress row, always with a leading minus: -42:10 or -1:02:10. */
+fun formatRemainingMs(remainingMs: Long): String = "-${formatMs(remainingMs)}"
+
 fun formatDate(ms: Long): String {
     if (ms <= 0) return ""
     return SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(ms))
