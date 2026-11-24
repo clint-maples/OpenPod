@@ -42,6 +42,16 @@ import kotlinx.coroutines.launch
  * The 1.53 proportional thumb looked huge on Now Playing until items were
  * measured, then shrank. A fixed thumb removes that glitch.
  *
+ * 1.54 still estimated a lazy list's scroll fraction from the average of
+ * currently visible rows, so a tall first item (Now Playing artwork)
+ * made the thumb crawl and then jump once shorter items were measured.
+ * Now Playing (and the episode screen) use a non-lazy Column with a
+ * [ScrollState], so fraction is value/maxValue from the first layout.
+ * Other lazy lists accumulate measured item heights and estimate
+ * unmeasured rows from a typical (outlier-resistant) average, and
+ * drag mapping uses the same numbers. Fairly uniform lists can also
+ * use the index-and-offset fraction.
+ *
  * This host is a [Box] with the list as a child and a sibling rail drawn
  * on top at the right edge, both wired to the same scroll state. The rail's
  * touch target is a narrow 28 dp strip so row overflow buttons stay tappable.
@@ -204,6 +214,163 @@ object OpenPodScrollbar {
         return LazyScrollTarget(index = index, scrollOffset = offset)
     }
 
+    fun mergeMeasuredSizes(
+        stored: Map<Int, Int>,
+        visible: List<LazyItemMeasure>,
+        totalItems: Int
+    ): Map<Int, Int> {
+        val out = LinkedHashMap<Int, Int>(stored.size + visible.size)
+        stored.forEach { (index, size) ->
+            if (index in 0 until totalItems) out[index] = size
+        }
+        visible.forEach { item ->
+            if (item.index in 0 until totalItems) out[item.index] = item.size
+        }
+        return out
+    }
+
+    /**
+     * Typical height for items not yet measured. A single tall header
+     * (or any outlier more than 2x the median) is kept for that item
+     * but is not applied to the rest of the list.
+     */
+    fun averageForUnmeasured(measuredSizes: Map<Int, Int>): Float {
+        if (measuredSizes.isEmpty()) return 1f
+        val values = measuredSizes.values.map { it.toFloat() }.sorted()
+        val median = values[values.size / 2]
+        val typical = values.filter { it <= median * 2f }
+        val used = if (typical.isEmpty()) values else typical
+        return (used.sum() / used.size).coerceAtLeast(1f)
+    }
+
+    fun rowHeight(
+        row: Int,
+        columns: Int,
+        totalItems: Int,
+        measuredSizes: Map<Int, Int>,
+        unmeasuredAvg: Float
+    ): Float {
+        val cols = columns.coerceAtLeast(1)
+        val start = row * cols
+        val end = (start + cols).coerceAtMost(totalItems)
+        if (start >= end) return unmeasuredAvg.coerceAtLeast(1f)
+        var height = 0f
+        for (index in start until end) {
+            val size = measuredSizes[index]?.toFloat() ?: unmeasuredAvg
+            if (size > height) height = size
+        }
+        return height.coerceAtLeast(1f)
+    }
+
+    fun lazyContentPxFromSizes(
+        totalItems: Int,
+        columns: Int,
+        measuredSizes: Map<Int, Int>,
+        unmeasuredAvg: Float,
+        beforeContentPadding: Int,
+        afterContentPadding: Int
+    ): Float {
+        val cols = columns.coerceAtLeast(1)
+        val totalRows = (totalItems + cols - 1) / cols
+        var height = 0f
+        for (row in 0 until totalRows) {
+            height += rowHeight(row, cols, totalItems, measuredSizes, unmeasuredAvg)
+        }
+        return height + beforeContentPadding + afterContentPadding
+    }
+
+    fun lazyScrollPxFromSizes(
+        viewportStart: Int,
+        beforeContentPadding: Int,
+        visible: List<LazyItemMeasure>,
+        columns: Int,
+        totalItems: Int,
+        measuredSizes: Map<Int, Int>,
+        unmeasuredAvg: Float
+    ): Float {
+        if (visible.isEmpty() || totalItems <= 0) return 0f
+        val cols = columns.coerceAtLeast(1)
+        val first = visible.minBy { it.index }
+        val firstRow = first.index / cols
+        var before = 0f
+        for (row in 0 until firstRow) {
+            before += rowHeight(row, cols, totalItems, measuredSizes, unmeasuredAvg)
+        }
+        val intoRow = (viewportStart - first.offset).toFloat()
+        return (before + intoRow + beforeContentPadding).coerceAtLeast(0f)
+    }
+
+    fun lazyScrollTargetFromSizes(
+        fraction: Float,
+        totalItems: Int,
+        columns: Int,
+        viewportPx: Float,
+        beforeContentPadding: Int,
+        afterContentPadding: Int,
+        measuredSizes: Map<Int, Int>,
+        unmeasuredAvg: Float
+    ): LazyScrollTarget {
+        if (totalItems <= 0) return LazyScrollTarget(0, 0)
+        val cols = columns.coerceAtLeast(1)
+        val content = lazyContentPxFromSizes(
+            totalItems = totalItems,
+            columns = cols,
+            measuredSizes = measuredSizes,
+            unmeasuredAvg = unmeasuredAvg,
+            beforeContentPadding = beforeContentPadding,
+            afterContentPadding = afterContentPadding
+        )
+        val maxScroll = (content - viewportPx).coerceAtLeast(0f)
+        val scrollPx = fraction.coerceIn(0f, 1f) * maxScroll
+        val intoContent = (scrollPx - beforeContentPadding).coerceAtLeast(0f)
+        val totalRows = (totalItems + cols - 1) / cols
+        var acc = 0f
+        for (row in 0 until totalRows) {
+            val height = rowHeight(row, cols, totalItems, measuredSizes, unmeasuredAvg)
+            if (acc + height > intoContent || row == totalRows - 1) {
+                val offset = (intoContent - acc).toInt().coerceAtLeast(0)
+                val index = (row * cols).coerceIn(0, totalItems - 1)
+                return LazyScrollTarget(index = index, scrollOffset = offset)
+            }
+            acc += height
+        }
+        return LazyScrollTarget((totalItems - 1).coerceAtLeast(0), 0)
+    }
+
+    /**
+     * Stable 0..1 mapping for fairly uniform rows: fractional index of
+     * the first visible row over the remaining scrollable rows, using
+     * the first and last item's pixel offset for smoothing. Does not
+     * invent a pixel length for unmeasured items.
+     */
+    fun lazyFractionFromIndex(
+        firstIndex: Int,
+        firstOffset: Int,
+        firstSize: Int,
+        lastIndex: Int,
+        lastOffset: Int,
+        lastSize: Int,
+        totalItems: Int,
+        viewportStart: Int,
+        viewportEnd: Int,
+        columns: Int = 1
+    ): Float {
+        if (totalItems <= 0) return 0f
+        val cols = columns.coerceAtLeast(1)
+        val totalRows = (totalItems + cols - 1) / cols
+        val firstRow = firstIndex / cols
+        val lastRow = lastIndex / cols
+        val firstSizeSafe = firstSize.coerceAtLeast(1)
+        val lastSizeSafe = lastSize.coerceAtLeast(1)
+        val firstProgress = ((viewportStart - firstOffset).toFloat() / firstSizeSafe).coerceIn(0f, 1f)
+        val lastOverflow = ((lastOffset + lastSizeSafe - viewportEnd).toFloat() / lastSizeSafe).coerceIn(0f, 1f)
+        val rowsBefore = firstRow + firstProgress
+        val rowsAfter = (totalRows - 1 - lastRow) + lastOverflow
+        val denom = rowsBefore + rowsAfter
+        if (denom <= 0f) return 0f
+        return (rowsBefore / denom).coerceIn(0f, 1f)
+    }
+
     fun fromScrollValues(
         viewportPx: Float,
         maxScrollPx: Float,
@@ -231,18 +398,35 @@ object OpenPodScrollbar {
         canScroll: Boolean,
         columns: Int,
         endInsetPx: Float,
-        thumbLengthPx: Float
+        thumbLengthPx: Float,
+        measuredSizes: Map<Int, Int> = emptyMap()
     ): Metrics? {
         if (!canScroll) return null
         val viewport = (viewportEnd - viewportStart).toFloat()
         if (viewport <= 0f || totalItems <= 0 || visible.isEmpty()) return null
         val cols = columns.coerceAtLeast(1)
-        val avgRow = averageRowPx(visible, cols)
-        var content = lazyContentPx(totalItems, cols, avgRow, beforeContentPadding, afterContentPadding)
+        val sizes = mergeMeasuredSizes(measuredSizes, visible, totalItems)
+        val unmeasuredAvg = averageForUnmeasured(sizes)
+        var content = lazyContentPxFromSizes(
+            totalItems = totalItems,
+            columns = cols,
+            measuredSizes = sizes,
+            unmeasuredAvg = unmeasuredAvg,
+            beforeContentPadding = beforeContentPadding,
+            afterContentPadding = afterContentPadding
+        )
         if (content <= viewport) {
             content = viewport + 1f
         }
-        val scroll = lazyScrollPx(viewportStart, beforeContentPadding, visible, cols, avgRow)
+        val scroll = lazyScrollPxFromSizes(
+            viewportStart = viewportStart,
+            beforeContentPadding = beforeContentPadding,
+            visible = visible,
+            columns = cols,
+            totalItems = totalItems,
+            measuredSizes = sizes,
+            unmeasuredAvg = unmeasuredAvg
+        )
         val maxScroll = content - viewport
         val track = (viewport - 2f * endInsetPx).coerceAtLeast(0f)
         return layout(
@@ -256,7 +440,8 @@ object OpenPodScrollbar {
     fun fromLazyList(
         state: LazyListState,
         endInsetPx: Float,
-        thumbLengthPx: Float
+        thumbLengthPx: Float,
+        measuredSizes: Map<Int, Int> = emptyMap()
     ): Metrics? {
         val info = state.layoutInfo
         return fromLazyMeasure(
@@ -271,14 +456,16 @@ object OpenPodScrollbar {
             canScroll = shouldShow(state.canScrollForward, state.canScrollBackward),
             columns = 1,
             endInsetPx = endInsetPx,
-            thumbLengthPx = thumbLengthPx
+            thumbLengthPx = thumbLengthPx,
+            measuredSizes = measuredSizes
         )
     }
 
     fun fromLazyGrid(
         state: LazyGridState,
         endInsetPx: Float,
-        thumbLengthPx: Float
+        thumbLengthPx: Float,
+        measuredSizes: Map<Int, Int> = emptyMap()
     ): Metrics? {
         val info = state.layoutInfo
         val visible = info.visibleItemsInfo
@@ -295,7 +482,8 @@ object OpenPodScrollbar {
             canScroll = shouldShow(state.canScrollForward, state.canScrollBackward),
             columns = columns,
             endInsetPx = endInsetPx,
-            thumbLengthPx = thumbLengthPx
+            thumbLengthPx = thumbLengthPx,
+            measuredSizes = measuredSizes
         )
     }
 
@@ -314,45 +502,51 @@ object OpenPodScrollbar {
         )
     }
 
-    suspend fun scrollListToFraction(state: LazyListState, fraction: Float) {
+    suspend fun scrollListToFraction(
+        state: LazyListState,
+        fraction: Float,
+        measuredSizes: Map<Int, Int> = emptyMap()
+    ) {
         val info = state.layoutInfo
-        val visible = info.visibleItemsInfo
-        if (visible.isEmpty() || info.totalItemsCount <= 0) return
+        val visibleInfo = info.visibleItemsInfo
+        if (visibleInfo.isEmpty() || info.totalItemsCount <= 0) return
         val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-        val avg = averageRowPx(
-            visible.map { LazyItemMeasure(it.index, it.offset, it.size) },
-            columns = 1
-        )
-        val target = lazyScrollTarget(
+        val visible = visibleInfo.map { LazyItemMeasure(it.index, it.offset, it.size) }
+        val sizes = mergeMeasuredSizes(measuredSizes, visible, info.totalItemsCount)
+        val target = lazyScrollTargetFromSizes(
             fraction = fraction,
             totalItems = info.totalItemsCount,
             columns = 1,
-            averageRowPx = avg,
             viewportPx = viewport,
             beforeContentPadding = info.beforeContentPadding,
-            afterContentPadding = info.afterContentPadding
+            afterContentPadding = info.afterContentPadding,
+            measuredSizes = sizes,
+            unmeasuredAvg = averageForUnmeasured(sizes)
         )
         state.scrollToItem(target.index, target.scrollOffset)
     }
 
-    suspend fun scrollGridToFraction(state: LazyGridState, fraction: Float) {
+    suspend fun scrollGridToFraction(
+        state: LazyGridState,
+        fraction: Float,
+        measuredSizes: Map<Int, Int> = emptyMap()
+    ) {
         val info = state.layoutInfo
-        val visible = info.visibleItemsInfo
-        if (visible.isEmpty() || info.totalItemsCount <= 0) return
-        val columns = visible.groupBy { it.offset.y }.values.maxOfOrNull { it.size } ?: 1
+        val visibleInfo = info.visibleItemsInfo
+        if (visibleInfo.isEmpty() || info.totalItemsCount <= 0) return
+        val columns = visibleInfo.groupBy { it.offset.y }.values.maxOfOrNull { it.size } ?: 1
         val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-        val avg = averageRowPx(
-            visible.map { LazyItemMeasure(it.index, it.offset.y, it.size.height) },
-            columns = columns
-        )
-        val target = lazyScrollTarget(
+        val visible = visibleInfo.map { LazyItemMeasure(it.index, it.offset.y, it.size.height) }
+        val sizes = mergeMeasuredSizes(measuredSizes, visible, info.totalItemsCount)
+        val target = lazyScrollTargetFromSizes(
             fraction = fraction,
             totalItems = info.totalItemsCount,
             columns = columns,
-            averageRowPx = avg,
             viewportPx = viewport,
             beforeContentPadding = info.beforeContentPadding,
-            afterContentPadding = info.afterContentPadding
+            afterContentPadding = info.afterContentPadding,
+            measuredSizes = sizes,
+            unmeasuredAvg = averageForUnmeasured(sizes)
         )
         state.scrollToItem(target.index, target.scrollOffset)
     }
@@ -459,12 +653,17 @@ fun OpenPodScrollbarBox(
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     var seekJob by remember { mutableStateOf<Job?>(null) }
+    val measured = remember { mutableMapOf<Int, Int>() }
     val metrics by remember(state, density) {
         derivedStateOf {
+            val info = state.layoutInfo
+            info.visibleItemsInfo.forEach { measured[it.index] = it.size }
+            measured.keys.retainAll { it < info.totalItemsCount }
             OpenPodScrollbar.fromLazyList(
                 state = state,
                 endInsetPx = with(density) { OpenPodScrollbar.END_INSET_DP.dp.toPx() },
-                thumbLengthPx = with(density) { OpenPodScrollbar.THUMB_HEIGHT_DP.dp.toPx() }
+                thumbLengthPx = with(density) { OpenPodScrollbar.THUMB_HEIGHT_DP.dp.toPx() },
+                measuredSizes = measured
             )
         }
     }
@@ -472,7 +671,7 @@ fun OpenPodScrollbarBox(
         content()
         OpenPodScrollbarRail(metrics) { fraction ->
             seekJob?.cancel()
-            seekJob = scope.launch { OpenPodScrollbar.scrollListToFraction(state, fraction) }
+            seekJob = scope.launch { OpenPodScrollbar.scrollListToFraction(state, fraction, measured) }
         }
     }
 }
@@ -486,12 +685,17 @@ fun OpenPodScrollbarBox(
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     var seekJob by remember { mutableStateOf<Job?>(null) }
+    val measured = remember { mutableMapOf<Int, Int>() }
     val metrics by remember(state, density) {
         derivedStateOf {
+            val info = state.layoutInfo
+            info.visibleItemsInfo.forEach { measured[it.index] = it.size.height }
+            measured.keys.retainAll { it < info.totalItemsCount }
             OpenPodScrollbar.fromLazyGrid(
                 state = state,
                 endInsetPx = with(density) { OpenPodScrollbar.END_INSET_DP.dp.toPx() },
-                thumbLengthPx = with(density) { OpenPodScrollbar.THUMB_HEIGHT_DP.dp.toPx() }
+                thumbLengthPx = with(density) { OpenPodScrollbar.THUMB_HEIGHT_DP.dp.toPx() },
+                measuredSizes = measured
             )
         }
     }
@@ -499,7 +703,7 @@ fun OpenPodScrollbarBox(
         content()
         OpenPodScrollbarRail(metrics) { fraction ->
             seekJob?.cancel()
-            seekJob = scope.launch { OpenPodScrollbar.scrollGridToFraction(state, fraction) }
+            seekJob = scope.launch { OpenPodScrollbar.scrollGridToFraction(state, fraction, measured) }
         }
     }
 }

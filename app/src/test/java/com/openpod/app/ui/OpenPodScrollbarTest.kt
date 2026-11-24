@@ -307,6 +307,271 @@ class OpenPodScrollbarTest {
     }
 
     @Test
+    fun averageForUnmeasuredIgnoresTallHeaderOutlier() {
+        val sizes = mapOf(0 to 800, 1 to 80, 2 to 80, 3 to 80, 4 to 80)
+        assertEquals(80f, OpenPodScrollbar.averageForUnmeasured(sizes), 0.01f)
+        assertEquals(800f, OpenPodScrollbar.averageForUnmeasured(mapOf(0 to 800)), 0.01f)
+        assertEquals(100f, OpenPodScrollbar.averageForUnmeasured(mapOf(0 to 100, 1 to 100, 2 to 100)), 0.01f)
+    }
+
+    @Test
+    fun variableHeightsDoNotUseVisibleAverageForUnmeasuredItems() {
+        // Now Playing-like: a tall first item, then many short rows. After a
+        // few short rows are measured, the remaining list must not be
+        // estimated at the first item's height (the 1.54 bug: thumb crawls
+        // then jumps).
+        val sizes = (listOf(0 to 800) + (1..8).map { it to 80 }).toMap()
+        val visible = listOf(
+            OpenPodScrollbar.LazyItemMeasure(index = 6, offset = -20, size = 80),
+            OpenPodScrollbar.LazyItemMeasure(index = 7, offset = 60, size = 80),
+            OpenPodScrollbar.LazyItemMeasure(index = 8, offset = 140, size = 80)
+        )
+        val metrics = OpenPodScrollbar.fromLazyMeasure(
+            viewportStart = 0,
+            viewportEnd = 800,
+            totalItems = 20,
+            beforeContentPadding = 0,
+            afterContentPadding = 0,
+            visible = visible,
+            canScroll = true,
+            columns = 1,
+            endInsetPx = endInset,
+            thumbLengthPx = thumb,
+            measuredSizes = sizes
+        )!!
+        // content = 800 + 19*80 = 2320, maxScroll = 1520
+        // first visible index 6: before = 800 + 5*80 = 1200, intoRow = 20, scroll = 1220
+        assertEquals(thumb, metrics.thumbLength, 0f)
+        assertEquals(1220f / 1520f, metrics.fraction, 0.01f)
+
+        val visibleOnly = OpenPodScrollbar.fromLazyMeasure(
+            viewportStart = 0,
+            viewportEnd = 800,
+            totalItems = 20,
+            beforeContentPadding = 0,
+            afterContentPadding = 0,
+            visible = visible,
+            canScroll = true,
+            columns = 1,
+            endInsetPx = endInset,
+            thumbLengthPx = thumb
+        )!!
+        // Without the stored map, only the short visible rows are known, so
+        // the unmeasured first item is also estimated at 80. That is the
+        // "after the rest loaded" estimate; it must not be ~1.0 the way the
+        // old visible-average * totalItems math was (scroll 500 / max 800).
+        assertTrue(
+            "Visible-only short rows must not place the thumb at the end",
+            visibleOnly.fraction < 0.7f
+        )
+    }
+
+    @Test
+    fun variableHeightFractionIsExactWhenEveryItemIsMeasured() {
+        val sizes = (listOf(0 to 800) + (1..19).map { it to 80 }).toMap()
+        val atTop = OpenPodScrollbar.fromLazyMeasure(
+            viewportStart = 0,
+            viewportEnd = 800,
+            totalItems = 20,
+            beforeContentPadding = 0,
+            afterContentPadding = 0,
+            visible = listOf(OpenPodScrollbar.LazyItemMeasure(0, 0, 800)),
+            canScroll = true,
+            columns = 1,
+            endInsetPx = endInset,
+            thumbLengthPx = thumb,
+            measuredSizes = sizes
+        )!!
+        assertEquals(0f, atTop.fraction, 0.01f)
+
+        // Scrolled exactly the height of the tall first item: first visible
+        // is item 1 at offset 0.
+        val afterHeader = OpenPodScrollbar.fromLazyMeasure(
+            viewportStart = 0,
+            viewportEnd = 800,
+            totalItems = 20,
+            beforeContentPadding = 0,
+            afterContentPadding = 0,
+            visible = List(10) { i ->
+                OpenPodScrollbar.LazyItemMeasure(index = i + 1, offset = i * 80, size = 80)
+            },
+            canScroll = true,
+            columns = 1,
+            endInsetPx = endInset,
+            thumbLengthPx = thumb,
+            measuredSizes = sizes
+        )!!
+        // content 2320, max 1520, scroll 800
+        assertEquals(800f / 1520f, afterHeader.fraction, 0.01f)
+
+        val atEnd = OpenPodScrollbar.fromLazyMeasure(
+            viewportStart = 0,
+            viewportEnd = 800,
+            totalItems = 20,
+            beforeContentPadding = 0,
+            afterContentPadding = 0,
+            visible = List(10) { i ->
+                OpenPodScrollbar.LazyItemMeasure(index = i + 10, offset = i * 80, size = 80)
+            },
+            canScroll = true,
+            columns = 1,
+            endInsetPx = endInset,
+            thumbLengthPx = thumb,
+            measuredSizes = sizes
+        )!!
+        // first index 10, before = 800+9*80=1520, intoRow=0, scroll=1520, fraction=1
+        assertEquals(1f, atEnd.fraction, 0.01f)
+        assertEquals(thumb, atTop.thumbLength, 0f)
+        assertEquals(thumb, afterHeader.thumbLength, 0f)
+        assertEquals(thumb, atEnd.thumbLength, 0f)
+    }
+
+    @Test
+    fun dragMappingWithVariableHeightsUsesTheSameSizeMath() {
+        val sizes = (listOf(0 to 800) + (1..19).map { it to 80 }).toMap()
+        val avg = OpenPodScrollbar.averageForUnmeasured(sizes)
+        assertEquals(80f, avg, 0.01f)
+        val afterHeader = OpenPodScrollbar.lazyScrollTargetFromSizes(
+            fraction = 800f / 1520f,
+            totalItems = 20,
+            columns = 1,
+            viewportPx = 800f,
+            beforeContentPadding = 0,
+            afterContentPadding = 0,
+            measuredSizes = sizes,
+            unmeasuredAvg = avg
+        )
+        assertEquals(1, afterHeader.index)
+        assertEquals(0, afterHeader.scrollOffset)
+
+        val atStart = OpenPodScrollbar.lazyScrollTargetFromSizes(
+            fraction = 0f,
+            totalItems = 20,
+            columns = 1,
+            viewportPx = 800f,
+            beforeContentPadding = 0,
+            afterContentPadding = 0,
+            measuredSizes = sizes,
+            unmeasuredAvg = avg
+        )
+        assertEquals(0, atStart.index)
+        assertEquals(0, atStart.scrollOffset)
+
+        val atEnd = OpenPodScrollbar.lazyScrollTargetFromSizes(
+            fraction = 1f,
+            totalItems = 20,
+            columns = 1,
+            viewportPx = 800f,
+            beforeContentPadding = 0,
+            afterContentPadding = 0,
+            measuredSizes = sizes,
+            unmeasuredAvg = avg
+        )
+        assertEquals(10, atEnd.index)
+        assertEquals(0, atEnd.scrollOffset)
+
+        // The old visible-average target would treat every row as 80 and land
+        // on index 5 at mid-list (0.5 * 800 / 80), skipping the tall header.
+        val midOld = OpenPodScrollbar.lazyScrollTarget(
+            fraction = 0.5f,
+            totalItems = 20,
+            columns = 1,
+            averageRowPx = 80f,
+            viewportPx = 800f,
+            beforeContentPadding = 0,
+            afterContentPadding = 0
+        )
+        val midNew = OpenPodScrollbar.lazyScrollTargetFromSizes(
+            fraction = 0.5f,
+            totalItems = 20,
+            columns = 1,
+            viewportPx = 800f,
+            beforeContentPadding = 0,
+            afterContentPadding = 0,
+            measuredSizes = sizes,
+            unmeasuredAvg = avg
+        )
+        assertEquals(5, midOld.index)
+        // 0.5 * 1520 = 760, which is still inside the 800 px first item
+        assertEquals(0, midNew.index)
+        assertEquals(760, midNew.scrollOffset)
+    }
+
+    @Test
+    fun indexBasedFractionIsStableForUniformRows() {
+        assertEquals(
+            0f,
+            OpenPodScrollbar.lazyFractionFromIndex(
+                firstIndex = 0,
+                firstOffset = 0,
+                firstSize = 100,
+                lastIndex = 7,
+                lastOffset = 700,
+                lastSize = 100,
+                totalItems = 20,
+                viewportStart = 0,
+                viewportEnd = 800
+            ),
+            0.01f
+        )
+        val mid = OpenPodScrollbar.lazyFractionFromIndex(
+            firstIndex = 6,
+            firstOffset = 0,
+            firstSize = 100,
+            lastIndex = 13,
+            lastOffset = 700,
+            lastSize = 100,
+            totalItems = 20,
+            viewportStart = 0,
+            viewportEnd = 800
+        )
+        // rowsBefore=6, rowsAfter=(20-1-13)=6, fraction=0.5
+        assertEquals(0.5f, mid, 0.01f)
+        assertEquals(
+            1f,
+            OpenPodScrollbar.lazyFractionFromIndex(
+                firstIndex = 12,
+                firstOffset = 0,
+                firstSize = 100,
+                lastIndex = 19,
+                lastOffset = 700,
+                lastSize = 100,
+                totalItems = 20,
+                viewportStart = 0,
+                viewportEnd = 800
+            ),
+            0.01f
+        )
+        val smoothed = OpenPodScrollbar.lazyFractionFromIndex(
+            firstIndex = 6,
+            firstOffset = -40,
+            firstSize = 100,
+            lastIndex = 14,
+            lastOffset = 760,
+            lastSize = 100,
+            totalItems = 20,
+            viewportStart = 0,
+            viewportEnd = 800
+        )
+        // firstProgress=0.4, lastOverflow=0.6, rowsBefore=6.4, rowsAfter=5+0.6
+        assertEquals(6.4f / (6.4f + 5.6f), smoothed, 0.01f)
+    }
+
+    @Test
+    fun scrollStateFractionIsExactFromKnownMaxValue() {
+        val mid = OpenPodScrollbar.fromScrollValues(
+            viewportPx = 800f,
+            maxScrollPx = 1520f,
+            scrollPx = 760f,
+            endInsetPx = endInset,
+            thumbLengthPx = thumb
+        )!!
+        assertEquals(0.5f, mid.fraction, 0.01f)
+        assertEquals(thumb, mid.thumbLength, 0f)
+        assertEquals(760, OpenPodScrollbar.scrollPxFromFraction(0.5f, 1520f))
+    }
+
+    @Test
     fun constantsMatchFixedThumbSpec() {
         assertEquals(4, OpenPodScrollbar.THUMB_WIDTH_DP)
         assertEquals(8, OpenPodScrollbar.THUMB_DRAGGING_WIDTH_DP)
