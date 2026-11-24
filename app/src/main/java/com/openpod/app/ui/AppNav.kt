@@ -1674,9 +1674,12 @@ private fun PlaybackEffectsSheet(
     LaunchedEffect(volumeBoost) {
         if (volumeBoost > 0.02f) restoreBoost = volumeBoost
     }
+    val scrollState = rememberScrollState()
     Column(
         Modifier
             .fillMaxWidth()
+            .openPodScrollbar(scrollState)
+            .verticalScroll(scrollState)
             .padding(bottom = 28.dp)
     ) {
         Text(
@@ -2365,7 +2368,7 @@ private fun PlaylistsScreen(vm: AppViewModel, onOpen: (Long) -> Unit) {
     var playFilter by remember { mutableStateOf(PlaylistEntity.PLAY_ALL) }
     var downloadFilter by remember { mutableStateOf(PlaylistEntity.DOWNLOAD_ALL) }
     Scaffold(topBar = { TopAppBar(title = { Text("Playlists") }) }) { padding ->
-        Column(Modifier.padding(padding).padding(16.dp)) {
+        Column(Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
             OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("New playlist name") }, singleLine = true)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Smart playlist (filters)", Modifier.weight(1f))
@@ -2394,7 +2397,7 @@ private fun PlaylistsScreen(vm: AppViewModel, onOpen: (Long) -> Unit) {
                 }
             }) { Text("Create") }
             val listState = rememberLazyListState()
-            LazyColumn(Modifier.openPodScrollbar(listState)) {
+            LazyColumn(Modifier.weight(1f).openPodScrollbar(listState)) {
                 items(lists, key = { it.id }) { list ->
                     Row(Modifier.fillMaxWidth().clickable { onOpen(list.id) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
