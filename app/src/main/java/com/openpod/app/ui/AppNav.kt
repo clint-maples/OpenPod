@@ -475,13 +475,15 @@ private fun LibraryScreen(vm: AppViewModel, onOpen: (Long) -> Unit, onRefresh: (
             )
         } else {
             val listState = rememberLazyListState()
-            LazyColumn(Modifier.padding(padding).openPodScrollbar(listState)) {
+            OpenPodScrollbarBox(listState, Modifier.padding(padding)) {
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 items(podcasts, key = { it.id }) { podcast ->
                     PodcastRow(
                         podcast,
                         onClick = { onOpen(podcast.id) }
                     )
                 }
+            }
             }
         }
     }
@@ -529,7 +531,8 @@ private fun DiscoverScreen(vm: AppViewModel) {
     }
     Scaffold(topBar = { TopAppBar(title = { Text("Discover") }) }) { padding ->
         val listState = rememberLazyListState()
-        LazyColumn(Modifier.padding(padding).openPodScrollbar(listState).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        OpenPodScrollbarBox(listState, Modifier.padding(padding)) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 OutlinedTextField(
                     query,
@@ -624,6 +627,7 @@ private fun DiscoverScreen(vm: AppViewModel) {
                     }
                 }
             }
+        }
         }
     }
 }
@@ -721,7 +725,8 @@ private fun PodcastScreen(
         }
     ) { padding ->
         val listState = rememberLazyListState()
-        LazyColumn(Modifier.padding(padding).openPodScrollbar(listState)) {
+        OpenPodScrollbarBox(listState, Modifier.padding(padding)) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             item {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     AsyncImage(podcast.imageUrl, podcast.title, Modifier.size(88.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
@@ -821,6 +826,7 @@ private fun PodcastScreen(
                 )
             }
         }
+        }
     }
     if (moveDialog) {
         AlertDialog(
@@ -881,8 +887,10 @@ private fun PodcastSettingsScreen(vm: AppViewModel, podcastId: Long, onBack: () 
         }
     ) { padding ->
         val listState = rememberLazyListState()
+        OpenPodScrollbarBox(listState, Modifier.padding(padding)) {
         LazyColumn(
-            Modifier.padding(padding).openPodScrollbar(listState).padding(16.dp),
+            state = listState,
+            modifier = Modifier.fillMaxSize().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
@@ -955,6 +963,7 @@ private fun PodcastSettingsScreen(vm: AppViewModel, podcastId: Long, onBack: () 
                     maxSec = EpisodeTrim.MAX_SEC
                 )
             }
+        }
         }
     }
 }
@@ -1122,7 +1131,8 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
         }
     ) { padding ->
         val listState = rememberLazyListState()
-        LazyColumn(Modifier.padding(padding).openPodScrollbar(listState).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        OpenPodScrollbarBox(listState, Modifier.padding(padding)) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Text(current.title, style = MaterialTheme.typography.titleLarge)
                 Text(formatDate(current.pubDate))
@@ -1186,6 +1196,7 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
                     Text(prefix + line.text, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 2.dp))
                 }
             }
+        }
         }
     }
     if (addPlaylist) {
@@ -1260,8 +1271,10 @@ private fun PlayerScreen(
                 (maxHeight * NowPlayingChrome.ARTWORK_HEIGHT_FRACTION).coerceAtLeast(96.dp)
             )
             val listState = rememberLazyListState()
+            OpenPodScrollbarBox(listState, Modifier.fillMaxSize()) {
             LazyColumn(
-                Modifier.fillMaxSize().openPodScrollbar(listState),
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
                     start = horizontalPad,
                     end = horizontalPad,
@@ -1365,6 +1378,7 @@ private fun PlayerScreen(
                         )
                     }
                 }
+            }
             }
         }
     }
@@ -1674,12 +1688,9 @@ private fun PlaybackEffectsSheet(
     LaunchedEffect(volumeBoost) {
         if (volumeBoost > 0.02f) restoreBoost = volumeBoost
     }
-    val scrollState = rememberScrollState()
     Column(
         Modifier
             .fillMaxWidth()
-            .openPodScrollbar(scrollState)
-            .verticalScroll(scrollState)
             .padding(bottom = 28.dp)
     ) {
         Text(
@@ -1759,11 +1770,10 @@ private fun CategoryPicker(
     onSelect: (String?) -> Unit
 ) {
     val scrollState = rememberScrollState()
+    OpenPodScrollbarBox(scrollState, Modifier.fillMaxWidth().heightIn(max = 480.dp)) {
     Column(
         Modifier
             .fillMaxWidth()
-            .heightIn(max = 480.dp)
-            .openPodScrollbar(scrollState)
             .verticalScroll(scrollState)
             .padding(bottom = 24.dp)
     ) {
@@ -1776,6 +1786,7 @@ private fun CategoryPicker(
         TopPodcastGenres.all.forEach { genre ->
             CategoryRow(genre.name, selected = selectedGenreId == genre.id) { onSelect(genre.id) }
         }
+    }
     }
 }
 
@@ -2157,8 +2168,10 @@ private fun UpNextScreen(vm: AppViewModel, onOpenPlayer: () -> Unit) {
         }
     ) { padding ->
         val listState = rememberLazyListState()
+        OpenPodScrollbarBox(listState, Modifier.padding(padding).fillMaxSize()) {
         LazyColumn(
-            Modifier.padding(padding).fillMaxSize().openPodScrollbar(listState),
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -2255,6 +2268,7 @@ private fun UpNextScreen(vm: AppViewModel, onOpenPlayer: () -> Unit) {
                 }
             }
         }
+        }
     }
     if (confirmClear) {
         AlertDialog(
@@ -2300,8 +2314,10 @@ private fun EqScreen(vm: AppViewModel, onBack: () -> Unit) {
         }
     ) { padding ->
         val listState = rememberLazyListState()
+        OpenPodScrollbarBox(listState, Modifier.padding(padding).fillMaxSize()) {
         LazyColumn(
-            Modifier.padding(padding).fillMaxSize().openPodScrollbar(listState),
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -2356,6 +2372,7 @@ private fun EqScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             }
         }
+        }
     }
 }
 
@@ -2397,7 +2414,8 @@ private fun PlaylistsScreen(vm: AppViewModel, onOpen: (Long) -> Unit) {
                 }
             }) { Text("Create") }
             val listState = rememberLazyListState()
-            LazyColumn(Modifier.weight(1f).openPodScrollbar(listState)) {
+            OpenPodScrollbarBox(listState, Modifier.weight(1f)) {
+            LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 items(lists, key = { it.id }) { list ->
                     Row(Modifier.fillMaxWidth().clickable { onOpen(list.id) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -2412,6 +2430,7 @@ private fun PlaylistsScreen(vm: AppViewModel, onOpen: (Long) -> Unit) {
                         IconButton({ vm.deletePlaylist(list) }) { Icon(Icons.Default.Delete, "Delete") }
                     }
                 }
+            }
             }
         }
     }
@@ -2435,7 +2454,8 @@ private fun PlaylistDetailScreen(vm: AppViewModel, playlistId: Long) {
     var rename by remember(list?.name) { mutableStateOf(list?.name.orEmpty()) }
     Scaffold(topBar = { TopAppBar(title = { Text(list?.name ?: "Playlist") }) }) { padding ->
         val listState = rememberLazyListState()
-        LazyColumn(Modifier.padding(padding).openPodScrollbar(listState).padding(16.dp)) {
+        OpenPodScrollbarBox(listState, Modifier.padding(padding)) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(16.dp)) {
             item {
                 OutlinedTextField(rename, { rename = it }, Modifier.fillMaxWidth(), label = { Text("Rename") })
                 TextButton({ if (rename.isNotBlank()) vm.renamePlaylist(playlistId, rename.trim()) }) { Text("Save name") }
@@ -2459,6 +2479,7 @@ private fun PlaylistDetailScreen(vm: AppViewModel, playlistId: Long) {
                     }
                 }
             }
+        }
         }
     }
 }
@@ -2500,7 +2521,8 @@ private fun SettingsScreen(vm: AppViewModel) {
     }
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
         val listState = rememberLazyListState()
-        LazyColumn(Modifier.padding(padding).openPodScrollbar(listState).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        OpenPodScrollbarBox(listState, Modifier.padding(padding)) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
                 Text("Subscriptions", style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -2644,6 +2666,7 @@ private fun SettingsScreen(vm: AppViewModel) {
                 Text("OpenPod ${BuildConfig.VERSION_NAME}")
                 Text("Build ${BuildConfig.VERSION_CODE}", style = MaterialTheme.typography.bodySmall)
             }
+        }
         }
     }
     val importUri = pendingImport

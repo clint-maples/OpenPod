@@ -170,10 +170,11 @@ internal fun LibraryPodcastGrid(
     val shown = itemsState.value
     val dragOffset = dragOffsetState.value
     val draggingId = draggingIdState.value
+    OpenPodScrollbarBox(gridState, modifier) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(columns),
         state = gridState,
-        modifier = modifier.openPodScrollbar(gridState),
+        modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -240,5 +241,6 @@ internal fun LibraryPodcastGrid(
                 )
             }
         }
+    }
     }
 }
