@@ -173,7 +173,7 @@ internal fun LibraryPodcastGrid(
     LazyVerticalGrid(
         columns = GridCells.Fixed(columns),
         state = gridState,
-        modifier = modifier,
+        modifier = modifier.openPodScrollbar(gridState),
         contentPadding = PaddingValues(6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
