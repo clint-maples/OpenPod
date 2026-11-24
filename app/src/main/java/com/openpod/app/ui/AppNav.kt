@@ -113,6 +113,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -333,11 +334,19 @@ private fun RowScope.NavItem(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+    val chrome = LocalOpenPodColors.current
     NavigationBarItem(
         selected = selected,
         onClick = onClick,
         icon = { Icon(icon, contentDescription = label) },
-        label = { Text(label, textAlign = TextAlign.Center) }
+        label = { Text(label, textAlign = TextAlign.Center) },
+        colors = NavigationBarItemDefaults.colors(
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            selectedTextColor = MaterialTheme.colorScheme.primary,
+            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+            unselectedIconColor = chrome.muted,
+            unselectedTextColor = chrome.muted
+        )
     )
 }
 
@@ -354,8 +363,9 @@ internal fun MiniPlayer(
         .filter { it.isNotBlank() }
         .joinToString(" — ")
         .ifBlank { "Now playing" }
+    val chrome = LocalOpenPodColors.current
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = chrome.chromeBar,
         tonalElevation = 0.dp,
         modifier = Modifier
             .fillMaxWidth()
@@ -363,7 +373,7 @@ internal fun MiniPlayer(
             .clickable(onClick = onOpen, onClickLabel = "Open now playing")
     ) {
         Column {
-            HorizontalDivider()
+            HorizontalDivider(color = chrome.hairline)
             val miniDuration = player.effectiveDurationMs.takeIf { it > 0L } ?: player.durationMs
             if (miniDuration > 0L) {
                 LinearProgressIndicator(
@@ -436,7 +446,13 @@ internal fun MiniPlayer(
                         showAmount = false
                     )
                     IconButton(onTogglePlay) {
-                        Icon(if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play")
+                        OpenPodControlWell(Modifier.size(40.dp)) {
+                            Icon(
+                                if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                "Play",
+                                tint = openPodControlTint()
+                            )
+                        }
                     }
                     SkipIconButton(
                         seconds = player.skipForwardSec,
@@ -451,7 +467,9 @@ internal fun MiniPlayer(
                     onClick = onUpNext,
                     modifier = Modifier.align(Alignment.CenterEnd)
                 ) {
-                    Icon(Icons.Default.QueueMusic, "Up Next")
+                    OpenPodControlWell(Modifier.size(36.dp)) {
+                        Icon(Icons.Default.QueueMusic, "Up Next", tint = openPodControlTint())
+                    }
                 }
             }
         }
@@ -1413,8 +1431,9 @@ private fun NowPlayingActionBar(
     var sleepMenuOpen by remember { mutableStateOf(false) }
     val displayDuration = player.effectiveDurationMs.takeIf { it > 0L } ?: player.durationMs
     val transportSize = NowPlayingChrome.TRANSPORT_BUTTON_DP.dp
-    val progressTransportColor = Color(NowPlayingChrome.PROGRESS_TRANSPORT_COLOR)
-    val actionsColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    val chrome = LocalOpenPodColors.current
+    val progressTransportColor = chrome.progressTransport
+    val actionsColor = chrome.chromeBar
     val bandGap = Modifier.height(NowPlayingChrome.FOOTER_BAND_GAP_DP.dp)
     Column(
         Modifier
@@ -1426,7 +1445,11 @@ private fun NowPlayingActionBar(
                 )
             )
     ) {
-        Surface(color = progressTransportColor, tonalElevation = 0.dp) {
+        Surface(
+            color = progressTransportColor,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            tonalElevation = 0.dp
+        ) {
             NowPlayingProgressRow(
                 positionMs = player.positionMs,
                 durationMs = displayDuration,
@@ -1434,7 +1457,11 @@ private fun NowPlayingActionBar(
             )
         }
         Spacer(bandGap)
-        Surface(color = progressTransportColor, tonalElevation = 0.dp) {
+        Surface(
+            color = progressTransportColor,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            tonalElevation = 0.dp
+        ) {
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -1451,11 +1478,14 @@ private fun NowPlayingActionBar(
                     iconSize = NowPlayingChrome.TRANSPORT_SKIP_ICON_DP.dp
                 )
                 IconButton({ vm.togglePlay() }, Modifier.size(transportSize)) {
-                    Icon(
-                        if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        if (player.playing) "Pause" else "Play",
-                        Modifier.size(NowPlayingChrome.TRANSPORT_PLAY_ICON_DP.dp)
-                    )
+                    OpenPodControlWell(Modifier.size(64.dp)) {
+                        Icon(
+                            if (player.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            if (player.playing) "Pause" else "Play",
+                            Modifier.size(NowPlayingChrome.TRANSPORT_PLAY_ICON_DP.dp),
+                            tint = openPodControlTint()
+                        )
+                    }
                 }
                 SkipIconButton(
                     seconds = skipForwardSec,
@@ -1495,12 +1525,18 @@ private fun NowPlayingActionBar(
                                     modifier = Modifier.heightIn(min = NowPlayingChrome.MIN_TAP_TARGET_DP.dp),
                                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
                                 ) {
-                                    Text(
-                                        label,
-                                        style = speedStyle.copy(
-                                            fontSize = speedStyle.fontSize * NowPlayingChrome.BOTTOM_CONTROL_SCALE
+                                    OpenPodControlWell(
+                                        Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        shape = RoundedCornerShape(50)
+                                    ) {
+                                        Text(
+                                            label,
+                                            color = openPodControlTint(),
+                                            style = speedStyle.copy(
+                                                fontSize = speedStyle.fontSize * NowPlayingChrome.BOTTOM_CONTROL_SCALE
+                                            )
                                         )
-                                    )
+                                    }
                                 }
                                 if (speedMenuOpen) {
                                     val effectSettings by vm.settings.collectAsState()
@@ -1550,11 +1586,14 @@ private fun NowPlayingActionBar(
                                     contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
                                 ) {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Icon(
-                                            Icons.Default.Equalizer,
-                                            "Graphic equalizer",
-                                            modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.EQUALIZER_ICON_DP).dp)
-                                        )
+                                        OpenPodControlWell(Modifier.size(32.dp)) {
+                                            Icon(
+                                                Icons.Default.Equalizer,
+                                                "Graphic equalizer",
+                                                modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.EQUALIZER_ICON_DP).dp),
+                                                tint = openPodControlTint()
+                                            )
+                                        }
                                         Text(
                                             "EQ",
                                             style = eqLabel.copy(
@@ -1569,20 +1608,22 @@ private fun NowPlayingActionBar(
                                     onClick = { sleepMenuOpen = true },
                                     modifier = Modifier.size(NowPlayingChrome.MIN_TAP_TARGET_DP.dp)
                                 ) {
-                                    Icon(
-                                        Icons.Default.Bedtime,
-                                        if (player.sleepActive) {
-                                            "Sleep timer, ${SleepTimerLogic.formatRemaining(player.sleepRemainingMs)} remaining"
-                                        } else {
-                                            "Sleep timer"
-                                        },
-                                        modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.STANDARD_ICON_DP).dp),
-                                        tint = if (player.sleepActive) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurface
-                                        }
-                                    )
+                                    OpenPodControlWell(Modifier.size(32.dp)) {
+                                        Icon(
+                                            Icons.Default.Bedtime,
+                                            if (player.sleepActive) {
+                                                "Sleep timer, ${SleepTimerLogic.formatRemaining(player.sleepRemainingMs)} remaining"
+                                            } else {
+                                                "Sleep timer"
+                                            },
+                                            modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.STANDARD_ICON_DP).dp),
+                                            tint = if (player.sleepActive) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                openPodControlTint()
+                                            }
+                                        )
+                                    }
                                 }
                                 DropdownMenu(
                                     expanded = sleepMenuOpen,
@@ -1601,11 +1642,14 @@ private fun NowPlayingActionBar(
                                     enabled = episode != null,
                                     modifier = Modifier.size(NowPlayingChrome.MIN_TAP_TARGET_DP.dp)
                                 ) {
-                                    Icon(
-                                        Icons.Default.Share,
-                                        "Share episode",
-                                        modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.STANDARD_ICON_DP).dp)
-                                    )
+                                    OpenPodControlWell(Modifier.size(32.dp)) {
+                                        Icon(
+                                            Icons.Default.Share,
+                                            "Share episode",
+                                            modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.STANDARD_ICON_DP).dp),
+                                            tint = openPodControlTint()
+                                        )
+                                    }
                                 }
                             }
                             NowPlayingChrome.BottomAction.Favorite -> {
@@ -1615,12 +1659,14 @@ private fun NowPlayingActionBar(
                                     enabled = episode != null,
                                     modifier = Modifier.size(NowPlayingChrome.MIN_TAP_TARGET_DP.dp)
                                 ) {
-                                    Icon(
-                                        if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                        NowPlayingChrome.favoriteContentDescription(favorite),
-                                        modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.STANDARD_ICON_DP).dp),
-                                        tint = EpisodeRowChrome.favoriteHeartColor(favorite)
-                                    )
+                                    OpenPodControlWell(Modifier.size(32.dp)) {
+                                        Icon(
+                                            if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                            NowPlayingChrome.favoriteContentDescription(favorite),
+                                            modifier = Modifier.size(NowPlayingChrome.scaledDp(NowPlayingChrome.STANDARD_ICON_DP).dp),
+                                            tint = EpisodeRowChrome.favoriteHeartColor(favorite)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1667,8 +1713,8 @@ private fun PlaybackEffectsSheet(
     volumeBoost: Float,
     onVolumeBoost: (Float) -> Unit
 ) {
-    val iconTint = Color(0xFF8E8E93)
-    val divider = Color.White.copy(alpha = 0.12f)
+    val iconTint = LocalOpenPodColors.current.muted
+    val divider = LocalOpenPodColors.current.divider
     val boostOn = volumeBoost > 0.02f
     var restoreBoost by remember { mutableStateOf(if (boostOn) volumeBoost else 0.5f) }
     LaunchedEffect(volumeBoost) {
@@ -1805,8 +1851,8 @@ private fun OpenPodBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape = shape,
-        containerColor = Color(0xFF1C1C1E),
-        contentColor = Color(0xFFF2F2F7),
+        containerColor = LocalOpenPodColors.current.sheetContainer,
+        contentColor = LocalOpenPodColors.current.sheetContent,
         scrimColor = if (PLAYBACK_EFFECTS_SHEET_SCRIM) {
             Color.Black.copy(alpha = 0.5f)
         } else {
@@ -1814,6 +1860,7 @@ private fun OpenPodBottomSheet(
         },
         dragHandle = null
     ) {
+        val sheetChrome = LocalOpenPodColors.current
         Column(
             Modifier
                 .fillMaxWidth()
@@ -1828,7 +1875,7 @@ private fun OpenPodBottomSheet(
                 Box(
                     Modifier
                         .size(width = 36.dp, height = 4.dp)
-                        .background(Color(0xFFD1D1D6), RoundedCornerShape(2.dp))
+                        .background(sheetChrome.sheetHandle, RoundedCornerShape(2.dp))
                 )
             }
             content()
@@ -1848,7 +1895,7 @@ private fun EffectScopeToggle(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .height(36.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(Color.White.copy(alpha = 0.08f))
+            .background(LocalOpenPodColors.current.hairline)
     ) {
         EffectScopeButton("All podcasts", selected = !forThisPodcast, enabled = true) {
             onForThisPodcast(false)
@@ -1870,10 +1917,11 @@ private fun RowScope.EffectScopeButton(
         selected -> MaterialTheme.colorScheme.primary
         else -> Color.Transparent
     }
+    val chrome = LocalOpenPodColors.current
     val text = when {
-        !enabled -> Color(0xFF8E8E93)
+        !enabled -> chrome.muted.copy(alpha = 0.5f)
         selected -> MaterialTheme.colorScheme.onPrimary
-        else -> Color(0xFFF2F2F7)
+        else -> chrome.sheetContent
     }
     Box(
         Modifier
@@ -1922,7 +1970,7 @@ private fun CircleStepButton(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
-    val color = Color(0xFF8E8E93).copy(alpha = if (enabled) 1f else 0.35f)
+    val color = LocalOpenPodColors.current.muted.copy(alpha = if (enabled) 1f else 0.35f)
     Box(
         Modifier
             .size(32.dp)
@@ -2019,7 +2067,7 @@ private fun NowPlayingSeekBar(
     modifier: Modifier = Modifier
 ) {
     val primary = MaterialTheme.colorScheme.primary
-    val inactive = SliderDefaults.colors().inactiveTrackColor
+    val inactive = LocalOpenPodColors.current.inactiveSeekTrack
     val trackH = NowPlayingChrome.PROGRESS_TRACK_DP.dp
     val thumbD = NowPlayingChrome.PROGRESS_THUMB_DP.dp
     val pos = fraction.coerceIn(0f, 1f)
@@ -2123,24 +2171,30 @@ private fun SkipIconButton(
     iconSize: androidx.compose.ui.unit.Dp = if (compact) 22.dp else 36.dp,
     mirrorForwardGlyph: Boolean = false
 ) {
+    val wellSize = if (compact) 36.dp else 48.dp
+    val tint = openPodControlTint()
     IconButton(onClick, Modifier.size(controlSize)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                SkipGlyph.vector(forward, mirrorForwardGlyph),
-                SkipIntervals.contentDescription(seconds, forward),
-                Modifier
-                    .size(iconSize)
-                    .then(
-                        if (SkipGlyph.mirrorX(forward, mirrorForwardGlyph)) {
-                            Modifier.graphicsLayer { scaleX = -1f }
-                        } else {
-                            Modifier
-                        }
-                    )
-            )
+            OpenPodControlWell(Modifier.size(wellSize)) {
+                Icon(
+                    SkipGlyph.vector(forward, mirrorForwardGlyph),
+                    SkipIntervals.contentDescription(seconds, forward),
+                    Modifier
+                        .size(iconSize)
+                        .then(
+                            if (SkipGlyph.mirrorX(forward, mirrorForwardGlyph)) {
+                                Modifier.graphicsLayer { scaleX = -1f }
+                            } else {
+                                Modifier
+                            }
+                        ),
+                    tint = tint
+                )
+            }
             if (showAmount) {
                 Text(
                     SkipIntervals.compactLabel(seconds, forward),
+                    color = tint,
                     style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelLarge
                 )
             }

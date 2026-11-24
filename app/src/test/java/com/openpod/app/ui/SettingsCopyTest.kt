@@ -32,8 +32,30 @@ class SettingsCopyTest {
         )
         assertEquals("On", SettingsCopy.notificationsSummary(true))
         assertEquals("Off", SettingsCopy.notificationsSummary(false))
-        assertEquals("List layout", SettingsCopy.appearanceSummary(SettingsEntity.LAYOUT_LIST))
-        assertEquals("Grid layout", SettingsCopy.appearanceSummary(SettingsEntity.LAYOUT_GRID))
+        assertEquals(
+            "Dark · Teal · List",
+            SettingsCopy.appearanceSummary(
+                SettingsEntity.THEME_DARK,
+                SettingsEntity.ACCENT_TEAL,
+                SettingsEntity.LAYOUT_LIST
+            )
+        )
+        assertEquals(
+            "Light · Coral · Grid",
+            SettingsCopy.appearanceSummary(
+                SettingsEntity.THEME_LIGHT,
+                SettingsEntity.ACCENT_CORAL,
+                SettingsEntity.LAYOUT_GRID
+            )
+        )
+        assertEquals(
+            "System · Teal · List",
+            SettingsCopy.appearanceSummary(
+                SettingsEntity.THEME_SYSTEM,
+                "unknown",
+                SettingsEntity.LAYOUT_LIST
+            )
+        )
         assertEquals("Export, import, rescan", SettingsCopy.dataSummary())
         assertEquals("OpenPod 1.59", SettingsCopy.aboutSummary("1.59"))
     }

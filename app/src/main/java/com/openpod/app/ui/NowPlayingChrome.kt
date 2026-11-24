@@ -16,8 +16,8 @@ package com.openpod.app.ui
  * Action tap targets stay at least [MIN_TAP_TARGET_DP] wide. Transport buttons
  * stay at [TRANSPORT_BUTTON_DP]; the play and skip glyphs are 10% smaller than
  * the previous 64 / 48 dp sizes. The progress and transport bands use pure
- * black ([PROGRESS_TRANSPORT_COLOR]); the actions bar stays on
- * [androidx.compose.material3.ColorScheme.surfaceContainerHigh]. [FOOTER_BAND_GAP_DP]
+ * [com.openpod.app.ui.OpenPodColors.progressTransport] (black in dark, accent-wash
+ * band in light); the actions bar stays on [com.openpod.app.ui.OpenPodColors.chromeBar]. [FOOTER_BAND_GAP_DP]
  * of page background sits between the bands. Elapsed time sits at the left of the [PROGRESS_BAND_HEIGHT_DP] dp seek row;
  * remaining time sits at the right as a countdown with a leading minus (-42:10). A 1 dp
  * primary line ([NAV_ACCENT_LINE_DP]) is drawn above the app navigation bar on
@@ -58,7 +58,7 @@ object NowPlayingChrome {
     const val PROGRESS_TRACK_DP = 3
     const val PROGRESS_THUMB_DP = 12
 
-    /** Pure black used by the progress and transport bands. Actions stay on surfaceContainerHigh. */
+    /** Dark-mode default for the progress and transport bands. Prefer LocalOpenPodColors. */
     const val PROGRESS_TRANSPORT_COLOR = 0xFF000000L
 
     /** Space after the last scrolling line so it can clear the pinned footer. */

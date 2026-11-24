@@ -167,7 +167,10 @@ data class SettingsEntity(
     val volumeBoost: Float = 0f,
     val libraryLayout: String = LAYOUT_LIST,
     val skipSilence: Boolean = false,
-    val playbackSpeed: Float = 1f
+    val playbackSpeed: Float = 1f,
+    val themeMode: String = THEME_DARK,
+    val darkBackground: String = BACKGROUND_SOFT,
+    val accent: String = ACCENT_TEAL
 ) {
     companion object {
         const val SYNC_30_MIN = "30min"
@@ -176,6 +179,32 @@ data class SettingsEntity(
         const val SYNC_WEEKLY = "weekly"
         const val LAYOUT_LIST = "list"
         const val LAYOUT_GRID = "grid"
+        const val THEME_DARK = "dark"
+        const val THEME_LIGHT = "light"
+        const val THEME_SYSTEM = "system"
+        const val BACKGROUND_SOFT = "soft"
+        const val BACKGROUND_TRUE_BLACK = "true_black"
+        const val ACCENT_TEAL = "teal"
+        const val ACCENT_AMBER = "amber"
+        const val ACCENT_CORAL = "coral"
+        const val ACCENT_GREEN = "green"
+        const val ACCENT_PURPLE = "purple"
+        const val ACCENT_GRAPHITE = "graphite"
+
+        fun sanitizeThemeMode(value: String): String = when (value) {
+            THEME_LIGHT, THEME_SYSTEM -> value
+            else -> THEME_DARK
+        }
+
+        fun sanitizeDarkBackground(value: String): String = when (value) {
+            BACKGROUND_TRUE_BLACK -> value
+            else -> BACKGROUND_SOFT
+        }
+
+        fun sanitizeAccent(value: String): String = when (value) {
+            ACCENT_AMBER, ACCENT_CORAL, ACCENT_GREEN, ACCENT_PURPLE, ACCENT_GRAPHITE -> value
+            else -> ACCENT_TEAL
+        }
     }
 }
 
