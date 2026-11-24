@@ -1130,10 +1130,15 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
             }) { Icon(Icons.Default.PlayArrow, "Play") }
         }
     ) { padding ->
-        val listState = rememberLazyListState()
-        OpenPodScrollbarBox(listState, Modifier.padding(padding)) {
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item {
+        val scrollState = rememberScrollState()
+        OpenPodScrollbarBox(scrollState, Modifier.padding(padding)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
                 Text(current.title, style = MaterialTheme.typography.titleLarge)
                 Text(formatDate(current.pubDate))
                 if (current.episodeNumber != null) Text("Episode ${current.episodeNumber}")
@@ -1168,17 +1173,16 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
                         }
                     }
                 )
-            }
             if (current.description.isNotBlank()) {
-                item {
+                Column {
                     Text("From the publisher", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
                     PublisherText(current.description)
                 }
             }
             if (chapters.isNotEmpty()) {
-                item { Text("Chapters", style = MaterialTheme.typography.titleMedium) }
-                items(chapters) { chapter ->
+                Text("Chapters", style = MaterialTheme.typography.titleMedium)
+                chapters.forEach { chapter ->
                     Text(
                         "${formatMs(chapter.startMs)}  ${chapter.title}",
                         Modifier.clickable {
@@ -1190,8 +1194,8 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
                 }
             }
             if (transcript.isNotEmpty()) {
-                item { Text("Transcript", style = MaterialTheme.typography.titleMedium) }
-                items(transcript.take(400)) { line ->
+                Text("Transcript", style = MaterialTheme.typography.titleMedium)
+                transcript.take(400).forEach { line ->
                     val prefix = line.startMs?.let { formatMs(it) + "  " }.orEmpty()
                     Text(prefix + line.text, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 2.dp))
                 }
@@ -1270,21 +1274,21 @@ private fun PlayerScreen(
                 (maxWidth - horizontalPad * 2).coerceAtLeast(96.dp),
                 (maxHeight * NowPlayingChrome.ARTWORK_HEIGHT_FRACTION).coerceAtLeast(96.dp)
             )
-            val listState = rememberLazyListState()
-            OpenPodScrollbarBox(listState, Modifier.fillMaxSize()) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = horizontalPad,
-                    end = horizontalPad,
-                    top = 12.dp,
-                    bottom = 12.dp + NowPlayingChrome.NOTES_END_PADDING_DP.dp
-                ),
+            val scrollState = rememberScrollState()
+            OpenPodScrollbarBox(scrollState, Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(
+                        start = horizontalPad,
+                        end = horizontalPad,
+                        top = 12.dp,
+                        bottom = 12.dp + NowPlayingChrome.NOTES_END_PADDING_DP.dp
+                    ),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                item {
                 Column(
                     Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -1335,26 +1339,21 @@ private fun PlayerScreen(
                         }
                     }
                 }
-                }
                 val current = episode
                 if (current != null && current.description.isNotBlank()) {
-                    item {
-                        Column(Modifier.fillMaxWidth()) {
-                            Text("From the publisher", style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.height(8.dp))
-                            PublisherText(current.description)
-                        }
+                    Column(Modifier.fillMaxWidth()) {
+                        Text("From the publisher", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(8.dp))
+                        PublisherText(current.description)
                     }
                 }
                 if (chapters.isNotEmpty()) {
-                    item {
-                        Text(
-                            "Chapters",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    items(chapters) { chapter ->
+                    Text(
+                        "Chapters",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    chapters.forEach { chapter ->
                         Text(
                             "${formatMs(chapter.startMs)}  ${chapter.title}",
                             Modifier.fillMaxWidth().clickable { vm.seek(chapter.startMs) }.padding(vertical = 6.dp)
@@ -1362,14 +1361,12 @@ private fun PlayerScreen(
                     }
                 }
                 if (transcript.isNotEmpty()) {
-                    item {
-                        Text(
-                            "Transcript",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    items(transcript.take(400)) { line ->
+                    Text(
+                        "Transcript",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    transcript.take(400).forEach { line ->
                         val prefix = line.startMs?.let { formatMs(it) + "  " }.orEmpty()
                         Text(
                             prefix + line.text,
