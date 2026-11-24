@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -473,7 +474,8 @@ private fun LibraryScreen(vm: AppViewModel, onOpen: (Long) -> Unit, onRefresh: (
                 modifier = Modifier.padding(padding).fillMaxSize()
             )
         } else {
-            LazyColumn(Modifier.padding(padding)) {
+            val listState = rememberLazyListState()
+            LazyColumn(Modifier.padding(padding).openPodScrollbar(listState)) {
                 items(podcasts, key = { it.id }) { podcast ->
                     PodcastRow(
                         podcast,
@@ -526,7 +528,8 @@ private fun DiscoverScreen(vm: AppViewModel) {
         vm.clearSearch()
     }
     Scaffold(topBar = { TopAppBar(title = { Text("Discover") }) }) { padding ->
-        LazyColumn(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        val listState = rememberLazyListState()
+        LazyColumn(Modifier.padding(padding).openPodScrollbar(listState).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 OutlinedTextField(
                     query,
@@ -717,7 +720,8 @@ private fun PodcastScreen(
             }
         }
     ) { padding ->
-        LazyColumn(Modifier.padding(padding)) {
+        val listState = rememberLazyListState()
+        LazyColumn(Modifier.padding(padding).openPodScrollbar(listState)) {
             item {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     AsyncImage(podcast.imageUrl, podcast.title, Modifier.size(88.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
@@ -876,8 +880,9 @@ private fun PodcastSettingsScreen(vm: AppViewModel, podcastId: Long, onBack: () 
             )
         }
     ) { padding ->
+        val listState = rememberLazyListState()
         LazyColumn(
-            Modifier.padding(padding).padding(16.dp),
+            Modifier.padding(padding).openPodScrollbar(listState).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
@@ -1116,7 +1121,8 @@ private fun EpisodeScreen(vm: AppViewModel, episodeId: Long, onPlay: () -> Unit)
             }) { Icon(Icons.Default.PlayArrow, "Play") }
         }
     ) { padding ->
-        LazyColumn(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        val listState = rememberLazyListState()
+        LazyColumn(Modifier.padding(padding).openPodScrollbar(listState).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Text(current.title, style = MaterialTheme.typography.titleLarge)
                 Text(formatDate(current.pubDate))
@@ -1253,8 +1259,9 @@ private fun PlayerScreen(
                 (maxWidth - horizontalPad * 2).coerceAtLeast(96.dp),
                 (maxHeight * NowPlayingChrome.ARTWORK_HEIGHT_FRACTION).coerceAtLeast(96.dp)
             )
+            val listState = rememberLazyListState()
             LazyColumn(
-                Modifier.fillMaxSize(),
+                Modifier.fillMaxSize().openPodScrollbar(listState),
                 contentPadding = PaddingValues(
                     start = horizontalPad,
                     end = horizontalPad,
@@ -1748,11 +1755,13 @@ private fun CategoryPicker(
     selectedGenreId: String?,
     onSelect: (String?) -> Unit
 ) {
+    val scrollState = rememberScrollState()
     Column(
         Modifier
             .fillMaxWidth()
             .heightIn(max = 480.dp)
-            .verticalScroll(rememberScrollState())
+            .openPodScrollbar(scrollState)
+            .verticalScroll(scrollState)
             .padding(bottom = 24.dp)
     ) {
         Text(
@@ -2144,8 +2153,9 @@ private fun UpNextScreen(vm: AppViewModel, onOpenPlayer: () -> Unit) {
             )
         }
     ) { padding ->
+        val listState = rememberLazyListState()
         LazyColumn(
-            Modifier.padding(padding).fillMaxSize(),
+            Modifier.padding(padding).fillMaxSize().openPodScrollbar(listState),
             contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -2286,8 +2296,9 @@ private fun EqScreen(vm: AppViewModel, onBack: () -> Unit) {
             )
         }
     ) { padding ->
+        val listState = rememberLazyListState()
         LazyColumn(
-            Modifier.padding(padding).fillMaxSize(),
+            Modifier.padding(padding).fillMaxSize().openPodScrollbar(listState),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -2382,7 +2393,8 @@ private fun PlaylistsScreen(vm: AppViewModel, onOpen: (Long) -> Unit) {
                     name = ""
                 }
             }) { Text("Create") }
-            LazyColumn {
+            val listState = rememberLazyListState()
+            LazyColumn(Modifier.openPodScrollbar(listState)) {
                 items(lists, key = { it.id }) { list ->
                     Row(Modifier.fillMaxWidth().clickable { onOpen(list.id) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -2419,7 +2431,8 @@ private fun PlaylistDetailScreen(vm: AppViewModel, playlistId: Long) {
     }
     var rename by remember(list?.name) { mutableStateOf(list?.name.orEmpty()) }
     Scaffold(topBar = { TopAppBar(title = { Text(list?.name ?: "Playlist") }) }) { padding ->
-        LazyColumn(Modifier.padding(padding).padding(16.dp)) {
+        val listState = rememberLazyListState()
+        LazyColumn(Modifier.padding(padding).openPodScrollbar(listState).padding(16.dp)) {
             item {
                 OutlinedTextField(rename, { rename = it }, Modifier.fillMaxWidth(), label = { Text("Rename") })
                 TextButton({ if (rename.isNotBlank()) vm.renamePlaylist(playlistId, rename.trim()) }) { Text("Save name") }
@@ -2483,7 +2496,8 @@ private fun SettingsScreen(vm: AppViewModel) {
         notificationsOn = NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
-        LazyColumn(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        val listState = rememberLazyListState()
+        LazyColumn(Modifier.padding(padding).openPodScrollbar(listState).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
                 Text("Subscriptions", style = MaterialTheme.typography.titleMedium)
                 Text(
