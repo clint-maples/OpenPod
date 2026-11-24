@@ -488,7 +488,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 it.copy(syncFrequency = frequency, syncHour = hour, syncMinute = minute)
             }
             PodcastSyncWorker.enqueue(getApplication(), frequency, hour, minute)
-            _message.value = "Sync schedule saved"
         }
     }
 
@@ -554,6 +553,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }.onFailure {
                 _message.value = it.message ?: "Import failed"
             }
+            _busy.value = false
+        }
+    }
+
+    fun scanAllDownloads() {
+        viewModelScope.launch {
+            _busy.value = true
+            runCatching { repo.scanAllDownloads() }
+                .onSuccess { result ->
+                    _message.value = SettingsCopy.scanAllMessage(result)
+                }
+                .onFailure {
+                    _message.value = it.message ?: "Scan failed"
+                }
             _busy.value = false
         }
     }

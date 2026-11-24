@@ -362,6 +362,31 @@ class PodRepository(context: Context) {
         result.copy(linked = links.size)
     }
 
+    suspend fun scanAllDownloads(): DownloadScanResult = withContext(Dispatchers.IO) {
+        val settings = settingsOnce()
+        if (settings.downloadTreeUri.isBlank()) {
+            return@withContext DownloadScanResult(linked = 0, folderUnset = true)
+        }
+        val podcasts = db.podcasts().all()
+        if (podcasts.isEmpty()) {
+            return@withContext DownloadScanResult(linked = 0)
+        }
+        var linked = 0
+        var already = 0
+        var sawFolder = false
+        for (podcast in podcasts) {
+            val result = scanPodcastDownloads(podcast.id)
+            linked += result.linked
+            already += result.alreadyLinked
+            if (!result.folderMissing && !result.folderUnset) sawFolder = true
+        }
+        DownloadScanResult(
+            linked = linked,
+            alreadyLinked = already,
+            folderMissing = !sawFolder
+        )
+    }
+
     suspend fun markProgress(episodeId: Long, positionMs: Long, durationMs: Long) {
         val episode = db.episodes().byId(episodeId) ?: return
         val podcast = db.podcasts().byId(episode.podcastId)

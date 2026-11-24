@@ -238,8 +238,11 @@ fun OpenPodRoot(vm: AppViewModel) {
                 ) {
                     nav.navigate("player") { launchSingleTop = true }
                 }
-                NavItem("Settings", Icons.Default.Settings, back == "settings") {
-                    nav.navigate("settings") { launchSingleTop = true }
+                NavItem("Settings", Icons.Default.Settings, SettingsRoutes.isSettings(back)) {
+                    nav.navigate(SettingsRoutes.HUB) {
+                        popUpTo(SettingsRoutes.HUB) { inclusive = false }
+                        launchSingleTop = true
+                    }
                 }
                 }
             }
@@ -300,7 +303,13 @@ fun OpenPodRoot(vm: AppViewModel) {
                 composable(NowPlayingChrome.EQUALIZER_ROUTE) {
                     EqScreen(vm, onBack = { nav.popBackStack() })
                 }
-                composable("settings") { SettingsScreen(vm) }
+                composable(SettingsRoutes.HUB) { SettingsHubRoute(vm) { nav.navigate(it) } }
+                composable(SettingsRoutes.PLAYBACK) { PlaybackSettingsRoute(vm) { nav.popBackStack() } }
+                composable(SettingsRoutes.DOWNLOADS) { DownloadsSettingsRoute(vm) { nav.popBackStack() } }
+                composable(SettingsRoutes.NOTIFICATIONS) { NotificationsSettingsRoute { nav.popBackStack() } }
+                composable(SettingsRoutes.APPEARANCE) { AppearanceSettingsRoute(vm) { nav.popBackStack() } }
+                composable(SettingsRoutes.DATA) { DataSettingsRoute(vm) { nav.popBackStack() } }
+                composable(SettingsRoutes.ABOUT) { AboutSettingsRoute { nav.popBackStack() } }
             }
             if (MiniPlayerVisibility.shouldShow(back, player.episodeId)) {
                 MiniPlayer(
@@ -2139,52 +2148,6 @@ private fun SkipIconButton(
     }
 }
 
-@Composable
-private fun SecondsTextField(
-    committedSec: Int,
-    onCommit: (Int) -> Unit,
-    label: String,
-    supporting: String,
-    minSec: Int,
-    maxSec: Int,
-    modifier: Modifier = Modifier.fillMaxWidth()
-) {
-    val focusManager = LocalFocusManager.current
-    var focused by remember { mutableStateOf(false) }
-    var text by remember(committedSec) { mutableStateOf(committedSec.toString()) }
-    LaunchedEffect(committedSec) {
-        if (!focused) text = committedSec.toString()
-    }
-    fun apply() {
-        val parsed = text.trim().toIntOrNull()
-        val next = (parsed ?: committedSec).coerceIn(minSec, maxSec)
-        text = next.toString()
-        if (next != committedSec) onCommit(next)
-    }
-    OutlinedTextField(
-        value = text,
-        onValueChange = { raw ->
-            text = raw.filter { it.isDigit() }.take(4)
-        },
-        modifier = modifier.onFocusChanged { state ->
-            val nowFocused = state.isFocused
-            if (focused && !nowFocused) apply()
-            focused = nowFocused
-        },
-        label = { Text(label) },
-        supportingText = { Text(supporting) },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Number,
-            imeAction = ImeAction.Done
-        ),
-        keyboardActions = KeyboardActions(onDone = {
-            apply()
-            focusManager.clearFocus()
-        })
-    )
-}
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SleepTimerSection(
@@ -2575,231 +2538,6 @@ private fun PlaylistDetailScreen(vm: AppViewModel, playlistId: Long) {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun SettingsScreen(vm: AppViewModel) {
-    val settings by vm.settings.collectAsState()
-    val context = LocalContext.current
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            )
-            vm.setDownloadFolder(uri)
-        }
-    }
-    var pendingImport by remember { mutableStateOf<Uri?>(null) }
-    var confirmReplace by remember { mutableStateOf(false) }
-    val exportSubscriptions = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("text/xml")
-    ) { uri ->
-        if (uri != null) vm.exportSubscriptions(uri)
-    }
-    val importSubscriptions = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) pendingImport = uri
-    }
-    var pattern by remember(settings.namingPattern) { mutableStateOf(settings.namingPattern) }
-    var notificationsOn by remember {
-        mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
-    }
-    val notifyPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) {
-        notificationsOn = NotificationManagerCompat.from(context).areNotificationsEnabled()
-    }
-    Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
-        val listState = rememberLazyListState()
-        OpenPodScrollbarBox(listState, Modifier.padding(padding)) {
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            item {
-                Text("Subscriptions", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "Save every show you follow as an OPML file. Import to add missing podcasts, or replace the library if you want a clean restore. OPML also works in other podcast apps.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Spacer(Modifier.height(8.dp))
-                Button({ exportSubscriptions.launch("OpenPod-subscriptions.opml") }) {
-                    Text("Export subscriptions")
-                }
-                Spacer(Modifier.height(8.dp))
-                Button({
-                    importSubscriptions.launch(
-                        arrayOf("text/xml", "text/x-opml", "application/xml", "application/octet-stream", "*/*")
-                    )
-                }) {
-                    Text("Import subscriptions")
-                }
-            }
-            item {
-                Text("Episode save location", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    if (settings.downloadTreeUri.isBlank()) "Not set — downloads will fail until you pick a folder."
-                    else Uri.parse(settings.downloadTreeUri).lastPathSegment ?: settings.downloadTreeUri,
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Button({ picker.launch(null) }) {
-                    Icon(Icons.Default.Folder, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Choose folder")
-                }
-            }
-            item {
-                Text("File naming", style = MaterialTheme.typography.titleMedium)
-                Text("Tokens: {podcast} {title} {episode} {season} {date} {guid}", style = MaterialTheme.typography.bodySmall)
-                OutlinedTextField(pattern, { pattern = it }, Modifier.fillMaxWidth(), singleLine = true)
-                TextButton({ vm.setNaming(pattern) }) { Text("Save pattern") }
-            }
-            item {
-                Text("Skip intervals", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "Back and forward amounts on Now Playing, the mini player, lock screen, and headset skips. Enter seconds and leave the field to save.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Spacer(Modifier.height(8.dp))
-                SecondsTextField(
-                    committedSec = settings.skipBackSec,
-                    onCommit = { vm.setSkip(settings.skipForwardSec, it) },
-                    label = "Skip backward (seconds)",
-                    supporting = "Positive whole seconds, 1–${SkipIntervals.MAX_SEC}.",
-                    minSec = SkipIntervals.MIN_SEC,
-                    maxSec = SkipIntervals.MAX_SEC
-                )
-                SecondsTextField(
-                    committedSec = settings.skipForwardSec,
-                    onCommit = { vm.setSkip(it, settings.skipBackSec) },
-                    label = "Skip forward (seconds)",
-                    supporting = "Positive whole seconds, 1–${SkipIntervals.MAX_SEC}.",
-                    minSec = SkipIntervals.MIN_SEC,
-                    maxSec = SkipIntervals.MAX_SEC
-                )
-            }
-            item {
-                Text("Headset buttons", style = MaterialTheme.typography.titleMedium)
-                Text("Single press play/pause · double skip forward · triple skip back. Next/previous on the headset also skip by those amounts.")
-            }
-            item {
-                Text("New show defaults", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "Used when you add a podcast. Change a subscribed show from its podcast settings (gear on that show).",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Auto-download new episodes by default", Modifier.weight(1f))
-                    Switch(settings.autoDownloadDefault, { vm.setDefaults(it, settings.autoDeleteDefault) })
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Auto-delete after completion by default", Modifier.weight(1f))
-                    Switch(settings.autoDeleteDefault, { vm.setDefaults(settings.autoDownloadDefault, it) })
-                }
-            }
-            item {
-                Text("Check for new episodes", style = MaterialTheme.typography.titleMedium)
-                var frequency by remember(settings.syncFrequency) { mutableStateOf(settings.syncFrequency) }
-                var hour by remember(settings.syncHour) { mutableStateOf(settings.syncHour.toFloat()) }
-                var minute by remember(settings.syncMinute) { mutableStateOf(settings.syncMinute.toFloat()) }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(frequency == SettingsEntity.SYNC_30_MIN, { frequency = SettingsEntity.SYNC_30_MIN }, label = { Text("Every 30 minutes") })
-                    FilterChip(frequency == SettingsEntity.SYNC_HOURLY, { frequency = SettingsEntity.SYNC_HOURLY }, label = { Text("Hourly") })
-                    FilterChip(frequency == SettingsEntity.SYNC_DAILY, { frequency = SettingsEntity.SYNC_DAILY }, label = { Text("Daily") })
-                    FilterChip(frequency == SettingsEntity.SYNC_WEEKLY, { frequency = SettingsEntity.SYNC_WEEKLY }, label = { Text("Weekly") })
-                }
-                if (frequency == SettingsEntity.SYNC_30_MIN) {
-                    Text("OpenPod checks for new episodes about every 30 minutes, all day.")
-                } else if (frequency == SettingsEntity.SYNC_HOURLY) {
-                    Text("OpenPod will look for new episodes about every hour.")
-                } else {
-                    Text("Time of day: ${hour.toInt().toString().padStart(2, '0')}:${minute.toInt().toString().padStart(2, '0')}")
-                    Text("Hour")
-                    Slider(hour, { hour = it }, valueRange = 0f..23f, steps = 22)
-                    Text("Minute")
-                    Slider(minute, { minute = it }, valueRange = 0f..59f, steps = 58)
-                }
-                TextButton({ vm.setSyncSchedule(frequency, hour.toInt(), minute.toInt()) }) { Text("Save sync schedule") }
-            }
-            item {
-                Text("Notifications", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    if (notificationsOn) {
-                        "Notifications are on. Lock-screen and notification-shade controls appear while an episode is playing."
-                    } else {
-                        "Notifications are off. Android 13 and newer require this permission for the lock-screen and notification player."
-                    },
-                    style = MaterialTheme.typography.bodySmall
-                )
-                if (!notificationsOn) {
-                    Button({
-                        if (Build.VERSION.SDK_INT >= 33) {
-                            notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            context.startActivity(
-                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                }
-                            )
-                        }
-                    }) { Text("Enable notifications") }
-                } else {
-                    TextButton({
-                        context.startActivity(
-                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                            }
-                        )
-                    }) { Text("Notification settings") }
-                }
-            }
-            item {
-                Text("About", style = MaterialTheme.typography.titleMedium)
-                Text("OpenPod ${BuildConfig.VERSION_NAME}")
-                Text("Build ${BuildConfig.VERSION_CODE}", style = MaterialTheme.typography.bodySmall)
-            }
-        }
-        }
-    }
-    val importUri = pendingImport
-    if (importUri != null && !confirmReplace) {
-        AlertDialog(
-            onDismissRequest = { pendingImport = null },
-            title = { Text("Import subscriptions") },
-            text = {
-                Text("Add missing podcasts (recommended), or replace your library with this file? Replace removes shows that are not in the backup and deletes their downloaded files.")
-            },
-            confirmButton = {
-                TextButton({
-                    vm.importSubscriptions(importUri, replace = false)
-                    pendingImport = null
-                }) { Text("Add missing") }
-            },
-            dismissButton = {
-                Row {
-                    TextButton({ confirmReplace = true }) { Text("Replace") }
-                    TextButton({ pendingImport = null }) { Text("Cancel") }
-                }
-            }
-        )
-    }
-    if (importUri != null && confirmReplace) {
-        AlertDialog(
-            onDismissRequest = { confirmReplace = false },
-            title = { Text("Replace library?") },
-            text = {
-                Text("Podcasts that are not in this file will be removed, and their downloaded episode files will be deleted.")
-            },
-            confirmButton = {
-                TextButton({
-                    vm.importSubscriptions(importUri, replace = true)
-                    pendingImport = null
-                    confirmReplace = false
-                }) { Text("Replace") }
-            },
-            dismissButton = {
-                TextButton({ confirmReplace = false }) { Text("Cancel") }
-            }
-        )
-    }
-}
 
 private fun isDownloadActive(episode: EpisodeEntity, progress: DownloadProgress?): Boolean {
     return progress != null ||
