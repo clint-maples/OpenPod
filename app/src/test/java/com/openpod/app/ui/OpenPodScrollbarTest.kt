@@ -9,27 +9,17 @@ import org.junit.Test
 
 class OpenPodScrollbarTest {
     private val endInset = 4f
-    private val minThumb = 36f
+    private val thumb = 48f
 
     @Test
     fun hiddenWhenContentFits() {
         assertFalse(OpenPodScrollbar.shouldShow(canScrollForward = false, canScrollBackward = false))
         assertNull(
             OpenPodScrollbar.layout(
-                viewportPx = 800f,
-                contentPx = 800f,
-                scrollPx = 0f,
+                canScroll = false,
+                fraction = 0f,
                 trackLengthPx = 792f,
-                minThumbPx = minThumb
-            )
-        )
-        assertNull(
-            OpenPodScrollbar.layout(
-                viewportPx = 800f,
-                contentPx = 400f,
-                scrollPx = 0f,
-                trackLengthPx = 792f,
-                minThumbPx = minThumb
+                thumbLengthPx = thumb
             )
         )
         assertNull(
@@ -38,7 +28,7 @@ class OpenPodScrollbarTest {
                 maxScrollPx = 0f,
                 scrollPx = 0f,
                 endInsetPx = endInset,
-                minThumbPx = minThumb
+                thumbLengthPx = thumb
             )
         )
     }
@@ -48,68 +38,228 @@ class OpenPodScrollbarTest {
         assertTrue(OpenPodScrollbar.shouldShow(canScrollForward = true, canScrollBackward = false))
         assertTrue(OpenPodScrollbar.shouldShow(canScrollForward = false, canScrollBackward = true))
         val metrics = OpenPodScrollbar.layout(
-            viewportPx = 800f,
-            contentPx = 1600f,
-            scrollPx = 0f,
+            canScroll = true,
+            fraction = 0f,
             trackLengthPx = 792f,
-            minThumbPx = minThumb
+            thumbLengthPx = thumb
         )
         assertNotNull(metrics)
+        assertTrue(metrics!!.isVisible)
     }
 
     @Test
-    fun thumbLengthIsProportionalToVisibleOverTotal() {
-        val viewport = 800f
-        val content = 1600f
-        val track = 792f
-        val metrics = OpenPodScrollbar.layout(viewport, content, 0f, track, minThumb)!!
-        assertEquals(track * (viewport / content), metrics.thumbLength, 0.01f)
-        assertEquals(track, metrics.trackLength, 0f)
-        assertEquals(0f, metrics.thumbOffset, 0f)
-        assertTrue(metrics.isVisible)
-        assertTrue(metrics.thumbLength >= minThumb)
+    fun thumbLengthIsFixedRegardlessOfContentLength() {
+        val shortList = OpenPodScrollbar.layout(true, 0f, 792f, thumb)!!
+        val longList = OpenPodScrollbar.fromLazyMeasure(
+            viewportStart = 0,
+            viewportEnd = 800,
+            totalItems = 4,
+            beforeContentPadding = 0,
+            afterContentPadding = 0,
+            visible = List(2) { i -> OpenPodScrollbar.LazyItemMeasure(i, i * 400, 400) },
+            canScroll = true,
+            columns = 1,
+            endInsetPx = endInset,
+            thumbLengthPx = thumb
+        )!!
+        val veryLong = OpenPodScrollbar.fromLazyMeasure(
+            viewportStart = 0,
+            viewportEnd = 800,
+            totalItems = 200,
+            beforeContentPadding = 0,
+            afterContentPadding = 0,
+            visible = List(8) { i -> OpenPodScrollbar.LazyItemMeasure(i, i * 100, 100) },
+            canScroll = true,
+            columns = 1,
+            endInsetPx = endInset,
+            thumbLengthPx = thumb
+        )!!
+        assertEquals(thumb, shortList.thumbLength, 0f)
+        assertEquals(thumb, longList.thumbLength, 0f)
+        assertEquals(thumb, veryLong.thumbLength, 0f)
+        assertEquals(longList.thumbLength, veryLong.thumbLength, 0f)
     }
 
     @Test
-    fun thumbUsesMinimumWhenContentIsVeryLong() {
-        val viewport = 800f
-        val content = 40_000f
+    fun thumbPositionTracksFractionFromZeroToOne() {
         val track = 792f
-        val raw = track * (viewport / content)
-        assertTrue(raw < minThumb)
-        val metrics = OpenPodScrollbar.layout(viewport, content, 0f, track, minThumb)!!
-        assertEquals(minThumb, metrics.thumbLength, 0f)
-    }
-
-    @Test
-    fun thumbTravelsFromTopToBottomWithScroll() {
-        val viewport = 800f
-        val content = 1600f
-        val track = 792f
-        val atTop = OpenPodScrollbar.layout(viewport, content, 0f, track, minThumb)!!
-        val atMid = OpenPodScrollbar.layout(viewport, content, 400f, track, minThumb)!!
-        val atBottom = OpenPodScrollbar.layout(viewport, content, 800f, track, minThumb)!!
-        val thumb = atTop.thumbLength
+        val atTop = OpenPodScrollbar.layout(true, 0f, track, thumb)!!
+        val atMid = OpenPodScrollbar.layout(true, 0.5f, track, thumb)!!
+        val atBottom = OpenPodScrollbar.layout(true, 1f, track, thumb)!!
+        val travel = track - thumb
         assertEquals(0f, atTop.thumbOffset, 0.01f)
-        assertEquals((track - thumb) / 2f, atMid.thumbOffset, 0.01f)
-        assertEquals(track - thumb, atBottom.thumbOffset, 0.01f)
+        assertEquals(travel / 2f, atMid.thumbOffset, 0.01f)
+        assertEquals(travel, atBottom.thumbOffset, 0.01f)
+        assertEquals(thumb, atTop.thumbLength, 0f)
         assertEquals(thumb, atMid.thumbLength, 0f)
         assertEquals(thumb, atBottom.thumbLength, 0f)
+        assertEquals(0f, atTop.fraction, 0f)
+        assertEquals(0.5f, atMid.fraction, 0f)
+        assertEquals(1f, atBottom.fraction, 0f)
     }
 
     @Test
-    fun scrollStateGeometryMatchesViewportPlusMaxScroll() {
+    fun scrollFractionAndPxAreInverses() {
+        assertEquals(0f, OpenPodScrollbar.scrollFraction(0f, 1000f), 0f)
+        assertEquals(0.25f, OpenPodScrollbar.scrollFraction(250f, 1000f), 0f)
+        assertEquals(1f, OpenPodScrollbar.scrollFraction(1000f, 1000f), 0f)
+        assertEquals(0f, OpenPodScrollbar.scrollFraction(10f, 0f), 0f)
+        assertEquals(0, OpenPodScrollbar.scrollPxFromFraction(0f, 1000f))
+        assertEquals(250, OpenPodScrollbar.scrollPxFromFraction(0.25f, 1000f))
+        assertEquals(1000, OpenPodScrollbar.scrollPxFromFraction(1f, 1000f))
+        assertEquals(0, OpenPodScrollbar.scrollPxFromFraction(0.5f, 0f))
+        assertEquals(1f, OpenPodScrollbar.scrollFraction(10_000f, 1000f), 0f)
+    }
+
+    @Test
+    fun fractionFromPointerMapsTravelAndInvertsLayoutOffset() {
+        val trackTop = 4f
+        val track = 792f
+        val grab = thumb / 2f
+        assertEquals(
+            0f,
+            OpenPodScrollbar.fractionFromPointer(trackTop + grab, trackTop, track, thumb, grab),
+            0.01f
+        )
+        assertEquals(
+            0.5f,
+            OpenPodScrollbar.fractionFromPointer(trackTop + (track - thumb) / 2f + grab, trackTop, track, thumb, grab),
+            0.01f
+        )
+        assertEquals(
+            1f,
+            OpenPodScrollbar.fractionFromPointer(trackTop + (track - thumb) + grab, trackTop, track, thumb, grab),
+            0.01f
+        )
+        val mid = OpenPodScrollbar.layout(true, 0.5f, track, thumb)!!
+        val recovered = OpenPodScrollbar.fractionFromPointer(
+            pointerY = trackTop + mid.thumbOffset + grab,
+            trackTop = trackTop,
+            trackLength = track,
+            thumbLength = thumb,
+            grabOffsetInThumb = grab
+        )
+        assertEquals(0.5f, recovered, 0.01f)
+    }
+
+    @Test
+    fun dragMappingUsesGrabOffsetInsideTheThumb() {
+        val trackTop = 4f
+        val track = 792f
+        val atTop = OpenPodScrollbar.layout(true, 0f, track, thumb)!!
+        val grabNearBottom = thumb - 8f
+        // Pointer starts on the thumb near its bottom; moving it so the same
+        // grab point sits at the mid travel should yield 0.5, not a jump to 1.
+        val midPointer = trackTop + (track - thumb) / 2f + grabNearBottom
+        val fraction = OpenPodScrollbar.fractionFromPointer(
+            pointerY = midPointer,
+            trackTop = trackTop,
+            trackLength = track,
+            thumbLength = atTop.thumbLength,
+            grabOffsetInThumb = grabNearBottom
+        )
+        assertEquals(0.5f, fraction, 0.01f)
+        assertTrue(
+            OpenPodScrollbar.pointerIsOnThumb(
+                pointerY = trackTop + 10f,
+                trackTop = trackTop,
+                thumbOffset = 0f,
+                thumbLength = thumb
+            )
+        )
+        assertFalse(
+            OpenPodScrollbar.pointerIsOnThumb(
+                pointerY = trackTop + thumb + 20f,
+                trackTop = trackTop,
+                thumbOffset = 0f,
+                thumbLength = thumb
+            )
+        )
+    }
+
+    @Test
+    fun lazyScrollTargetMapsFractionToIndexAndOffset() {
+        val atStart = OpenPodScrollbar.lazyScrollTarget(
+            fraction = 0f,
+            totalItems = 20,
+            columns = 1,
+            averageRowPx = 100f,
+            viewportPx = 800f,
+            beforeContentPadding = 0,
+            afterContentPadding = 0
+        )
+        assertEquals(0, atStart.index)
+        assertEquals(0, atStart.scrollOffset)
+
+        val atMid = OpenPodScrollbar.lazyScrollTarget(
+            fraction = 0.5f,
+            totalItems = 20,
+            columns = 1,
+            averageRowPx = 100f,
+            viewportPx = 800f,
+            beforeContentPadding = 0,
+            afterContentPadding = 0
+        )
+        // content = 2000, maxScroll = 1200, scroll = 600 -> row 6, offset 0
+        assertEquals(6, atMid.index)
+        assertEquals(0, atMid.scrollOffset)
+
+        val withOffset = OpenPodScrollbar.lazyScrollTarget(
+            fraction = 0.5f,
+            totalItems = 20,
+            columns = 1,
+            averageRowPx = 100f,
+            viewportPx = 850f,
+            beforeContentPadding = 0,
+            afterContentPadding = 0
+        )
+        // maxScroll = 1150, scroll = 575 -> row 5, offset 75
+        assertEquals(5, withOffset.index)
+        assertEquals(75, withOffset.scrollOffset)
+
+        val atEnd = OpenPodScrollbar.lazyScrollTarget(
+            fraction = 1f,
+            totalItems = 20,
+            columns = 1,
+            averageRowPx = 100f,
+            viewportPx = 800f,
+            beforeContentPadding = 0,
+            afterContentPadding = 0
+        )
+        // scroll = 1200 -> row 12, offset 0
+        assertEquals(12, atEnd.index)
+        assertEquals(0, atEnd.scrollOffset)
+    }
+
+    @Test
+    fun lazyGridTargetUsesRowsNotItems() {
+        val mid = OpenPodScrollbar.lazyScrollTarget(
+            fraction = 0.5f,
+            totalItems = 12,
+            columns = 3,
+            averageRowPx = 100f,
+            viewportPx = 200f,
+            beforeContentPadding = 0,
+            afterContentPadding = 0
+        )
+        // 4 rows, content 400, maxScroll 200, scroll 100 -> row 1, index 3
+        assertEquals(3, mid.index)
+        assertEquals(0, mid.scrollOffset)
+    }
+
+    @Test
+    fun fromScrollValuesUsesFixedThumbAndScrollFraction() {
         val metrics = OpenPodScrollbar.fromScrollValues(
             viewportPx = 1000f,
             maxScrollPx = 1000f,
             scrollPx = 250f,
             endInsetPx = endInset,
-            minThumbPx = minThumb
+            thumbLengthPx = thumb
         )!!
-        // track = 1000 - 8 = 992; thumb = 992 * 1000/2000 = 496; travel = 496; offset = 124
         assertEquals(992f, metrics.trackLength, 0f)
-        assertEquals(496f, metrics.thumbLength, 0.01f)
-        assertEquals(124f, metrics.thumbOffset, 0.01f)
+        assertEquals(thumb, metrics.thumbLength, 0f)
+        assertEquals(0.25f, metrics.fraction, 0.01f)
+        assertEquals((992f - thumb) * 0.25f, metrics.thumbOffset, 0.01f)
     }
 
     @Test
@@ -128,36 +278,13 @@ class OpenPodScrollbarTest {
                 canScroll = false,
                 columns = 1,
                 endInsetPx = endInset,
-                minThumbPx = minThumb
+                thumbLengthPx = thumb
             )
         )
     }
 
     @Test
-    fun lazyListThumbMatchesEstimatedContent() {
-        val visible = List(8) { i ->
-            OpenPodScrollbar.LazyItemMeasure(index = i, offset = i * 100, size = 100)
-        }
-        val metrics = OpenPodScrollbar.fromLazyMeasure(
-            viewportStart = 0,
-            viewportEnd = 800,
-            totalItems = 20,
-            beforeContentPadding = 0,
-            afterContentPadding = 0,
-            visible = visible,
-            canScroll = true,
-            columns = 1,
-            endInsetPx = endInset,
-            minThumbPx = minThumb
-        )!!
-        // content = 20 * 100 = 2000; track = 792; thumb = 792 * 800/2000 = 316.8
-        assertEquals(792f, metrics.trackLength, 0f)
-        assertEquals(792f * (800f / 2000f), metrics.thumbLength, 0.01f)
-        assertEquals(0f, metrics.thumbOffset, 0.01f)
-    }
-
-    @Test
-    fun lazyListThumbMovesWithFirstItemOffset() {
+    fun lazyListFractionUsesEstimatedScrollButKeepsFixedThumb() {
         val visible = List(8) { i ->
             OpenPodScrollbar.LazyItemMeasure(index = i + 2, offset = (i * 100) - 40, size = 100)
         }
@@ -171,53 +298,28 @@ class OpenPodScrollbarTest {
             canScroll = true,
             columns = 1,
             endInsetPx = endInset,
-            minThumbPx = minThumb
+            thumbLengthPx = thumb
         )!!
-        // scroll = 2 * 100 - (-40) = 240; maxScroll = 1200; travel = 792 - 316.8
-        val thumb = 792f * (800f / 2000f)
-        val expectedOffset = (792f - thumb) * (240f / 1200f)
-        assertEquals(expectedOffset, metrics.thumbOffset, 0.01f)
+        // scroll = 240, maxScroll = 1200, fraction = 0.2
+        assertEquals(thumb, metrics.thumbLength, 0f)
+        assertEquals(0.2f, metrics.fraction, 0.01f)
+        assertEquals((792f - thumb) * 0.2f, metrics.thumbOffset, 0.01f)
     }
 
     @Test
-    fun lazyGridUsesRowsNotItemsForThumbLength() {
-        // 3-column grid, 12 items = 4 rows of 100 px, viewport shows 2 rows.
-        val visible = listOf(
-            OpenPodScrollbar.LazyItemMeasure(0, 0, 100),
-            OpenPodScrollbar.LazyItemMeasure(1, 0, 100),
-            OpenPodScrollbar.LazyItemMeasure(2, 0, 100),
-            OpenPodScrollbar.LazyItemMeasure(3, 100, 100),
-            OpenPodScrollbar.LazyItemMeasure(4, 100, 100),
-            OpenPodScrollbar.LazyItemMeasure(5, 100, 100)
-        )
-        val metrics = OpenPodScrollbar.fromLazyMeasure(
-            viewportStart = 0,
-            viewportEnd = 200,
-            totalItems = 12,
-            beforeContentPadding = 0,
-            afterContentPadding = 0,
-            visible = visible,
-            canScroll = true,
-            columns = 3,
-            endInsetPx = endInset,
-            minThumbPx = minThumb
-        )!!
-        // 4 rows * 100 = 400 content; thumb = 192 * 200/400 = 96
-        assertEquals(192f, metrics.trackLength, 0f)
-        assertEquals(192f * (200f / 400f), metrics.thumbLength, 0.01f)
-    }
-
-    @Test
-    fun constantsMatchSbV1() {
+    fun constantsMatchFixedThumbSpec() {
         assertEquals(4, OpenPodScrollbar.THUMB_WIDTH_DP)
+        assertEquals(8, OpenPodScrollbar.THUMB_DRAGGING_WIDTH_DP)
+        assertEquals(48, OpenPodScrollbar.THUMB_HEIGHT_DP)
         assertEquals(2, OpenPodScrollbar.TRACK_WIDTH_DP)
-        assertEquals(36, OpenPodScrollbar.MIN_THUMB_DP)
         assertEquals(4, OpenPodScrollbar.END_INSET_DP)
         assertEquals(4, OpenPodScrollbar.TRACK_RIGHT_INSET_DP)
+        assertEquals(28, OpenPodScrollbar.TOUCH_WIDTH_DP)
+        assertEquals(OpenPodScrollbar.TOUCH_WIDTH_DP, OpenPodScrollbar.RAIL_WIDTH_DP)
         assertEquals(0.22f, OpenPodScrollbar.TRACK_ALPHA, 0f)
         assertEquals(androidx.compose.ui.graphics.Color(0xFF7FB7C9), OpenPodScrollbar.THUMB_COLOR)
         assertTrue(OpenPodScrollbar.TRACK_COLOR.alpha > 0.2f)
-        // Track starts 6 dp from the right edge: 4 dp inset + 2 dp track width.
-        assertEquals(6, OpenPodScrollbar.TRACK_RIGHT_INSET_DP + OpenPodScrollbar.TRACK_WIDTH_DP)
+        assertTrue(OpenPodScrollbar.TOUCH_WIDTH_DP in 24..32)
+        assertTrue(OpenPodScrollbar.THUMB_DRAGGING_WIDTH_DP in 6..8)
     }
 }
