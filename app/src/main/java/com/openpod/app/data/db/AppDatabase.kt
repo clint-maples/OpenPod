@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         QueueItemEntity::class,
         SettingsEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -135,6 +135,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE settings ADD COLUMN themeMode TEXT NOT NULL DEFAULT '${SettingsEntity.THEME_DARK}'"
+                )
+                db.execSQL(
+                    "ALTER TABLE settings ADD COLUMN darkBackground TEXT NOT NULL DEFAULT '${SettingsEntity.BACKGROUND_SOFT}'"
+                )
+                db.execSQL(
+                    "ALTER TABLE settings ADD COLUMN accent TEXT NOT NULL DEFAULT '${SettingsEntity.ACCENT_TEAL}'"
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase {
             return instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -153,7 +167,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_9_10,
                     MIGRATION_10_11,
                     MIGRATION_11_12,
-                    MIGRATION_12_13
+                    MIGRATION_12_13,
+                    MIGRATION_13_14
                 ).build().also { instance = it }
             }
         }

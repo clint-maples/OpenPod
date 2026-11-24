@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.59  
-**Download:** [OpenPod 1.59 APK](https://github.com/clint-maples/OpenPod/releases/download/1.59/OpenPod-1.59.apk)
+**Current version:** 1.60  
+**Download:** [OpenPod 1.60 APK](https://github.com/clint-maples/OpenPod/releases/download/1.60/OpenPod-1.60.apk)
 
 **Previous**
 
+- [1.59](https://github.com/clint-maples/OpenPod/releases/download/1.59/OpenPod-1.59.apk)
 - [1.58](https://github.com/clint-maples/OpenPod/releases/download/1.58/OpenPod-1.58.apk)
 - [1.57](https://github.com/clint-maples/OpenPod/releases/download/1.57/OpenPod-1.57.apk)
-- [1.56](https://github.com/clint-maples/OpenPod/releases/download/1.56/OpenPod-1.56.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -76,6 +76,9 @@ Built for Clint Maples.
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text. With the field empty, Discover shows **Top Podcasts** for the US. A filter under the heading opens All and the genre charts. Add uses the same iTunes lookup as search.
 
+
+## 1.60
+Appearance now includes Theme (Dark, Light, or System), a Dark-only Background (Soft dark or True black), and six Accent swatches: Teal, Amber, Coral, Green, Purple, and Graphite. Dark + Soft dark + Teal is the default, so existing installs keep today's look. Light uses an Accent wash of the selected color, automatically half-tinted for Coral and Amber, with Option D tonal buttons on transport, actions, and the mini player. The favorite heart stays pink. Hardcoded chrome (scrollbar, seek track, nav pill, Settings hairlines, playback-effects sheet, and system bars) now follows theme tokens, and the inactive seek track is #8A939C in dark and #7A858E in light. Choices are stored in Settings with a Room migration and apply immediately.
 
 ## 1.59
 Settings is now a category hub: Playback, Downloads, Notifications, Appearance, Data, and About, each with a one-line summary. Sub-screens use compact rows with the current value as the subtitle. Skip back/forward use 10/15/30/60 chips plus Custom (1–600 seconds). Default playback speed and trim silence live in Playback, library layout in Appearance, and a global Rescan downloads action in Data. File naming is under Downloads → Advanced; the headset-button reference is under Playback → Advanced. Long explanatory copy is gone. Stored values are unchanged.

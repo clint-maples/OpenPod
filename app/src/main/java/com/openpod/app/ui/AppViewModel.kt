@@ -12,6 +12,7 @@ import com.openpod.app.data.TranscriptLine
 import com.openpod.app.data.db.EpisodeEntity
 import com.openpod.app.data.db.PlaylistEntity
 import com.openpod.app.data.db.PodcastEntity
+import com.openpod.app.data.db.SettingsEntity
 import com.openpod.app.data.search.ChartShow
 import com.openpod.app.data.search.SearchHit
 import com.openpod.app.download.DownloadTracker
@@ -476,6 +477,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setLibraryLayout(layout: String) {
         viewModelScope.launch { repo.updateSettings { it.copy(libraryLayout = layout) } }
+    }
+
+    fun setThemeMode(mode: String) {
+        viewModelScope.launch {
+            repo.updateSettings { it.copy(themeMode = SettingsEntity.sanitizeThemeMode(mode)) }
+        }
+    }
+
+    fun setDarkBackground(background: String) {
+        viewModelScope.launch {
+            repo.updateSettings {
+                it.copy(darkBackground = SettingsEntity.sanitizeDarkBackground(background))
+            }
+        }
+    }
+
+    fun setAccent(accent: String) {
+        viewModelScope.launch {
+            repo.updateSettings { it.copy(accent = SettingsEntity.sanitizeAccent(accent)) }
+        }
     }
 
     fun reorderLibrary(orderedIds: List<Long>) {

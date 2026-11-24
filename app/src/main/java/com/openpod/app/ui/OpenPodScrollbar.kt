@@ -558,7 +558,9 @@ object OpenPodScrollbar {
 
 fun DrawScope.drawOpenPodScrollbarRail(
     metrics: OpenPodScrollbar.Metrics,
-    dragging: Boolean = false
+    dragging: Boolean = false,
+    thumbColor: Color = OpenPodScrollbar.THUMB_COLOR,
+    trackColor: Color = OpenPodScrollbar.TRACK_COLOR
 ) {
     val thumbWidth = (if (dragging) {
         OpenPodScrollbar.THUMB_DRAGGING_WIDTH_DP
@@ -571,13 +573,13 @@ fun DrawScope.drawOpenPodScrollbarRail(
     val thumbLeft = size.width - rightInset - thumbWidth
     val trackLeft = thumbLeft + (thumbWidth - trackWidth) / 2f
     drawRoundRect(
-        color = OpenPodScrollbar.TRACK_COLOR,
+        color = trackColor,
         topLeft = Offset(trackLeft, endInset),
         size = Size(trackWidth, metrics.trackLength),
         cornerRadius = CornerRadius(trackWidth / 2f)
     )
     drawRoundRect(
-        color = OpenPodScrollbar.THUMB_COLOR,
+        color = thumbColor,
         topLeft = Offset(thumbLeft, endInset + metrics.thumbOffset),
         size = Size(thumbWidth, metrics.thumbLength),
         cornerRadius = CornerRadius(thumbWidth / 2f)
@@ -593,6 +595,7 @@ fun BoxScope.OpenPodScrollbarRail(
     var dragging by remember { mutableStateOf(false) }
     val metricsState = rememberUpdatedState(metrics)
     val onSeekState = rememberUpdatedState(onSeek)
+    val chrome = LocalOpenPodColors.current
     Canvas(
         Modifier
             .align(Alignment.CenterEnd)
@@ -640,7 +643,12 @@ fun BoxScope.OpenPodScrollbarRail(
                 }
             }
     ) {
-        drawOpenPodScrollbarRail(metrics, dragging)
+        drawOpenPodScrollbarRail(
+            metrics,
+            dragging,
+            thumbColor = chrome.scrollbarThumb,
+            trackColor = chrome.scrollbarTrack
+        )
     }
 }
 

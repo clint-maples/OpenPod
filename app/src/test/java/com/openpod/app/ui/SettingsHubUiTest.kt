@@ -141,17 +141,56 @@ class SettingsHubUiTest {
         rule.setContent {
             OpenPodTheme {
                 AppearanceSettingsScreen(
+                    themeMode = SettingsEntity.THEME_DARK,
+                    darkBackground = SettingsEntity.BACKGROUND_SOFT,
+                    accent = SettingsEntity.ACCENT_TEAL,
                     layout = SettingsEntity.LAYOUT_LIST,
+                    systemIsDark = true,
+                    onThemeMode = {},
+                    onDarkBackground = {},
+                    onAccent = {},
                     onLayout = {},
                     onBack = {}
                 )
             }
         }
         rule.waitForIdle()
+        rule.onNodeWithText("Theme").assertIsDisplayed()
+        rule.onNodeWithText("Dark").assertIsDisplayed()
+        rule.onNodeWithText("Light").assertIsDisplayed()
+        rule.onNodeWithText("System").assertIsDisplayed()
+        rule.onNodeWithText("Background").assertIsDisplayed()
+        rule.onNodeWithText("Soft dark").assertIsDisplayed()
+        rule.onNodeWithText("True black").assertIsDisplayed()
+        rule.onNodeWithText("Accent").assertIsDisplayed()
         rule.onNodeWithText("Library layout").assertIsDisplayed()
         rule.onNodeWithText("List").assertIsDisplayed()
         rule.onNodeWithText("Grid").assertIsDisplayed()
         capture("settings-appearance.png")
+    }
+
+    @Test
+    fun appearanceHidesBackgroundWhenThemeIsLight() {
+        rule.setContent {
+            OpenPodTheme(themeMode = SettingsEntity.THEME_LIGHT, accentId = SettingsEntity.ACCENT_TEAL) {
+                AppearanceSettingsScreen(
+                    themeMode = SettingsEntity.THEME_LIGHT,
+                    darkBackground = SettingsEntity.BACKGROUND_SOFT,
+                    accent = SettingsEntity.ACCENT_TEAL,
+                    layout = SettingsEntity.LAYOUT_LIST,
+                    systemIsDark = true,
+                    onThemeMode = {},
+                    onDarkBackground = {},
+                    onAccent = {},
+                    onLayout = {},
+                    onBack = {}
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("Theme").assertIsDisplayed()
+        rule.onAllNodesWithText("Background").assertCountEquals(0)
+        rule.onNodeWithText("Accent").assertIsDisplayed()
     }
 
     @Test

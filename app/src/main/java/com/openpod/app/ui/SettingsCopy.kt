@@ -52,6 +52,15 @@ object SettingsCopy {
     const val FILE_NAMING_TOKENS = "Tokens: {podcast} {title} {episode} {season} {date} {guid}"
     const val ADVANCED = "Advanced"
 
+    const val THEME = "Theme"
+    const val THEME_DARK = "Dark"
+    const val THEME_LIGHT = "Light"
+    const val THEME_SYSTEM = "System"
+    const val BACKGROUND = "Background"
+    const val BACKGROUND_SOFT = "Soft dark"
+    const val BACKGROUND_TRUE_BLACK = "True black"
+    const val ACCENT = "Accent"
+
     const val LIBRARY_LAYOUT = "Library layout"
     const val LAYOUT_LIST = "List"
     const val LAYOUT_GRID = "Grid"
@@ -94,7 +103,17 @@ object SettingsCopy {
     fun layoutLabel(layout: String): String =
         if (layout == SettingsEntity.LAYOUT_GRID) LAYOUT_GRID else LAYOUT_LIST
 
-    fun appearanceSummary(layout: String): String = "${layoutLabel(layout)} layout"
+    fun themeLabel(themeMode: String): String = when (SettingsEntity.sanitizeThemeMode(themeMode)) {
+        SettingsEntity.THEME_LIGHT -> THEME_LIGHT
+        SettingsEntity.THEME_SYSTEM -> THEME_SYSTEM
+        else -> THEME_DARK
+    }
+
+    fun appearanceSummary(
+        themeMode: String,
+        accent: String,
+        layout: String
+    ): String = "${themeLabel(themeMode)} · ${OpenPodAccent.labelOf(accent)} · ${layoutLabel(layout)}"
 
     fun dataSummary(): String = "Export, import, rescan"
 

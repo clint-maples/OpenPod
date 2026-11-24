@@ -87,7 +87,8 @@ import com.openpod.app.data.db.SettingsEntity
 import com.openpod.app.playback.SkipIntervals
 
 private val SettingsCardShape = RoundedCornerShape(12.dp)
-private val SettingsHairline = Color.White.copy(alpha = 0.08f)
+private val SettingsHairline: Color
+    @Composable get() = LocalOpenPodColors.current.hairline
 
 object SettingsTags {
     const val HUB = "settings-hub"
@@ -121,7 +122,11 @@ fun SettingsHubRoute(vm: AppViewModel, onOpen: (String) -> Unit) {
             settings.autoDownloadDefault
         ),
         notificationsSummary = SettingsCopy.notificationsSummary(notificationsOn),
-        appearanceSummary = SettingsCopy.appearanceSummary(settings.libraryLayout),
+        appearanceSummary = SettingsCopy.appearanceSummary(
+            settings.themeMode,
+            settings.accent,
+            settings.libraryLayout
+        ),
         dataSummary = SettingsCopy.dataSummary(),
         aboutSummary = SettingsCopy.aboutSummary(BuildConfig.VERSION_NAME),
         onOpen = onOpen
@@ -214,7 +219,14 @@ fun NotificationsSettingsRoute(onBack: () -> Unit) {
 fun AppearanceSettingsRoute(vm: AppViewModel, onBack: () -> Unit) {
     val settings by vm.settings.collectAsState()
     AppearanceSettingsScreen(
+        themeMode = settings.themeMode,
+        darkBackground = settings.darkBackground,
+        accent = settings.accent,
         layout = settings.libraryLayout,
+        systemIsDark = androidx.compose.foundation.isSystemInDarkTheme(),
+        onThemeMode = { vm.setThemeMode(it) },
+        onDarkBackground = { vm.setDarkBackground(it) },
+        onAccent = { vm.setAccent(it) },
         onLayout = { vm.setLibraryLayout(it) },
         onBack = onBack
     )
@@ -483,12 +495,108 @@ fun NotificationsSettingsScreen(enabled: Boolean, onToggle: () -> Unit, onBack: 
 }
 
 @Composable
-fun AppearanceSettingsScreen(layout: String, onLayout: (String) -> Unit, onBack: () -> Unit) {
-    // Theme (light/dark and palettes) will be added as a row in this card later.
-    // Leave the card structured so a Theme setting can sit above Library layout.
+fun AppearanceSettingsScreen(
+    themeMode: String,
+    darkBackground: String,
+    accent: String,
+    layout: String,
+    systemIsDark: Boolean,
+    onThemeMode: (String) -> Unit,
+    onDarkBackground: (String) -> Unit,
+    onAccent: (String) -> Unit,
+    onLayout: (String) -> Unit,
+    onBack: () -> Unit
+) {
+    val resolvedDark = resolveOpenPodDark(themeMode, systemIsDark)
+    val selectedAccent = OpenPodAccent.fromId(accent)
     SettingsScaffold(title = SettingsCopy.APPEARANCE_TITLE, onBack = onBack, testTag = SettingsTags.APPEARANCE) {
         settingsCard {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Text(
+                    SettingsCopy.THEME,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChoiceChip(
+                        SettingsCopy.THEME_DARK,
+                        selected = SettingsEntity.sanitizeThemeMode(themeMode) == SettingsEntity.THEME_DARK
+                    ) { onThemeMode(SettingsEntity.THEME_DARK) }
+                    ChoiceChip(
+                        SettingsCopy.THEME_LIGHT,
+                        selected = themeMode == SettingsEntity.THEME_LIGHT
+                    ) { onThemeMode(SettingsEntity.THEME_LIGHT) }
+                    ChoiceChip(
+                        SettingsCopy.THEME_SYSTEM,
+                        selected = themeMode == SettingsEntity.THEME_SYSTEM
+                    ) { onThemeMode(SettingsEntity.THEME_SYSTEM) }
+                }
+                if (resolvedDark) {
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        SettingsCopy.BACKGROUND,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ChoiceChip(
+                            SettingsCopy.BACKGROUND_SOFT,
+                            selected = SettingsEntity.sanitizeDarkBackground(darkBackground) ==
+                                SettingsEntity.BACKGROUND_SOFT
+                        ) { onDarkBackground(SettingsEntity.BACKGROUND_SOFT) }
+                        ChoiceChip(
+                            SettingsCopy.BACKGROUND_TRUE_BLACK,
+                            selected = darkBackground == SettingsEntity.BACKGROUND_TRUE_BLACK
+                        ) { onDarkBackground(SettingsEntity.BACKGROUND_TRUE_BLACK) }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    SettingsCopy.ACCENT,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OpenPodAccent.all.forEach { option ->
+                        val swatch = option.primary(resolvedDark)
+                        val selected = option == selectedAccent
+                        Box(
+                            Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(swatch)
+                                .then(
+                                    if (selected) {
+                                        Modifier.border(
+                                            2.dp,
+                                            MaterialTheme.colorScheme.onSurface,
+                                            CircleShape
+                                        )
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                                .clickable { onAccent(option.id) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (selected) {
+                                Box(
+                                    Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(option.onPrimary(resolvedDark))
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
                 Text(
                     SettingsCopy.LIBRARY_LAYOUT,
                     color = MaterialTheme.colorScheme.onSurface,
