@@ -66,6 +66,8 @@ class OpenPodScrollbarTest {
         assertEquals(track * (viewport / content), metrics.thumbLength, 0.01f)
         assertEquals(track, metrics.trackLength, 0f)
         assertEquals(0f, metrics.thumbOffset, 0f)
+        assertTrue(metrics.isVisible)
+        assertTrue(metrics.thumbLength >= minThumb)
     }
 
     @Test
@@ -212,7 +214,9 @@ class OpenPodScrollbarTest {
         assertEquals(36, OpenPodScrollbar.MIN_THUMB_DP)
         assertEquals(4, OpenPodScrollbar.END_INSET_DP)
         assertEquals(4, OpenPodScrollbar.TRACK_RIGHT_INSET_DP)
-        assertEquals(0.14f, OpenPodScrollbar.TRACK_ALPHA, 0f)
+        assertEquals(0.22f, OpenPodScrollbar.TRACK_ALPHA, 0f)
+        assertEquals(androidx.compose.ui.graphics.Color(0xFF7FB7C9), OpenPodScrollbar.THUMB_COLOR)
+        assertTrue(OpenPodScrollbar.TRACK_COLOR.alpha > 0.2f)
         // Track starts 6 dp from the right edge: 4 dp inset + 2 dp track width.
         assertEquals(6, OpenPodScrollbar.TRACK_RIGHT_INSET_DP + OpenPodScrollbar.TRACK_WIDTH_DP)
     }

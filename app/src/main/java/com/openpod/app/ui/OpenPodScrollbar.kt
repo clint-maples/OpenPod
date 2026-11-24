@@ -3,22 +3,28 @@ package com.openpod.app.ui
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 
 /**
- * sb-v1 right-edge scrollbar: a 4 dp primary thumb on a faint 2 dp track.
- * The thumb length is proportional to visible / total content, and the bar
- * is drawn only when the content actually overflows.
+ * sb-v1 right-edge scrollbar: a 4 dp #7FB7C9 thumb on a faint 2 dp track.
+ * The thumb length is proportional to visible / total content. The bar is
+ * always shown when the content can scroll, and never auto-hides.
+ *
+ * 1.51 never painted the bar: overflow was decided in a @Composable Modifier
+ * factory from [LazyListState.canScrollForward] / [ScrollState.maxValue]
+ * during composition, before the first layout, and those pre-layout values
+ * (false / 0) were captured into [Modifier.drawWithContent]. The factory did
+ * not reliably restart after layout, so the draw pass kept skipping the thumb.
+ * The modifiers below use [Modifier.composed] so scroll and layout state are
+ * observed, and they re-read that state inside the draw pass itself.
  */
 object OpenPodScrollbar {
     const val THUMB_WIDTH_DP = 4
@@ -26,13 +32,18 @@ object OpenPodScrollbar {
     const val MIN_THUMB_DP = 36
     const val END_INSET_DP = 4
     const val TRACK_RIGHT_INSET_DP = 4
-    const val TRACK_ALPHA = 0.14f
+    const val TRACK_ALPHA = 0.22f
+
+    val THUMB_COLOR = Color(0xFF7FB7C9)
+    val TRACK_COLOR = Color(0xFFE8F1F5).copy(alpha = TRACK_ALPHA)
 
     data class Metrics(
         val thumbLength: Float,
         val thumbOffset: Float,
         val trackLength: Float
-    )
+    ) {
+        val isVisible: Boolean get() = thumbLength > 0f && trackLength > 0f
+    }
 
     data class LazyItemMeasure(
         val index: Int,
@@ -187,8 +198,8 @@ object OpenPodScrollbar {
 
 fun DrawScope.drawOpenPodScrollbar(
     metrics: OpenPodScrollbar.Metrics,
-    thumbColor: Color,
-    trackColor: Color,
+    thumbColor: Color = OpenPodScrollbar.THUMB_COLOR,
+    trackColor: Color = OpenPodScrollbar.TRACK_COLOR,
     thumbWidthPx: Float,
     trackWidthPx: Float,
     trackRightInsetPx: Float,
@@ -212,112 +223,91 @@ fun DrawScope.drawOpenPodScrollbar(
     )
 }
 
-@Composable
-fun Modifier.openPodScrollbar(state: LazyListState): Modifier {
-    val density = LocalDensity.current
-    val thumbColor = MaterialTheme.colorScheme.primary
-    val trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = OpenPodScrollbar.TRACK_ALPHA)
-    val canScrollForward = state.canScrollForward
-    val canScrollBackward = state.canScrollBackward
-    val layoutInfo = state.layoutInfo
-    return this.drawWithContent {
+/**
+ * Observe layout and scroll in composition so the first post-layout pass
+ * (when [LazyListState.canScrollForward] becomes true) invalidates this
+ * modifier, then read the same state again while drawing so the thumb is
+ * not stuck on a pre-layout snapshot.
+ */
+fun Modifier.openPodScrollbar(
+    state: LazyListState,
+    onDrawn: ((OpenPodScrollbar.Metrics?) -> Unit)? = null
+): Modifier = composed {
+    state.firstVisibleItemIndex
+    state.firstVisibleItemScrollOffset
+    state.layoutInfo
+    state.canScrollForward
+    state.canScrollBackward
+    this.drawWithContent {
         drawContent()
-        if (!OpenPodScrollbar.shouldShow(canScrollForward, canScrollBackward)) return@drawWithContent
-        val endInset = OpenPodScrollbar.END_INSET_DP * density.density
-        val minThumb = OpenPodScrollbar.MIN_THUMB_DP * density.density
-        val metrics = OpenPodScrollbar.fromLazyMeasure(
-            viewportStart = layoutInfo.viewportStartOffset,
-            viewportEnd = layoutInfo.viewportEndOffset,
-            totalItems = layoutInfo.totalItemsCount,
-            beforeContentPadding = layoutInfo.beforeContentPadding,
-            afterContentPadding = layoutInfo.afterContentPadding,
-            visible = layoutInfo.visibleItemsInfo.map {
-                OpenPodScrollbar.LazyItemMeasure(it.index, it.offset, it.size)
-            },
-            canScroll = true,
-            columns = 1,
-            endInsetPx = endInset,
-            minThumbPx = minThumb
-        ) ?: return@drawWithContent
-        drawOpenPodScrollbar(
-            metrics = metrics,
-            thumbColor = thumbColor,
-            trackColor = trackColor,
-            thumbWidthPx = OpenPodScrollbar.THUMB_WIDTH_DP * density.density,
-            trackWidthPx = OpenPodScrollbar.TRACK_WIDTH_DP * density.density,
-            trackRightInsetPx = OpenPodScrollbar.TRACK_RIGHT_INSET_DP * density.density,
-            endInsetPx = endInset
-        )
+        val endInset = OpenPodScrollbar.END_INSET_DP.dp.toPx()
+        val minThumb = OpenPodScrollbar.MIN_THUMB_DP.dp.toPx()
+        val metrics = OpenPodScrollbar.fromLazyList(state, endInset, minThumb)
+        onDrawn?.invoke(metrics)
+        if (metrics != null) {
+            drawOpenPodScrollbar(
+                metrics = metrics,
+                thumbWidthPx = OpenPodScrollbar.THUMB_WIDTH_DP.dp.toPx(),
+                trackWidthPx = OpenPodScrollbar.TRACK_WIDTH_DP.dp.toPx(),
+                trackRightInsetPx = OpenPodScrollbar.TRACK_RIGHT_INSET_DP.dp.toPx(),
+                endInsetPx = endInset
+            )
+        }
     }
 }
 
-@Composable
-fun Modifier.openPodScrollbar(state: LazyGridState): Modifier {
-    val density = LocalDensity.current
-    val thumbColor = MaterialTheme.colorScheme.primary
-    val trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = OpenPodScrollbar.TRACK_ALPHA)
-    val canScrollForward = state.canScrollForward
-    val canScrollBackward = state.canScrollBackward
-    val layoutInfo = state.layoutInfo
-    return this.drawWithContent {
+fun Modifier.openPodScrollbar(
+    state: LazyGridState,
+    onDrawn: ((OpenPodScrollbar.Metrics?) -> Unit)? = null
+): Modifier = composed {
+    state.firstVisibleItemIndex
+    state.firstVisibleItemScrollOffset
+    state.layoutInfo
+    state.canScrollForward
+    state.canScrollBackward
+    this.drawWithContent {
         drawContent()
-        if (!OpenPodScrollbar.shouldShow(canScrollForward, canScrollBackward)) return@drawWithContent
-        val endInset = OpenPodScrollbar.END_INSET_DP * density.density
-        val minThumb = OpenPodScrollbar.MIN_THUMB_DP * density.density
-        val visible = layoutInfo.visibleItemsInfo
-        val columns = visible.groupBy { it.offset.y }.values.maxOfOrNull { it.size } ?: 1
-        val metrics = OpenPodScrollbar.fromLazyMeasure(
-            viewportStart = layoutInfo.viewportStartOffset,
-            viewportEnd = layoutInfo.viewportEndOffset,
-            totalItems = layoutInfo.totalItemsCount,
-            beforeContentPadding = layoutInfo.beforeContentPadding,
-            afterContentPadding = layoutInfo.afterContentPadding,
-            visible = visible.map {
-                OpenPodScrollbar.LazyItemMeasure(it.index, it.offset.y, it.size.height)
-            },
-            canScroll = true,
-            columns = columns,
-            endInsetPx = endInset,
-            minThumbPx = minThumb
-        ) ?: return@drawWithContent
-        drawOpenPodScrollbar(
-            metrics = metrics,
-            thumbColor = thumbColor,
-            trackColor = trackColor,
-            thumbWidthPx = OpenPodScrollbar.THUMB_WIDTH_DP * density.density,
-            trackWidthPx = OpenPodScrollbar.TRACK_WIDTH_DP * density.density,
-            trackRightInsetPx = OpenPodScrollbar.TRACK_RIGHT_INSET_DP * density.density,
-            endInsetPx = endInset
-        )
+        val endInset = OpenPodScrollbar.END_INSET_DP.dp.toPx()
+        val minThumb = OpenPodScrollbar.MIN_THUMB_DP.dp.toPx()
+        val metrics = OpenPodScrollbar.fromLazyGrid(state, endInset, minThumb)
+        onDrawn?.invoke(metrics)
+        if (metrics != null) {
+            drawOpenPodScrollbar(
+                metrics = metrics,
+                thumbWidthPx = OpenPodScrollbar.THUMB_WIDTH_DP.dp.toPx(),
+                trackWidthPx = OpenPodScrollbar.TRACK_WIDTH_DP.dp.toPx(),
+                trackRightInsetPx = OpenPodScrollbar.TRACK_RIGHT_INSET_DP.dp.toPx(),
+                endInsetPx = endInset
+            )
+        }
     }
 }
 
-@Composable
-fun Modifier.openPodScrollbar(state: ScrollState): Modifier {
-    val density = LocalDensity.current
-    val thumbColor = MaterialTheme.colorScheme.primary
-    val trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = OpenPodScrollbar.TRACK_ALPHA)
-    val scrollValue = state.value
-    val maxValue = state.maxValue
-    return this.drawWithContent {
+fun Modifier.openPodScrollbar(
+    state: ScrollState,
+    onDrawn: ((OpenPodScrollbar.Metrics?) -> Unit)? = null
+): Modifier = composed {
+    state.value
+    state.maxValue
+    this.drawWithContent {
         drawContent()
-        val endInset = OpenPodScrollbar.END_INSET_DP * density.density
-        val minThumb = OpenPodScrollbar.MIN_THUMB_DP * density.density
-        val metrics = OpenPodScrollbar.fromScrollValues(
+        val endInset = OpenPodScrollbar.END_INSET_DP.dp.toPx()
+        val minThumb = OpenPodScrollbar.MIN_THUMB_DP.dp.toPx()
+        val metrics = OpenPodScrollbar.fromScrollState(
+            state = state,
             viewportPx = size.height,
-            maxScrollPx = maxValue.toFloat(),
-            scrollPx = scrollValue.toFloat(),
             endInsetPx = endInset,
             minThumbPx = minThumb
-        ) ?: return@drawWithContent
-        drawOpenPodScrollbar(
-            metrics = metrics,
-            thumbColor = thumbColor,
-            trackColor = trackColor,
-            thumbWidthPx = OpenPodScrollbar.THUMB_WIDTH_DP * density.density,
-            trackWidthPx = OpenPodScrollbar.TRACK_WIDTH_DP * density.density,
-            trackRightInsetPx = OpenPodScrollbar.TRACK_RIGHT_INSET_DP * density.density,
-            endInsetPx = endInset
         )
+        onDrawn?.invoke(metrics)
+        if (metrics != null) {
+            drawOpenPodScrollbar(
+                metrics = metrics,
+                thumbWidthPx = OpenPodScrollbar.THUMB_WIDTH_DP.dp.toPx(),
+                trackWidthPx = OpenPodScrollbar.TRACK_WIDTH_DP.dp.toPx(),
+                trackRightInsetPx = OpenPodScrollbar.TRACK_RIGHT_INSET_DP.dp.toPx(),
+                endInsetPx = endInset
+            )
+        }
     }
 }
