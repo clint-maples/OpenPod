@@ -145,6 +145,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.core.app.NotificationManagerCompat
 import com.openpod.app.BuildConfig
 import androidx.compose.ui.platform.LocalFocusManager
@@ -1410,39 +1411,11 @@ private fun NowPlayingActionBar(
             )
     ) {
         Surface(color = progressTransportColor, tonalElevation = 0.dp) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .height(NowPlayingChrome.PROGRESS_BAND_HEIGHT_DP.dp)
-                    .padding(horizontal = NowPlayingChrome.PROGRESS_HORIZONTAL_PADDING_DP.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    formatMs(player.positionMs),
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    softWrap = false
-                )
-                Spacer(Modifier.width(NowPlayingChrome.PROGRESS_INLINE_GAP_DP.dp))
-                NowPlayingSeekBar(
-                    fraction = if (displayDuration > 0) {
-                        (player.positionMs.toFloat() / displayDuration).coerceIn(0f, 1f)
-                    } else {
-                        0f
-                    },
-                    onFraction = { fraction ->
-                        if (displayDuration > 0) vm.seek((fraction * displayDuration).toLong())
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(Modifier.width(NowPlayingChrome.PROGRESS_INLINE_GAP_DP.dp))
-                Text(
-                    formatMs(displayDuration),
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
+            NowPlayingProgressRow(
+                positionMs = player.positionMs,
+                durationMs = displayDuration,
+                onSeekMs = { vm.seek(it) }
+            )
         }
         Spacer(bandGap)
         Surface(color = progressTransportColor, tonalElevation = 0.dp) {
@@ -1947,9 +1920,88 @@ private fun CircleStepButton(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+internal fun NowPlayingProgressRow(
+    positionMs: Long,
+    durationMs: Long,
+    onSeekMs: (Long) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var scrubMs by remember { mutableStateOf<Long?>(null) }
+    val shownMs = scrubMs ?: positionMs
+    val remaining = remainingMs(durationMs, shownMs)
+    val timeStyle = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum")
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(NowPlayingChrome.PROGRESS_BAND_HEIGHT_DP.dp)
+            .padding(horizontal = NowPlayingChrome.PROGRESS_HORIZONTAL_PADDING_DP.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.testTag(NowPlayingChrome.ELAPSED_TAG)) {
+            Text(
+                formatMs(durationMs),
+                color = Color.Transparent,
+                style = timeStyle,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.clearAndSetSemantics { }
+            )
+            Text(
+                formatMs(shownMs),
+                style = timeStyle,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
+        Spacer(Modifier.width(NowPlayingChrome.PROGRESS_INLINE_GAP_DP.dp))
+        NowPlayingSeekBar(
+            fraction = if (durationMs > 0) {
+                (shownMs.toFloat() / durationMs).coerceIn(0f, 1f)
+            } else {
+                0f
+            },
+            onFraction = { fraction ->
+                val ms = if (durationMs > 0) {
+                    (fraction * durationMs).toLong().coerceIn(0L, durationMs)
+                } else {
+                    0L
+                }
+                scrubMs = ms
+                onSeekMs(ms)
+            },
+            onChangeFinished = { scrubMs = null },
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(NowPlayingChrome.PROGRESS_INLINE_GAP_DP.dp))
+        Box(
+            Modifier.testTag(NowPlayingChrome.REMAINING_TAG),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            Text(
+                formatRemainingMs(durationMs),
+                color = Color.Transparent,
+                style = timeStyle,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.clearAndSetSemantics { }
+            )
+            Text(
+                formatRemainingMs(remaining),
+                style = timeStyle,
+                maxLines = 1,
+                softWrap = false,
+                textAlign = TextAlign.End
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun NowPlayingSeekBar(
     fraction: Float,
     onFraction: (Float) -> Unit,
+    onChangeFinished: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val primary = MaterialTheme.colorScheme.primary
@@ -1961,6 +2013,7 @@ private fun NowPlayingSeekBar(
         Slider(
             value = fraction,
             onValueChange = onFraction,
+            onValueChangeFinished = onChangeFinished,
             modifier = modifier.height(NowPlayingChrome.PROGRESS_BAND_HEIGHT_DP.dp),
             colors = SliderDefaults.colors(
                 thumbColor = primary,
