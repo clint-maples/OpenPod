@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.57  
-**Download:** [OpenPod 1.57 APK](https://github.com/clint-maples/OpenPod/releases/download/1.57/OpenPod-1.57.apk)
+**Current version:** 1.58  
+**Download:** [OpenPod 1.58 APK](https://github.com/clint-maples/OpenPod/releases/download/1.58/OpenPod-1.58.apk)
 
 **Previous**
 
+- [1.57](https://github.com/clint-maples/OpenPod/releases/download/1.57/OpenPod-1.57.apk)
 - [1.56](https://github.com/clint-maples/OpenPod/releases/download/1.56/OpenPod-1.56.apk)
 - [1.55](https://github.com/clint-maples/OpenPod/releases/download/1.55/OpenPod-1.55.apk)
-- [1.54](https://github.com/clint-maples/OpenPod/releases/download/1.54/OpenPod-1.54.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -75,6 +75,10 @@ Built for Clint Maples.
 ## Discover
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text. With the field empty, Discover shows **Top Podcasts** for the US. A filter under the heading opens All and the genre charts. Add uses the same iTunes lookup as search.
+
+
+## 1.58
+The Now Playing progress thumb is vertically centered on the 3 dp track again. Material's Slider was laying the 12 dp dot out in a 16 dp box and aligning it to the top, which sat the thumb about 2 dp above the track. The seek bar is now drawn directly so the thumb and track share one center line at 0%, 50%, 100%, and while scrubbing. Time remaining on the right (-42:10) is unchanged.
 
 ## 1.57
 The mini player's fast-forward button is now a horizontal mirror of its rewind button (the same Replay vector flipped with scaleX = -1). It previously used Material's distinct FastForward icon. Skip amounts and behavior are unchanged, and the buttons stay icon-only with no second counts. Now Playing already used this mirrored rewind glyph and was not changed.
