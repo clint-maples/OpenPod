@@ -428,7 +428,8 @@ internal fun MiniPlayer(
                         forward = true,
                         onClick = onSkipForward,
                         compact = true,
-                        showAmount = false
+                        showAmount = false,
+                        mirrorForwardGlyph = true
                     )
                 }
                 IconButton(
@@ -2059,6 +2060,17 @@ private fun NowPlayingSeekBar(
     }
 }
 
+internal object SkipGlyph {
+    val rewind = Icons.Default.Replay
+    val stockForward = Icons.Default.FastForward
+
+    fun vector(forward: Boolean, mirrorForwardGlyph: Boolean) =
+        if (forward && !mirrorForwardGlyph) stockForward else rewind
+
+    fun mirrorX(forward: Boolean, mirrorForwardGlyph: Boolean) =
+        forward && mirrorForwardGlyph
+}
+
 @Composable
 private fun SkipIconButton(
     seconds: Int,
@@ -2072,18 +2084,13 @@ private fun SkipIconButton(
 ) {
     IconButton(onClick, Modifier.size(controlSize)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            val glyph = if (forward && !mirrorForwardGlyph) {
-                Icons.Default.FastForward
-            } else {
-                Icons.Default.Replay
-            }
             Icon(
-                glyph,
+                SkipGlyph.vector(forward, mirrorForwardGlyph),
                 SkipIntervals.contentDescription(seconds, forward),
                 Modifier
                     .size(iconSize)
                     .then(
-                        if (forward && mirrorForwardGlyph) {
+                        if (SkipGlyph.mirrorX(forward, mirrorForwardGlyph)) {
                             Modifier.graphicsLayer { scaleX = -1f }
                         } else {
                             Modifier
