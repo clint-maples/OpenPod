@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.61  
-**Download:** [OpenPod 1.61 APK](https://github.com/clint-maples/OpenPod/releases/download/1.61/OpenPod-1.61.apk)
+**Current version:** 1.62  
+**Download:** [OpenPod 1.62 APK](https://github.com/clint-maples/OpenPod/releases/download/1.62/OpenPod-1.62.apk)
 
 **Previous**
 
+- [1.61](https://github.com/clint-maples/OpenPod/releases/download/1.61/OpenPod-1.61.apk)
 - [1.60](https://github.com/clint-maples/OpenPod/releases/download/1.60/OpenPod-1.60.apk)
 - [1.59](https://github.com/clint-maples/OpenPod/releases/download/1.59/OpenPod-1.59.apk)
-- [1.58](https://github.com/clint-maples/OpenPod/releases/download/1.58/OpenPod-1.58.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
