@@ -1,29 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- OpenPod launcher foreground: OP monogram on the 108dp adaptive canvas.
+     Art is fitted inside a 66dp-diameter circle at the center (official 72dp safe square). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Safe zone ~18–90. Note + waves stay inside so adaptive crop does not clip. -->
     <path
         android:fillColor="#F4F7FA"
-        android:pathData="M46,30v28.2c-1.3,-0.7 -2.8,-1.1 -4.4,-1.1c-4.7,0 -8.5,3.6 -8.5,8s3.8,8 8.5,8s8.5,-3.6 8.5,-8V42h12V30H46z" />
+        android:fillType="evenOdd"
+        android:pathData="M43.475,37.256 A16.744,16.744 0 1 1 43.475,70.744 A16.744,16.744 0 1 1 43.475,37.256 Z M43.475,45.229 A8.771,8.771 0 1 0 43.475,62.771 A8.771,8.771 0 1 0 43.475,45.229 Z" />
     <path
-        android:fillColor="#00000000"
-        android:strokeColor="#2EE6C6"
-        android:strokeWidth="3.2"
-        android:strokeLineCap="round"
-        android:pathData="M66,38c4.2,4.2 4.2,11 0,15.2" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#2EE6C6"
-        android:strokeWidth="3.2"
-        android:strokeLineCap="round"
-        android:pathData="M72,33c7.4,7.4 7.4,19.4 0,26.8" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#2EE6C6"
-        android:strokeWidth="3.2"
-        android:strokeLineCap="round"
-        android:pathData="M78,28c10.6,10.6 10.6,27.8 0,38.4" />
+        android:fillColor="#2EE6C6"
+        android:fillType="evenOdd"
+        android:pathData="M61.495,38.531 L69.469,38.531 A11.801,11.801 0 0 1 69.469,62.133 L69.469,62.133 L69.469,68.033 A1.435,1.435 0 0 1 68.033,69.469 L62.93,69.469 A1.435,1.435 0 0 1 61.495,68.033 Z M69.469,45.867 A4.465,4.465 0 0 1 69.469,54.797 Z" />
 </vector>
