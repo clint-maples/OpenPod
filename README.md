@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.62  
-**Download:** [OpenPod 1.62 APK](https://github.com/clint-maples/OpenPod/releases/download/1.62/OpenPod-1.62.apk)
+**Current version:** 1.63  
+**Download:** [OpenPod 1.63 APK](https://github.com/clint-maples/OpenPod/releases/download/1.63/OpenPod-1.63.apk)
 
 **Previous**
 
+- [1.62](https://github.com/clint-maples/OpenPod/releases/download/1.62/OpenPod-1.62.apk)
 - [1.61](https://github.com/clint-maples/OpenPod/releases/download/1.61/OpenPod-1.61.apk)
 - [1.60](https://github.com/clint-maples/OpenPod/releases/download/1.60/OpenPod-1.60.apk)
-- [1.59](https://github.com/clint-maples/OpenPod/releases/download/1.59/OpenPod-1.59.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -76,6 +76,11 @@ Built for Clint Maples.
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text. With the field empty, Discover shows **Top Podcasts** for the US. A filter under the heading opens All and the genre charts. Add uses the same iTunes lookup as search.
 
+
+## 1.63
+OpenPod now targets Android 16 (API 36), which Google Play requires for new apps and updates. There are no feature changes. The app already drew edge to edge, so screens should look the same. This version is also the first one prepared for a Google Play Android App Bundle.
+
+Release-signed with the shared OpenPod keystore.
 
 ## 1.61
 The Now Playing equalizer action is icon-only. The "EQ" label under the bar-chart icon was taller than the 45 dp actions bar and was clipped at the bottom. The icon is now centered on the same line as Speed, Sleep, Share, and Favorite, with content description "Equalizer". The bar height is unchanged.
