@@ -2,14 +2,14 @@
 
 Android podcast app. Pick a folder, set a filename pattern like `{podcast} - {episode}`, and OpenPod downloads/organizes episodes there.
 
-**Current version:** 1.63  
-**Download:** [OpenPod 1.63 APK](https://github.com/clint-maples/OpenPod/releases/download/1.63/OpenPod-1.63.apk)
+**Current version:** 1.64  
+**Download:** [OpenPod 1.64 APK](https://github.com/clint-maples/OpenPod/releases/download/1.64/OpenPod-1.64.apk)
 
 **Previous**
 
+- [1.63](https://github.com/clint-maples/OpenPod/releases/download/1.63/OpenPod-1.63.apk)
 - [1.62](https://github.com/clint-maples/OpenPod/releases/download/1.62/OpenPod-1.62.apk)
 - [1.61](https://github.com/clint-maples/OpenPod/releases/download/1.61/OpenPod-1.61.apk)
-- [1.60](https://github.com/clint-maples/OpenPod/releases/download/1.60/OpenPod-1.60.apk)
 
 <!-- Maintainer: when shipping a new version, keep Current plus the previous three APK links only. -->
 
@@ -76,6 +76,11 @@ Built for Clint Maples.
 
 One field on Discover: type a show name and press **Search** on the keyboard, or paste an RSS / podcast URL and press Search to add it. The **x** at the end of the field clears the text. With the field empty, Discover shows **Top Podcasts** for the US. A filter under the heading opens All and the genre charts. Add uses the same iTunes lookup as search.
 
+
+## 1.64
+Fixes a crash on Discover search when Apple returned the same feed URL twice (for example a search for Planet Money). Search results are de-duplicated by feed URL, keeping the first match. List keys for search results, Top Podcasts, Up Next, and playlist episodes now include the row index, so a duplicate can no longer crash the screen. No other feature changes.
+
+Release-signed with the shared OpenPod keystore.
 
 ## 1.63
 OpenPod now targets Android 16 (API 36), which Google Play requires for new apps and updates. There are no feature changes. The app already drew edge to edge, so screens should look the same. This version is also the first one prepared for a Google Play Android App Bundle.

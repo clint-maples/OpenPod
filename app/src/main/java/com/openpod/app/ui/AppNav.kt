@@ -46,6 +46,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -586,7 +587,7 @@ private fun DiscoverScreen(vm: AppViewModel) {
                     }
                 )
             }
-            items(results, key = { it.feedUrl }) { hit ->
+            itemsIndexed(results, key = { index, hit -> "${index}:" + hit.collectionId.ifBlank { hit.feedUrl } }) { _, hit ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     AsyncImage(hit.imageUrl, hit.title, Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
                     Spacer(Modifier.width(12.dp))
@@ -644,7 +645,7 @@ private fun DiscoverScreen(vm: AppViewModel) {
                         TextButton({ vm.loadTopCharts(null) }) { Text("Retry") }
                     }
                 } else {
-                    items(charts.shows, key = { it.appleId }) { show ->
+                    itemsIndexed(charts.shows, key = { index, show -> "$index:${show.appleId}" }) { _, show ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             AsyncImage(
                                 show.artworkUrl,
@@ -2332,7 +2333,7 @@ private fun UpNextScreen(vm: AppViewModel, onOpenPlayer: () -> Unit) {
                     )
                 }
             }
-            items(upcoming, key = { it.episode.id }) { item ->
+            itemsIndexed(upcoming, key = { index, item -> "$index:${item.episode.id}" }) { _, item ->
                 val episode = item.episode
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -2565,7 +2566,7 @@ private fun PlaylistDetailScreen(vm: AppViewModel, playlistId: Long) {
                     Text("This smart playlist updates from filters: ${list.playFilter} / ${list.downloadFilter}.")
                 }
             }
-            items(episodes, key = { it.id }) { episode ->
+            itemsIndexed(episodes, key = { index, episode -> "$index:${episode.id}" }) { _, episode ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(episode.title, Modifier.weight(1f), maxLines = 2)
                     IconButton({
